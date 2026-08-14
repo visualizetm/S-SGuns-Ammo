@@ -13,6 +13,25 @@ every fact that still needs owner confirmation before publish.
 - Vite + React + React Router (SPA)
 - Vercel serverless functions in `api/`
 - Demo-first data layer: everything runs with no database and no env vars
+- Styling: CSS custom properties (design tokens in `src/styles/base.css`)
+  plus a co-located `<style>` block per component, each with a unique class
+  prefix (`nav-`, `hero-`, `hm-`, `ab-`, `svc-`, `xfer-`, `ct-`, `nf-`,
+  `ft-`)
+
+## Brand system
+
+Light-first heritage brand. Tokens live in `src/styles/base.css`:
+
+- Range Black `#10110F` (text, dark feature bands), Vintage Ivory `#F2EBDD`
+  (ground), Field Olive `#454A3D` (`--brand`: buttons, links, focus ring)
+- Barlow Condensed for uppercase display type, Inter for body
+- Tight radii (2 to 6px), snappy grounded motion, reduced-motion respected
+- Tinted borders and rings use `color-mix` on `--brand`, so a reskin is
+  single-token
+- Logo art is Rob-supplied: set paths in `LOGO_ASSETS`
+  (`src/data/business.js`) and drop files in `public/brand/`. Labeled
+  placeholder slots render until then. Favicon / og-image placeholders
+  regenerate with `node scripts/generate-brand-assets.mjs`.
 
 ## Run it
 

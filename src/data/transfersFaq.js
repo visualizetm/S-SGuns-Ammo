@@ -9,9 +9,37 @@
 export const TRANSFERS_INTRO = {
   // LEGAL REVIEW REQUIRED before publish
   heading: 'Firearm Transfers',
-  body:
-    'If you purchased a firearm online or from out of state, it can be shipped to a licensed dealer for transfer. Call the shop for current transfer details, or send an inquiry below and we will follow up.',
+  body: 'If you purchased a firearm online or from out of state, it can be shipped to a licensed dealer for transfer. Call the shop for current transfer details, or send an inquiry below and we will follow up.',
 };
+
+// LEGAL REVIEW REQUIRED before publish
+// Neutral outline of the transfer flow. No fees, no timelines, no legal
+// claims; every step points back to the shop for specifics.
+export const TRANSFER_STEPS = [
+  {
+    id: 'contact',
+    title: 'Get in touch first',
+    body: 'Call the shop or send an inquiry so we know a transfer is headed our way and can walk you through the details.',
+  },
+  {
+    id: 'ship',
+    title: 'Your seller ships to the shop',
+    body: 'We handle the dealer-to-dealer paperwork with your seller before the firearm ships.',
+  },
+  {
+    id: 'pickup',
+    title: 'Complete paperwork in person',
+    body: 'When it arrives, you complete the required paperwork at the counter before pickup. Call the shop for current transfer details.',
+  },
+];
+
+// LEGAL REVIEW REQUIRED before publish
+// Intentionally minimal. Only the confirmed-safe item is listed; everything
+// else defers to a phone call so no requirement is stated incorrectly.
+export const WHAT_TO_BRING = [
+  'A valid photo ID.',
+  'Anything else depends on your situation. Call ahead and we will tell you exactly what to have with you.',
+];
 
 export const FAQ_ITEMS = [
   {

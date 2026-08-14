@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +8,49 @@
       name="description"
       content="S&amp;S Guns &amp; Ammo is a family-owned firearms and ammunition shop at 10 S. 3rd Street, Unit 5, Oxford, PA 19363. Call (610) 368-6984."
     />
+
+    <!-- Pre-paint: ivory ground before any CSS arrives, so there is no white
+         (or dark) flash. The brand is light-first; there is no dark mode. -->
+    <style>
+      html {
+        background: #f2ebdd;
+        color: #10110f;
+        color-scheme: light;
+      }
+    </style>
+    <script>
+      document.documentElement.dataset.theme = 'light';
+    </script>
+
+    <!-- Fonts: Barlow Condensed (display) + Inter (body), swap so text is
+         never invisible while fonts load. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    />
+
+    <!-- Favicons: PLACEHOLDER typographic submark. Rob supplies the real
+         weapon-free submark files; swap these two assets, keep the paths. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#f2ebdd" />
+
+    <!-- Open Graph / Twitter. og-image.png is a PLACEHOLDER typographic
+         card (weapon-free); replace with the real submark art when Rob
+         supplies it. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="S&amp;S Guns &amp; Ammo" />
+    <meta property="og:title" content="S&amp;S Guns &amp; Ammo | Oxford, PA" />
+    <meta
+      property="og:description"
+      content="Family-owned firearms and ammunition shop in Oxford, Pennsylvania. 10 S. 3rd Street, Unit 5, Oxford, PA 19363. Call (610) 368-6984."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>
