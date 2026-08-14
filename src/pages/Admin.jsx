@@ -10,6 +10,7 @@ import {
   adminListLeads,
   adminSetLeadRead,
 } from '../lib/apiClient.js';
+import { usePageMeta } from '../lib/usePageMeta.js';
 
 const TOKEN_KEY = 'ssga-admin-token';
 
@@ -57,8 +58,10 @@ function LoginGate({ onToken }) {
   }
 
   return (
-    <section aria-labelledby="admin-login-heading">
-      <h1 id="admin-login-heading">Admin login</h1>
+    <section className="wrap section" aria-labelledby="admin-login-heading">
+      <h1 id="admin-login-heading" className="display">
+        Admin login
+      </h1>
       <form onSubmit={handleSubmit} noValidate aria-label="Admin login form">
         <p className="ssga-field">
           <label htmlFor="admin-password">Password (required)</label>
@@ -76,7 +79,7 @@ function LoginGate({ onToken }) {
             </span>
           ) : null}
         </p>
-        <button type="submit" disabled={submitting}>
+        <button type="submit" className="btn btn-primary" disabled={submitting}>
           {submitting ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
@@ -115,6 +118,7 @@ function LeadCard({ lead, onToggleRead, busy }) {
 }
 
 export function Admin() {
+  usePageMeta('Admin');
   const [token, setToken] = useState(
     () => sessionStorage.getItem(TOKEN_KEY) || ''
   );
@@ -180,8 +184,8 @@ export function Admin() {
   const unreadCount = leads.filter((l) => !l.read).length;
 
   return (
-    <section aria-labelledby="admin-heading">
-      <h1 id="admin-heading">
+    <section className="wrap section" aria-labelledby="admin-heading">
+      <h1 id="admin-heading" className="display">
         <Inbox01 aria-hidden="true" width={20} height={20} /> Leads
       </h1>
       <p>

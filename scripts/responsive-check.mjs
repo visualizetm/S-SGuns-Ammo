@@ -124,7 +124,15 @@ try {
     });
     const page = await context.newPage();
     for (const route of ROUTES) {
-      await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle' });
+      // 'load' + a bounded networkidle wait: external requests (web fonts)
+      // can hang forever in sandboxed environments, and the audit must not
+      // hang with them. The extra settle delay lets reveal-on-scroll
+      // transitions finish so rects are final.
+      await page.goto(`${BASE}${route}`, { waitUntil: 'load' });
+      await page
+        .waitForLoadState('networkidle', { timeout: 5000 })
+        .catch(() => {});
+      await page.waitForTimeout(900);
       const problems = await page.evaluate(auditPage, viewport.width < 768);
       if (problems.length === 0) {
         console.log(`ok - ${viewport.name} ${route}`);

@@ -26,8 +26,14 @@ export function EmailSignupForm() {
           {form.failureMessage}
         </p>
       ) : null}
-      <button type="submit" disabled={form.status === FORM_STATUS.SUBMITTING}>
-        {form.status === FORM_STATUS.SUBMITTING ? 'Signing up...' : 'Sign up for updates'}
+      <button
+        type="submit"
+        className="btn btn-primary"
+        disabled={form.status === FORM_STATUS.SUBMITTING}
+      >
+        {form.status === FORM_STATUS.SUBMITTING
+          ? 'Signing up...'
+          : 'Sign up for updates'}
       </button>
     </form>
   );

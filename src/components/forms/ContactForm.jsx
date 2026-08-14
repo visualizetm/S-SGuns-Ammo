@@ -34,7 +34,11 @@ export function ContactForm() {
           {form.failureMessage}
         </p>
       ) : null}
-      <button type="submit" disabled={form.status === FORM_STATUS.SUBMITTING}>
+      <button
+        type="submit"
+        className="btn btn-primary"
+        disabled={form.status === FORM_STATUS.SUBMITTING}
+      >
         {form.status === FORM_STATUS.SUBMITTING ? 'Sending...' : 'Send message'}
       </button>
     </form>
