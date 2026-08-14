@@ -14,6 +14,7 @@ const ROUTES = ['/', '/about', '/services', '/transfers', '/contact', '/admin', 
 const VIEWPORTS = [
   { name: 'mobile-375', width: 375, height: 667 },
   { name: 'tablet-768', width: 768, height: 1024 },
+  { name: 'laptop-1024', width: 1024, height: 768 },
   { name: 'desktop-1440', width: 1440, height: 900 },
   { name: 'very-tall', width: 375, height: 1800 },
   { name: 'very-short', width: 1024, height: 480 },

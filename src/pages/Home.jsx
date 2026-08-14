@@ -32,13 +32,14 @@ export function Home() {
   return (
     <>
       {/* Hero */}
-      <section className="hero-section grain" aria-labelledby="home-heading">
+      <section className="hero-section" aria-labelledby="home-heading">
         <div className="wrap hero-grid">
           <div className="hero-copy reveal-left">
-            <p className="hero-eyebrow">
-              <span className="hero-rule" aria-hidden="true" />
-              Oxford, Pennsylvania
-              <span className="hero-rule" aria-hidden="true" />
+            {/* Signature seal: confirmed facts only, typographic, weapon-free.
+                The one rotated element on the site. */}
+            <p className="stamp stamp--seal hero-seal">
+              <span>Family Owned</span>
+              <span className="hero-seal-loc">Oxford, Penna.</span>
             </p>
             <h1 id="home-heading" className="display hero-headline">
               Local knowledge.
@@ -91,22 +92,12 @@ export function Home() {
             gap: 3.5rem;
             align-items: center;
           }
-          .hero-eyebrow {
-            display: flex;
-            align-items: center;
-            gap: 0.85rem;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: var(--track-label);
-            color: var(--brand);
-            margin: 0 0 1.25rem;
+          .hero-seal {
+            margin: 0 0 1.5rem;
           }
-          .hero-rule {
-            display: inline-block;
-            width: 2.25rem;
-            height: 2px;
-            background: var(--brand);
+          .hero-seal-loc {
+            font-size: 0.8em;
+            color: var(--text-muted);
           }
           .hero-headline {
             font-size: clamp(2.6rem, 1.6rem + 5vw, 4.9rem);
@@ -208,69 +199,43 @@ export function Home() {
               Call the shop with any question about what is in stock.
             </p>
           </div>
-          <div className="hm-svc-grid stagger">
-            {CONFIRMED_SERVICES.slice(0, 5).map((service, index) => (
-              <Link
-                key={service.id}
-                to="/services"
-                className="card hm-svc-card"
-              >
-                <span className="hm-svc-num" aria-hidden="true">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <h3 className="hm-svc-title">{service.title}</h3>
-                <p className="hm-svc-desc">{service.description}</p>
-                <span className="hm-svc-more">
-                  Details
-                  <ArrowRight
-                    aria-hidden="true"
-                    width={16}
-                    height={16}
-                    className="btn-arrow"
-                  />
-                </span>
-              </Link>
+          {/* Ledger rows: the services list is not a sequence, so no
+              numbering. Each row reads like a line in the counter book. */}
+          <ul className="ledger hm-svc-ledger stagger">
+            {CONFIRMED_SERVICES.slice(0, 5).map((service) => (
+              <li key={service.id}>
+                <Link to="/services" className="ledger-row hm-svc-row">
+                  <span className="ledger-row-title">{service.title}</span>
+                  <span className="ledger-row-desc">{service.description}</span>
+                  <span className="hm-svc-go" aria-hidden="true">
+                    <ArrowRight width={18} height={18} className="btn-arrow" />
+                  </span>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
         <style>{`
-          .hm-svc-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-            gap: 1.25rem;
-          }
-          .hm-svc-card {
-            display: flex;
-            flex-direction: column;
+          .hm-svc-row {
             text-decoration: none;
-            color: var(--text);
+            transition: background-color var(--duration-fast) var(--ease);
           }
-          .hm-svc-num {
-            font-family: var(--font-display);
-            font-size: 0.95rem;
-            font-weight: 600;
-            letter-spacing: var(--track-label);
-            color: var(--text-muted);
-            margin-bottom: 1.1rem;
+          .hm-svc-row:hover {
+            background: color-mix(in srgb, var(--brand) 6%, transparent);
           }
-          .hm-svc-title { font-size: 1.45rem; margin: 0 0 0.4rem; }
-          .hm-svc-desc {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            margin: 0 0 1rem;
+          .hm-svc-row .ledger-row-title {
+            transition: color var(--duration-fast) var(--ease);
           }
-          .hm-svc-more {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            margin-top: auto;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+          .hm-svc-row:hover .ledger-row-title { color: var(--brand-dark); }
+          .hm-svc-go {
             color: var(--brand);
+            display: inline-flex;
+            align-self: center;
           }
-          .hm-svc-card:hover .btn-arrow { transform: translateX(3px); }
+          .hm-svc-row:hover .btn-arrow { transform: translateX(3px); }
+          @media (max-width: 767.98px) {
+            .hm-svc-go { display: none; }
+          }
         `}</style>
       </section>
 

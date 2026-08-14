@@ -20,7 +20,7 @@ export function Services() {
 
   return (
     <>
-      <section className="svc-head grain" aria-labelledby="services-heading">
+      <section className="svc-head" aria-labelledby="services-heading">
         <div className="wrap reveal">
           <p className="eyebrow">At the shop</p>
           <h1 id="services-heading" className="display svc-title">
@@ -53,37 +53,37 @@ export function Services() {
       </section>
 
       <section className="svc-list section" aria-label="Service list">
-        <div className="wrap svc-grid stagger">
-          {CONFIRMED_SERVICES.map((service, index) => (
-            <article key={service.id} className="card svc-card">
-              <span className="svc-num" aria-hidden="true">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <h2 className="svc-card-title">{service.title}</h2>
-              <p className="svc-card-desc">{service.description}</p>
-            </article>
-          ))}
+        <div className="wrap">
+          {/* The counter book: each confirmed service is a ruled ledger row.
+              No numbering; the list is not a sequence. */}
+          <ul className="ledger svc-ledger stagger">
+            {CONFIRMED_SERVICES.map((service) => (
+              <li key={service.id} className="ledger-row svc-row">
+                <h2 className="ledger-row-title svc-row-title">
+                  {service.title}
+                </h2>
+                <p className="ledger-row-desc">{service.description}</p>
+                <p className="svc-row-note">
+                  <a href={BUSINESS.phoneHref}>Call to ask</a>
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
         <style>{`
-          .svc-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-            gap: 1.25rem;
-          }
-          .svc-card { padding: 1.75rem; }
-          .svc-num {
-            display: block;
-            font-family: var(--font-display);
-            font-size: 0.95rem;
-            font-weight: 600;
-            letter-spacing: var(--track-label);
-            color: var(--text-muted);
-            margin-bottom: 1.1rem;
-          }
-          .svc-card-title { font-size: 1.6rem; margin: 0 0 0.5rem; }
-          .svc-card-desc {
+          .svc-ledger { max-width: 62rem; }
+          .svc-row-title { font-size: 1.7rem; }
+          .svc-row-note {
             margin: 0;
-            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+          }
+          .svc-row-note a { text-decoration-thickness: 1.5px; }
+          @media (max-width: 767.98px) {
+            .svc-row-note { display: none; }
           }
         `}</style>
       </section>

@@ -18,6 +18,9 @@ export function useLeadForm(type, initialValues, idPrefix) {
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(FORM_STATUS.IDLE);
   const [failureMessage, setFailureMessage] = useState('');
+  // Bumped whenever a submit attempt produces field errors, so the linked
+  // error summary re-renders and takes focus.
+  const [summaryNonce, setSummaryNonce] = useState(0);
 
   function setField(name, value) {
     setValues((prev) => ({ ...prev, [name]: value }));
@@ -38,6 +41,7 @@ export function useLeadForm(type, initialValues, idPrefix) {
     const clientResult = validateLead(type, values);
     if (!clientResult.ok) {
       setErrors(clientResult.errors);
+      setSummaryNonce((n) => n + 1);
       return;
     }
 
@@ -53,6 +57,7 @@ export function useLeadForm(type, initialValues, idPrefix) {
     }
     if (httpStatus === 422 && body?.errors) {
       setErrors(body.errors);
+      setSummaryNonce((n) => n + 1);
       setStatus(FORM_STATUS.IDLE);
       return;
     }
@@ -68,6 +73,7 @@ export function useLeadForm(type, initialValues, idPrefix) {
     setErrors({});
     setStatus(FORM_STATUS.IDLE);
     setFailureMessage('');
+    setSummaryNonce(0);
   }
 
   return {
@@ -75,6 +81,7 @@ export function useLeadForm(type, initialValues, idPrefix) {
     errors,
     status,
     failureMessage,
+    summaryNonce,
     setField,
     handleSubmit,
     reset,

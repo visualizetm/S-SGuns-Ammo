@@ -18,7 +18,7 @@ export function About() {
   return (
     <>
       {/* Page header */}
-      <section className="ab-head grain" aria-labelledby="about-heading">
+      <section className="ab-head" aria-labelledby="about-heading">
         <div className="wrap reveal">
           <p className="eyebrow">Family owned in Oxford, PA</p>
           <h1 id="about-heading" className="display ab-title">
@@ -130,11 +130,8 @@ export function About() {
             </h2>
           </div>
           <div className="ab-values-grid stagger">
-            {SHOP_VALUES.map((value, index) => (
+            {SHOP_VALUES.map((value) => (
               <div key={value.id} className="ab-value">
-                <span className="ab-value-num" aria-hidden="true">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
                 <h3 className="ab-value-title">{value.title}</h3>
                 <p className="ab-value-body">{value.body}</p>
               </div>
@@ -159,16 +156,12 @@ export function About() {
             transform: translateY(-3px);
             border-color: color-mix(in srgb, var(--tan) 55%, transparent);
           }
-          .ab-value-num {
-            display: block;
-            font-family: var(--font-display);
-            font-size: 0.95rem;
-            font-weight: 600;
-            letter-spacing: var(--track-label);
-            color: var(--tan);
-            margin-bottom: 1rem;
+          .ab-value-title {
+            font-size: 1.4rem;
+            margin: 0 0 0.4rem;
+            padding-top: 0.85rem;
+            border-top: 2px solid color-mix(in srgb, var(--tan) 55%, transparent);
           }
-          .ab-value-title { font-size: 1.4rem; margin: 0 0 0.4rem; }
           .ab-value-body {
             margin: 0;
             font-size: 0.95rem;

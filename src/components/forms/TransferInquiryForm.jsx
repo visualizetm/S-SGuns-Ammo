@@ -2,7 +2,7 @@
 // logic, no fees, no e-commerce. The shop follows up directly.
 
 import { useLeadForm, FORM_STATUS } from './useLeadForm.js';
-import { FormField, HoneypotField } from './FormField.jsx';
+import { FormField, FormErrorSummary, HoneypotField } from './FormField.jsx';
 import { BUSINESS } from '../../data/business.js';
 
 const INITIAL = {
@@ -14,15 +14,23 @@ const INITIAL = {
   company: '',
 };
 
+const LABELS = {
+  name: 'Name',
+  phone: 'Phone',
+  email: 'Email',
+  itemDescription: 'What are you transferring?',
+  message: 'Anything else we should know?',
+};
+
 export function TransferInquiryForm() {
   const form = useLeadForm('transfer', INITIAL, 'transfer');
 
   if (form.status === FORM_STATUS.SUCCESS) {
     return (
       <div role="status" className="ssga-form-success">
+        <p className="stamp">Received</p>
         <p>
-          Thank you. Your transfer inquiry has been received and we will follow
-          up with next steps.
+          Your inquiry is logged. We will follow up with next steps.
         </p>
         <p>
           Prefer to talk it through? Call{' '}
@@ -37,6 +45,7 @@ export function TransferInquiryForm() {
 
   return (
     <form onSubmit={form.handleSubmit} noValidate aria-label="Transfer inquiry form">
+      <FormErrorSummary form={form} labels={LABELS} />
       <FormField form={form} name="name" label="Name" required autoComplete="name" />
       <FormField form={form} name="phone" label="Phone" type="tel" required autoComplete="tel" />
       <FormField form={form} name="email" label="Email" type="email" required autoComplete="email" />
@@ -47,6 +56,7 @@ export function TransferInquiryForm() {
         as="textarea"
         required
         rows={3}
+        hint="Make and model is plenty. Not sure? Say so and we will sort it out together."
       />
       <FormField form={form} name="message" label="Anything else we should know?" as="textarea" rows={4} />
       <HoneypotField form={form} />

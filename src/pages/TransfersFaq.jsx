@@ -84,7 +84,7 @@ export function TransfersFaq() {
   return (
     <>
       {/* Intro */}
-      <section className="xfer-head grain" aria-labelledby="transfers-heading">
+      <section className="xfer-head" aria-labelledby="transfers-heading">
         <div className="wrap reveal">
           <p className="eyebrow">Bought online or out of state?</p>
           <h1 id="transfers-heading" className="display xfer-title">
@@ -165,7 +165,19 @@ export function TransfersFaq() {
             gap: 1.25rem;
             counter-reset: step;
           }
-          .xfer-step { padding: 1.75rem; }
+          .xfer-step { padding: 1.75rem; position: relative; }
+          /* Connector rule: the transfer process is a real sequence */
+          @media (min-width: 900px) {
+            .xfer-step:not(:last-child)::after {
+              content: '';
+              position: absolute;
+              top: 2.85rem;
+              right: -1.25rem;
+              width: 1.25rem;
+              height: 2px;
+              background: var(--border-strong);
+            }
+          }
           .xfer-step-num {
             display: block;
             font-family: var(--font-display);

@@ -257,6 +257,9 @@ function Navbar() {
           color: var(--text-secondary);
           text-decoration: none;
           border-bottom: 2px solid transparent;
+          white-space: nowrap;
+          transition: color var(--duration-fast) var(--ease),
+            border-color var(--duration-fast) var(--ease);
         }
         .nav-link:hover { color: var(--brand-dark); }
         .nav-link[aria-current='page'] {
@@ -292,7 +295,12 @@ function Navbar() {
           color: var(--text);
           cursor: pointer;
         }
+        .nav-toggle {
+          transition: border-color var(--duration-fast) var(--ease),
+            color var(--duration-fast) var(--ease);
+        }
         .nav-toggle:hover { border-color: var(--brand); color: var(--brand-dark); }
+        .nav-toggle:active { transform: translateY(1px); }
         .nav-drawer {
           position: fixed;
           inset: 0;
@@ -336,11 +344,24 @@ function Navbar() {
           max-width: 22rem;
           padding-bottom: 2rem;
         }
-        @media (max-width: 899.98px) {
+        /* Mobile chrome below 1024: with five nowrap links plus wordmark
+           and CTA, the desktop row only provably fits from 1024 up (even
+           on fallback fonts, with the tightened padding below). */
+        @media (max-width: 1023.98px) {
           .nav-desktop, .nav-call { display: none; }
           .nav-actions { margin-left: auto; }
           .nav-call-compact { display: inline-flex; }
           .nav-toggle { display: inline-flex; }
+        }
+        @media (min-width: 1024px) and (max-width: 1199.98px) {
+          .nav-link { padding: 0 0.5rem; font-size: 1rem; }
+          .nav-bar { gap: 0.75rem; }
+        }
+        /* Narrowest desktop band: compact call icon instead of the full
+           CTA so the row fits even when web fonts fail to load. */
+        @media (min-width: 1024px) and (max-width: 1099.98px) {
+          .nav-call { display: none; }
+          .nav-call-compact { display: inline-flex; }
         }
       `}</style>
     </header>

@@ -21,7 +21,7 @@ export function Contact() {
 
   return (
     <>
-      <section className="ct-head grain" aria-labelledby="contact-heading">
+      <section className="ct-head" aria-labelledby="contact-heading">
         <div className="wrap reveal">
           <p className="eyebrow">Talk to the shop</p>
           <h1 id="contact-heading" className="display ct-title">

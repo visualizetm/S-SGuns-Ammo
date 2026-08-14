@@ -1,8 +1,15 @@
 import { useLeadForm, FORM_STATUS } from './useLeadForm.js';
-import { FormField, HoneypotField } from './FormField.jsx';
+import { FormField, FormErrorSummary, HoneypotField } from './FormField.jsx';
 import { BUSINESS } from '../../data/business.js';
 
 const INITIAL = { name: '', email: '', phone: '', message: '', company: '' };
+
+const LABELS = {
+  name: 'Name',
+  email: 'Email',
+  phone: 'Phone',
+  message: 'Message',
+};
 
 export function ContactForm() {
   const form = useLeadForm('contact', INITIAL, 'contact');
@@ -10,7 +17,8 @@ export function ContactForm() {
   if (form.status === FORM_STATUS.SUCCESS) {
     return (
       <div role="status" className="ssga-form-success">
-        <p>Thank you. Your message has been sent and we will get back to you.</p>
+        <p className="stamp">Received</p>
+        <p>Your message is in. We will get back to you.</p>
         <p>
           Need an answer sooner? Call{' '}
           <a href={BUSINESS.phoneHref}>{BUSINESS.phoneDisplay}</a>.
@@ -24,6 +32,7 @@ export function ContactForm() {
 
   return (
     <form onSubmit={form.handleSubmit} noValidate aria-label="Contact form">
+      <FormErrorSummary form={form} labels={LABELS} />
       <FormField form={form} name="name" label="Name" required autoComplete="name" />
       <FormField form={form} name="email" label="Email" type="email" required autoComplete="email" />
       <FormField form={form} name="phone" label="Phone" type="tel" autoComplete="tel" />
