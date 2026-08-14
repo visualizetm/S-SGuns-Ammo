@@ -1,0 +1,242 @@
+/* Minimal functional styles only. No brand styling: Phase 2 will replace
+   this with CSS custom properties and co-located style blocks. What lives
+   here exists solely to satisfy functional acceptance criteria:
+   no overlap, no horizontal scroll, 44px tap targets, 16px inputs on mobile. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.ssga-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Every link is a 44x44 minimum tap target, including links inside prose.
+   inline-block also keeps an anchor from wrapping across lines, so its hit
+   area is always one solid rectangle. Phase 2 restyles this. */
+a {
+  display: inline-block;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.7rem 0.4rem;
+}
+
+.ssga-main {
+  flex: 1;
+  width: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.ssga-header,
+.ssga-footer {
+  width: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* Nav: wrapping flex list, no fixed/sticky positioning, so nothing can
+   overlap or hide anchored content. Tap targets at least 44x44. */
+.ssga-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.ssga-nav a,
+.ssga-header-call a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ssga-nav a[aria-current='page'] {
+  text-decoration: underline;
+}
+
+.ssga-wordmark {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.ssga-wordmark a {
+  color: inherit;
+  text-decoration: none;
+  display: inline-block;
+  padding: 0.5rem 0;
+}
+
+/* Skip link: visually hidden until focused; reserves no space and covers
+   nothing when inactive. */
+.ssga-skip-link {
+  position: absolute;
+  left: -9999px;
+}
+
+.ssga-skip-link:focus {
+  position: static;
+  display: inline-block;
+  padding: 0.5rem;
+}
+
+/* Forms */
+.ssga-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 32rem;
+}
+
+.ssga-field label {
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  font-size: 16px;
+  padding: 0.5rem;
+  min-height: 44px;
+  max-width: 100%;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  font: inherit;
+  font-size: 16px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* iOS zooms on focus when an input is under 16px; force 16px on small
+   viewports for every input, select, and textarea. */
+@media (max-width: 767.98px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+.ssga-field-error {
+  color: #8b0000;
+}
+
+.ssga-form-failure {
+  color: #8b0000;
+}
+
+.ssga-form-success {
+  border: 1px solid currentColor;
+  padding: 1rem;
+  max-width: 32rem;
+}
+
+/* Honeypot: removed from the visual page and from the accessibility tree.
+   Bots reading raw HTML still see a plausible text input. */
+.ssga-honeypot {
+  position: absolute;
+  left: -9999px;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+}
+
+/* Admin */
+.ssga-leads {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ssga-lead {
+  border: 1px solid currentColor;
+  padding: 1rem;
+}
+
+.ssga-lead[data-read='true'] {
+  opacity: 0.7;
+}
+
+.ssga-lead dd {
+  margin: 0 0 0.5rem;
+  white-space: pre-wrap;
+}
+
+.ssga-filter {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.75rem 0 0;
+}
+
+.ssga-build-sha {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+fieldset {
+  border: 1px solid currentColor;
+  margin: 0 0 1rem;
+  max-width: 100%;
+}
+
+dl,
+dt,
+dd {
+  margin: 0;
+}
+
+dt {
+  font-weight: 600;
+}
+
+dd + div > dt,
+dl div + div dt {
+  margin-top: 0.5rem;
+}
