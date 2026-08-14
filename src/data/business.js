@@ -28,14 +28,18 @@ export const PLACEHOLDERS = {
   parking: '[[PARKING DETAILS - confirm with owner]]',
 };
 
-// Logo art is Rob-supplied. Drop the real files into public/brand/ and set
-// the paths here; every slot then renders the image instead of its label.
-// Do not generate or substitute logo art. The rifle-seal art may be used
-// only as a large feature graphic on Home and About, never at icon scale.
+// Rob-supplied logo art. Source PNGs live in public/brand/; the .web.webp
+// versions are right-sized for the site (regenerate with
+// node scripts/optimize-brand-assets.mjs). The rifle-seal art may be used
+// only as a large feature graphic on Home and About, never at icon scale;
+// favicon and og:image derive from the weapon-free submark only.
 export const LOGO_ASSETS = {
-  wordmark: null, // horizontal wordmark, header. e.g. '/brand/wordmark.svg'
-  submark: null, // weapon-free submark, favicon and og:image source
-  seal: null, // detailed rifle-seal art, large feature graphic only
+  wordmark: '/brand/wordmark.web.webp', // horizontal wordmark, header/footer
+  wordmarkWithSubmark: '/brand/wordmark-with-submark.web.webp', // wide lockup
+  submark: '/brand/submark.web.webp', // weapon-free circle mark
+  seal: '/brand/seal-crossed-rifles.web.webp', // large feature graphic only
+  sealAlt: '/brand/seal-rifle-badge.web.webp', // large feature graphic only
+  pattern: '/brand/pattern-rifles.web.webp', // large backgrounds only
 };
 
 // Social links are UNCONFIRMED. Leave empty until the owner confirms real

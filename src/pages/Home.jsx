@@ -11,7 +11,12 @@ import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
 import MessageChatCircle from '@untitled-ui/icons-react/build/esm/MessageChatCircle';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import Clock from '@untitled-ui/icons-react/build/esm/Clock';
-import { BUSINESS, PLACEHOLDERS, TRUST_POINTS } from '../data/business.js';
+import {
+  BUSINESS,
+  PLACEHOLDERS,
+  TRUST_POINTS,
+  LOGO_ASSETS,
+} from '../data/business.js';
 import { CONFIRMED_SERVICES } from '../data/services.js';
 import { EmailSignupForm } from '../components/forms/EmailSignupForm.jsx';
 import { Slot } from '../components/Slot.jsx';
@@ -70,12 +75,14 @@ export function Home() {
             </div>
           </div>
           <div className="hero-art reveal-right">
-            {/* Large feature graphic slot: the one place (with About) where
-                the detailed rifle-seal art may appear. Never at icon scale. */}
+            {/* Large feature graphic: the one place (with About) where the
+                detailed rifle-seal art may appear. Never at icon scale. */}
             <div className="hero-art-frame">
               <Slot
-                label="Rifle-seal art slot. Rob supplies the final feature graphic."
+                src={LOGO_ASSETS.seal}
+                alt="S&S Guns & Ammo crossed-rifles seal, Oxford, PA"
                 ratio="1 / 1"
+                fit="contain"
                 eager
               />
             </div>

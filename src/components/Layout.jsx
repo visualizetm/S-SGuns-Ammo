@@ -455,6 +455,11 @@ function Footer() {
           color: var(--text-on-dark);
           margin-bottom: 0.75rem;
         }
+        /* The wordmark art is near-black ink; invert it to read on the
+           dark footer ground. */
+        .ft-wordmark img {
+          filter: invert(1) brightness(0.94);
+        }
         .ft-tagline { max-width: 20rem; }
         .ft-address {
           font-style: normal;

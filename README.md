@@ -28,10 +28,12 @@ Light-first heritage brand. Tokens live in `src/styles/base.css`:
 - Tight radii (2 to 6px), snappy grounded motion, reduced-motion respected
 - Tinted borders and rings use `color-mix` on `--brand`, so a reskin is
   single-token
-- Logo art is Rob-supplied: set paths in `LOGO_ASSETS`
-  (`src/data/business.js`) and drop files in `public/brand/`. Labeled
-  placeholder slots render until then. Favicon / og-image placeholders
-  regenerate with `node scripts/generate-brand-assets.mjs`.
+- Logo art lives in `public/brand/` (source PNGs) with paths wired in
+  `LOGO_ASSETS` (`src/data/business.js`). Site-ready `.web.webp`
+  versions, the favicon, apple-touch-icon, and og:image are derived with
+  `node scripts/optimize-brand-assets.mjs`; rerun it after replacing any
+  source PNG. Rifle art appears only as large feature graphics; the
+  favicon and og:image use the weapon-free submark.
 
 ## Run it
 

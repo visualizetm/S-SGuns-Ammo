@@ -11,6 +11,7 @@ export function Slot({
   ratio = '4 / 3',
   className = '',
   eager = false,
+  fit = 'cover',
 }) {
   return (
     <div className={`slot ${className}`.trim()} style={{ aspectRatio: ratio }}>
@@ -19,7 +20,7 @@ export function Slot({
           src={src}
           alt={alt}
           loading={eager ? 'eager' : 'lazy'}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ width: '100%', height: '100%', objectFit: fit }}
         />
       ) : (
         <span>{label}</span>

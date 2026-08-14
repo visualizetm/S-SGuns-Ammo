@@ -5,7 +5,12 @@
 
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
-import { BUSINESS, PLACEHOLDERS, SHOP_VALUES } from '../data/business.js';
+import {
+  BUSINESS,
+  PLACEHOLDERS,
+  SHOP_VALUES,
+  LOGO_ASSETS,
+} from '../data/business.js';
 import { Slot } from '../components/Slot.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 
@@ -177,12 +182,14 @@ export function About() {
       <section className="ab-town section" aria-labelledby="ab-town-heading">
         <div className="wrap ab-town-grid">
           <div className="ab-town-media reveal-left">
-            {/* Large feature graphic slot: the one place (with Home) where
-                the detailed rifle-seal art may appear. Never at icon scale. */}
+            {/* Large feature graphic: the one place (with Home) where the
+                detailed rifle-seal art may appear. Never at icon scale. */}
             <div className="ab-town-frame">
               <Slot
-                label="Rifle-seal art slot. Rob supplies the final feature graphic."
+                src={LOGO_ASSETS.sealAlt}
+                alt="S&S Guns & Ammo rifle badge seal, Oxford, PA"
                 ratio="1 / 1"
+                fit="contain"
               />
             </div>
           </div>

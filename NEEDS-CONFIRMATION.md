@@ -24,18 +24,19 @@ address (10 S. 3rd Street, Unit 5, Oxford, PA 19363), phone ((610) 368-6984).
   sporting enthusiasts.") assumes the confirmed service mix. Adjust after
   the owner confirms the exact service list (`src/pages/Home.jsx`).
 
-## Assets Rob must supply (labeled slots render until then)
+## Brand assets: SUPPLIED (source PNGs in public/brand/)
 
-- Horizontal wordmark file for the header and footer
-  (`LOGO_ASSETS.wordmark` in `src/data/business.js`; drop file in
-  `public/brand/`). Styled business-name type renders in the slot until
-  then.
-- Weapon-free submark for favicon and og:image. Current
-  `public/favicon.svg`, `public/apple-touch-icon.png`, and
-  `public/og-image.png` are typographic PLACEHOLDERS (regenerate PNGs with
-  `node scripts/generate-brand-assets.mjs`).
-- Detailed rifle-seal art: large feature graphic slots on Home hero and
-  About only. Never used at icon scale.
+Wordmark, submark, both rifle seals, the wide lockup, and the brand
+pattern are in `public/brand/` and wired into the site. Site-ready
+`.web.webp` versions, the favicon, apple-touch-icon, and og:image are
+derived with `node scripts/optimize-brand-assets.mjs` (rerun after
+replacing any source PNG). Per guardrails: rifle art renders only as the
+large feature graphics on Home and About; favicon/og use the weapon-free
+submark. SVG versions were not supplied; PNG sources are fine, SVGs can
+be swapped in later for extra sharpness if Rob ever has them.
+
+## Assets Rob must still supply (labeled slots render until then)
+
 - Photography: owner or storefront photo (About), map image or embed
   (Home visit block, Contact).
 
