@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
-import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
+import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import { BUSINESS, LOGO_ASSETS } from '../content/siteFacts.js';
 import { publicGetItem } from '../lib/apiClient.js';
@@ -157,15 +157,17 @@ function ItemView({ item }) {
             <div className="itm-ctas">
               <a href={BUSINESS.phoneHref} className="btn btn-primary">
                 <Phone01 aria-hidden="true" width={18} height={18} />
-                Call the Shop
+                Call About This Item
               </a>
-              <Link
-                to={`/contact?about=${encodeURIComponent(item.name)}`}
+              <a
+                href={BUSINESS.directionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="btn btn-secondary"
               >
-                <Mail01 aria-hidden="true" width={18} height={18} />
-                Ask About This Item
-              </Link>
+                <MarkerPin01 aria-hidden="true" width={18} height={18} />
+                Get Directions
+              </a>
             </div>
             <p className="itm-note">
               Sales happen in person at the shop, with all required paperwork

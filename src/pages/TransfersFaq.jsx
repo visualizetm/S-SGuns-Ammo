@@ -1,14 +1,14 @@
-// Transfers & FAQ: how transfers work, what to bring, FAQ accordion, and the
-// transfer inquiry form. All transfer and FAQ copy renders from
-// src/data/transfersFaq.js, which is flagged LEGAL REVIEW REQUIRED. No fees,
-// no legal claims; regulated specifics defer to a phone call.
+// Transfers & FAQ: how transfers work, what to bring, FAQ accordion, and a
+// call-the-shop closer. All transfer and FAQ copy renders from
+// src/content/siteFacts.js, which is flagged LEGAL REVIEW REQUIRED. No fees,
+// no legal claims; regulated specifics defer to a phone call. There is no
+// inquiry form: transfers start with a phone call.
 
 import { useState } from 'react';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
+import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
-import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
-import { TransferInquiryForm } from '../components/forms/TransferInquiryForm.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 import {
   BUSINESS,
@@ -90,18 +90,18 @@ export function TransfersFaq() {
           </h1>
           <p className="xfer-lede">{TRANSFERS_INTRO.body}</p>
           <div className="xfer-head-ctas">
-            <a href="#inquiry" className="btn btn-primary">
-              Ask About a Transfer
-              <ArrowRight
-                aria-hidden="true"
-                width={18}
-                height={18}
-                className="btn-arrow"
-              />
-            </a>
-            <a href={BUSINESS.phoneHref} className="btn btn-secondary">
+            <a href={BUSINESS.phoneHref} className="btn btn-primary">
               <Phone01 aria-hidden="true" width={18} height={18} />
-              {BUSINESS.phoneDisplay}
+              Call the Shop
+            </a>
+            <a
+              href={BUSINESS.directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary"
+            >
+              <MarkerPin01 aria-hidden="true" width={18} height={18} />
+              Get Directions
             </a>
           </div>
         </div>
@@ -315,41 +315,38 @@ export function TransfersFaq() {
         `}</style>
       </section>
 
-      {/* Inquiry form */}
+      {/* Call-the-shop closer */}
       <section
-        id="inquiry"
-        className="xfer-form band-deep section"
-        aria-labelledby="transfer-form-heading"
+        id="start"
+        className="xfer-call band-deep section"
+        aria-labelledby="transfer-call-heading"
       >
-        <div className="wrap xfer-form-inner">
-          <div className="reveal-left">
+        <div className="wrap xfer-call-inner reveal">
+          <div>
             <p className="eyebrow">No obligation</p>
-            <h2 id="transfer-form-heading" className="display section-title">
-              Ask about a transfer
+            <h2 id="transfer-call-heading" className="display section-title">
+              Start a transfer with a call
             </h2>
             <p className="section-sub">
-              Send the details and we will follow up. This is an inquiry only,
-              not an order.
-            </p>
-            <p className="xfer-form-alt">
-              Prefer the phone?{' '}
-              <a href={BUSINESS.phoneHref}>Call {BUSINESS.phoneDisplay}</a>.
+              There is no form to fill out. Call the shop, tell us what is
+              coming, and we will walk you through every step.
             </p>
           </div>
-          <div className="reveal-right">
-            <TransferInquiryForm />
-          </div>
+          <a href={BUSINESS.phoneHref} className="btn btn-primary xfer-call-btn">
+            <Phone01 aria-hidden="true" width={18} height={18} />
+            Call {BUSINESS.phoneDisplay}
+          </a>
         </div>
         <style>{`
-          .xfer-form-inner {
+          .xfer-call-inner {
             display: grid;
-            grid-template-columns: 1fr 1.3fr;
-            gap: 3rem;
-            align-items: start;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 2.5rem;
+            align-items: center;
           }
-          .xfer-form-alt { color: var(--text-secondary); }
+          .xfer-call-btn { justify-self: start; }
           @media (max-width: 899.98px) {
-            .xfer-form-inner { grid-template-columns: 1fr; gap: 1.5rem; }
+            .xfer-call-inner { grid-template-columns: 1fr; gap: 1.5rem; }
           }
         `}</style>
       </section>

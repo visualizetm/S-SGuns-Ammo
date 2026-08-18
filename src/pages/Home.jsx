@@ -16,7 +16,6 @@ import { publicGetCatalog } from '../lib/apiClient.js';
 import { HOME_COPY, PAGE_META } from '../content/siteFacts.js';
 import { featuredItems } from '../lib/catalogView.js';
 import { ProductCard, ProductCardStyles } from '../components/ProductCard.jsx';
-import { EmailSignupForm } from '../components/forms/EmailSignupForm.jsx';
 import { Slot } from '../components/Slot.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 import {
@@ -25,6 +24,7 @@ import {
   TRUST_POINTS,
   LOGO_ASSETS,
   CONFIRMED_SERVICES,
+  SHOP_GALLERY,
 } from '../content/siteFacts.js';
 
 const TRUST_ICONS = {
@@ -318,19 +318,14 @@ export function Home() {
             </h2>
             <p className="hm-xfer-body">
               Have your purchase shipped to the shop and complete the paperwork
-              at the counter. Send an inquiry and we will walk you through it.
+              at the counter. Call the shop and we will walk you through it.
             </p>
           </div>
           <div className="hm-xfer-ctas">
-            <Link to="/transfers#inquiry" className="btn hm-xfer-cta">
-              Ask About a Transfer
-              <ArrowRight
-                aria-hidden="true"
-                width={18}
-                height={18}
-                className="btn-arrow"
-              />
-            </Link>
+            <a href={BUSINESS.phoneHref} className="btn hm-xfer-cta">
+              <Phone01 aria-hidden="true" width={18} height={18} />
+              Call the Shop
+            </a>
             <Link to="/transfers" className="btn btn-secondary">
               How transfers work
             </Link>
@@ -443,34 +438,51 @@ export function Home() {
         `}</style>
       </section>
 
-      {/* Email updates */}
-      <section
-        className="hm-updates band-deep"
-        aria-labelledby="hm-updates-heading"
-      >
-        <div className="wrap hm-updates-inner reveal">
-          <div>
-            <h2 id="hm-updates-heading" className="display hm-updates-title">
-              Get shop updates
+      {/* Inside the Shop: real store photography. Each Slot shows a labeled
+          placeholder until the matching file lands in public/photos/, then
+          the photo appears automatically. See SHOP_GALLERY in siteFacts. */}
+      <section className="hm-shop section" aria-labelledby="hm-shop-heading">
+        <div className="wrap">
+          <div className="reveal">
+            <p className="eyebrow">Come take a look</p>
+            <h2 id="hm-shop-heading" className="display section-title">
+              Inside the Shop
             </h2>
-            <p className="hm-updates-sub">
-              Sign up and we will keep you posted on shop news.
+            <p className="section-sub">
+              A look at what is on the shelves and behind the counter. Call the
+              shop to ask about anything you see.
             </p>
           </div>
-          <EmailSignupForm />
+          <div className="hm-shop-grid stagger">
+            {SHOP_GALLERY.map((photo) => (
+              <figure key={photo.src} className="hm-shop-item">
+                <Slot
+                  src={photo.src}
+                  alt={photo.caption}
+                  label={photo.caption}
+                  ratio="4 / 3"
+                />
+              </figure>
+            ))}
+          </div>
         </div>
         <style>{`
-          .hm-updates { padding: 3rem 0; }
-          .hm-updates-inner {
+          .hm-shop-grid {
             display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 2.5rem;
-            align-items: start;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-top: 2rem;
           }
-          .hm-updates-title { font-size: 1.9rem; margin: 0 0 0.4rem; }
-          .hm-updates-sub { color: var(--text-secondary); margin: 0; }
+          .hm-shop-item {
+            margin: 0;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+          }
           @media (max-width: 899.98px) {
-            .hm-updates-inner { grid-template-columns: 1fr; gap: 1.5rem; }
+            .hm-shop-grid { grid-template-columns: repeat(2, 1fr); }
+          }
+          @media (max-width: 559.98px) {
+            .hm-shop-grid { grid-template-columns: 1fr; }
           }
         `}</style>
       </section>

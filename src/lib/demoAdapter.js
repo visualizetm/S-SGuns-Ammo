@@ -5,16 +5,10 @@
 // exactly because both wrap the same pure store operations in
 // shared/catalogStore.js; persistence here is localStorage.
 //
-// Public forms: the real endpoints forward to the owner's email through
-// Web3Forms and store nothing. With no API there is nothing to forward to,
-// so the demo returns the same honest "form is being set up" answer the
-// server gives without an access key.
-//
 // The demo admin gate here is cosmetic by design: anything shipped to the
 // browser can be inspected, so this path must never guard real data. Real
 // deployments authenticate in api/_lib/auth.js on the server.
 
-import { validateLead, isSpam, LEAD_TYPES } from '../../shared/validation.js';
 import {
   listProducts,
   listCollections,
@@ -43,8 +37,6 @@ import {
 const CATALOG_KEY = 'ssga-demo-catalog';
 const DEMO_PASSWORD = 'oxford-demo';
 const DEMO_TOKEN = 'demo-local-token';
-
-import { FORM_SETUP_MESSAGE as SETUP_MESSAGE } from '../content/siteFacts.js';
 
 function loadCatalog() {
   try {
@@ -96,24 +88,6 @@ const VALIDATORS = {
 };
 
 export const demoAdapter = {
-  // ---- Public forms ----
-
-  async submitLead(type, input) {
-    await delay(300);
-    if (!LEAD_TYPES.includes(type)) {
-      return { status: 404, body: { ok: false, error: 'Unknown form.' } };
-    }
-    if (isSpam(input)) {
-      return { status: 200, body: { ok: true } };
-    }
-    const result = validateLead(type, input);
-    if (!result.ok) {
-      return invalid(result.errors);
-    }
-    // No API means no Web3Forms forwarding: honest setup answer.
-    return { status: 503, body: { ok: false, setup: true, error: SETUP_MESSAGE } };
-  },
-
   async login(password) {
     await delay(200);
     if (password === DEMO_PASSWORD) {

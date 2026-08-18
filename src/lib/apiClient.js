@@ -1,5 +1,4 @@
-// API client used by the public forms, the public catalog reads, and the
-// admin product studio.
+// API client used by the public catalog reads and the admin product studio.
 //
 // It calls the real serverless endpoints first. If the API is unreachable
 // (plain `vite dev` / `vite preview` with no functions runtime), it falls
@@ -7,12 +6,6 @@
 // Both paths return the same shape: { status, body }.
 
 import { demoAdapter } from './demoAdapter.js';
-
-const FORM_PATHS = {
-  contact: '/api/forms/contact',
-  transfer: '/api/forms/transfer',
-  email_signup: '/api/forms/email-signup',
-};
 
 async function callApi(path, options) {
   const res = await fetch(path, options);
@@ -33,20 +26,6 @@ function authHeaders(token, json = true) {
     ...(json ? { 'Content-Type': 'application/json' } : {}),
     Authorization: `Bearer ${token}`,
   };
-}
-
-// ---- Public forms (validated server-side, forwarded to the owner's email) ----
-
-export async function submitLead(type, input) {
-  try {
-    return await callApi(FORM_PATHS[type], {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-  } catch {
-    return demoAdapter.submitLead(type, input);
-  }
 }
 
 // ---- Admin auth ----

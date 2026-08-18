@@ -29,9 +29,9 @@ export const BUSINESS = {
     encodeURIComponent('10 S. 3rd Street, Unit 5, Oxford, PA 19363'),
 };
 
-// Confirmed owner email: Web3Forms destination for the public forms.
-// Public DISPLAY of an email on the Contact page is a separate owner
-// choice (see PLACEHOLDERS.email).
+// Confirmed owner email, kept on file for internal reference. The public
+// site takes calls, not messages: there are no contact forms and no email
+// is displayed unless the owner asks for one (see PLACEHOLDERS.email).
 export const OWNER_EMAIL = 'sandsammozone@gmail.com';
 
 // ---------- Unconfirmed facts: labeled placeholders only ----------
@@ -58,6 +58,33 @@ export const LOGO_ASSETS = {
   sealAlt: '/brand/seal-rifle-badge.web.webp', // large feature graphic only
   pattern: '/brand/pattern-rifles.web.webp', // large backgrounds only
 };
+
+// ---------- Store photography (Rob-supplied; see public/photos/) ----------
+//
+// Real photos of the shop, kept apart from the logo marks above. Drop the
+// files into public/photos/ using EXACTLY these names and they appear on the
+// site automatically. Until a file exists, its slot shows a labeled
+// placeholder (see components/Slot.jsx), never a broken image.
+//
+// Names and formats: lowercase, hyphenated, .jpg (photographs compress best
+// as JPEG). Landscape orientation, at least ~1600px on the long edge.
+
+export const PHOTOS = {
+  // Exterior / storefront, used on the About page.
+  storefront: '/photos/storefront.jpg',
+};
+
+// "Inside the Shop" gallery on the home page. Each caption doubles as the
+// image alt text, so describe what the photo shows. Add or remove rows to
+// match the photos you have; drop the matching files in public/photos/.
+export const SHOP_GALLERY = [
+  { src: '/photos/sales-floor.jpg', caption: 'Inside the shop in Oxford, PA' },
+  { src: '/photos/handgun-case.jpg', caption: 'Handguns in the display case' },
+  { src: '/photos/long-gun-wall.jpg', caption: 'Rifles and shotguns on the wall' },
+  { src: '/photos/ammo-shelves.jpg', caption: 'Ammunition on the shelves' },
+  { src: '/photos/optics-accessories.jpg', caption: 'Optics and accessories' },
+  { src: '/photos/counter.jpg', caption: 'The counter at S&S Guns & Ammo' },
+];
 
 // ---------- Page titles, descriptions, and ledes ----------
 
@@ -224,15 +251,15 @@ export const CONFIRMED_SERVICES = SERVICES.filter((s) => s.confirmed);
 export const TRANSFERS_INTRO = {
   // LEGAL REVIEW REQUIRED before publish
   heading: 'Firearm Transfers',
-  body: 'If you purchased a firearm online or from out of state, it can be shipped to a licensed dealer for transfer. Call the shop for current transfer details, or send an inquiry below and we will follow up.',
+  body: 'If you purchased a firearm online or from out of state, it can be shipped to a licensed dealer for transfer. Call the shop and we will walk you through the current transfer details.',
 };
 
 // LEGAL REVIEW REQUIRED before publish
 export const TRANSFER_STEPS = [
   {
     id: 'contact',
-    title: 'Get in touch first',
-    body: 'Call the shop or send an inquiry so we know a transfer is headed our way and can walk you through the details.',
+    title: 'Call the shop first',
+    body: 'Call so we know a transfer is headed our way and can walk you through the details before anything ships.',
   },
   {
     id: 'ship',
@@ -267,6 +294,11 @@ export const FAQ_ITEMS = [
     answer: `Call the shop at ${BUSINESS.phoneDisplay} for current transfer pricing and details.`,
   },
   {
+    id: 'how-to-reach',
+    question: 'How do I reach the shop about a transfer?',
+    answer: `Call ${BUSINESS.phoneDisplay} and talk to a person. There is no form to fill out; a quick call is the fastest way to get a transfer started.`,
+  },
+  {
     id: 'what-to-bring',
     // LEGAL REVIEW REQUIRED before publish
     question: 'What do I need to bring?',
@@ -288,10 +320,3 @@ export const FAQ_ITEMS = [
       'Sellers typically need the receiving dealer’s license information before shipping. Call the shop and we will handle that step with your seller.',
   },
 ];
-
-// Message shown by the public forms until WEB3FORMS_ACCESS_KEY is set,
-// and by the in-browser demo (which has nothing to forward to).
-export const FORM_SETUP_MESSAGE = `This form is still being set up. Please call the shop at ${BUSINESS.phoneDisplay}.`;
-
-// Generic form failure fallback.
-export const FORM_FAILURE_MESSAGE = `Something went wrong. Please try again or call the shop at ${BUSINESS.phoneDisplay}.`;

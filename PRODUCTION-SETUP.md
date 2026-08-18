@@ -3,7 +3,11 @@
 How to promote the demo-mode backends to production. Nothing here is
 required to run locally: with zero env vars the site uses the dev/demo
 implementations (JSON-file catalog with DEMO seeds, data-URL images,
-demo admin password, "form is being set up" answers on the public forms).
+demo admin password).
+
+The public site is phone-first: there are no contact forms and no
+message backend to configure. Every "get in touch" action is a
+click-to-call link, so there is nothing to set up for contact.
 
 ## Environment variables (Vercel project settings)
 
@@ -13,9 +17,8 @@ demo admin password, "form is being set up" answers on the public forms).
 | `ADMIN_SESSION_SECRET` | Random secret that signs admin session tokens | Secret derived from the admin password (demo grade) |
 | `DATABASE_URL` | Postgres connection string for the catalog store | Dev JSON file store (`.data/catalog-dev.json`), in-memory on read-only filesystems |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for photo storage | Photos stored as small data URLs inside the records |
-| `WEB3FORMS_ACCESS_KEY` | Web3Forms key; public forms forward to the owner's email | Forms answer 503 with a "form is being set up" message |
 
-Set all five for a real deployment. Redeploy after changing any of them.
+Set all four for a real deployment. Redeploy after changing any of them.
 
 Copy-paste with the Vercel CLI (or paste the same values into Project
 Settings, Environment Variables, in the dashboard):
@@ -29,7 +32,6 @@ vercel env add ADMIN_PASSWORD production
 vercel env add ADMIN_SESSION_SECRET production
 vercel env add DATABASE_URL production
 vercel env add BLOB_READ_WRITE_TOKEN production
-vercel env add WEB3FORMS_ACCESS_KEY production
 vercel --prod   # redeploy so the new env takes effect
 ```
 
@@ -42,16 +44,16 @@ Postgres path, or if the build did not emit robots.txt, sitemap.xml,
 and the web manifest. It also lists every `[[...]]` owner-confirmation
 placeholder still in `src/content/siteFacts.js`.
 
-## Public forms (Web3Forms)
+## Store photos
 
-- Contact, transfer inquiry, and email signup validate server-side
-  (shared/validation.js), drop honeypot hits silently, and forward to
-  https://api.web3forms.com/submit with the env key. Nothing is stored
-  server-side.
-- Setup: create a free access key at https://web3forms.com using the
-  confirmed owner email sandsammozone@gmail.com, set
-  `WEB3FORMS_ACCESS_KEY`, redeploy, send a test through each form.
-- The key never ships to the browser; it lives only in the env var.
+- Real store photography lives in `public/photos/` (separate from the
+  logo marks in `public/brand/`). See `public/photos/README.md` for the
+  exact file names the site looks for.
+- Dropping a correctly named `.jpg` into that folder makes it appear on
+  the site with no code change. Missing files show a labeled placeholder,
+  never a broken image.
+- The gallery list and captions live in `src/content/siteFacts.js`
+  (`SHOP_GALLERY` and `PHOTOS`).
 
 ## Admin auth
 

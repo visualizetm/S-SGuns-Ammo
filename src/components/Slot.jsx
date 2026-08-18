@@ -3,6 +3,13 @@
 // a dashed frame with an uppercase label. When an asset path is provided it
 // renders the image at the reserved size (lazy by default, since slots are
 // mostly below the fold).
+//
+// If the image path is set but the file is not there yet (a 404), the slot
+// falls back to the labeled placeholder instead of a broken-image icon. So
+// a photo path can be wired in now and the picture simply appears the moment
+// the correctly named file lands in public/.
+
+import { useState } from 'react';
 
 export function Slot({
   label,
@@ -13,13 +20,17 @@ export function Slot({
   eager = false,
   fit = 'cover',
 }) {
+  const [broken, setBroken] = useState(false);
+  const showImage = src && !broken;
+
   return (
     <div className={`slot ${className}`.trim()} style={{ aspectRatio: ratio }}>
-      {src ? (
+      {showImage ? (
         <img
           src={src}
           alt={alt}
           loading={eager ? 'eager' : 'lazy'}
+          onError={() => setBroken(true)}
           style={{ width: '100%', height: '100%', objectFit: fit }}
         />
       ) : (

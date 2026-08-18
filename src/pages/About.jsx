@@ -10,6 +10,7 @@ import {
   PLACEHOLDERS,
   SHOP_VALUES,
   LOGO_ASSETS,
+  PHOTOS,
   ABOUT_COPY,
   PAGE_META,
 } from '../content/siteFacts.js';
@@ -78,7 +79,9 @@ export function About() {
           </div>
           <div className="ab-story-media reveal-right">
             <Slot
-              label="Owner or storefront photo slot. Rob supplies photography."
+              src={PHOTOS.storefront}
+              alt={`The storefront of ${BUSINESS.name} in ${BUSINESS.address.city}, ${BUSINESS.address.state}`}
+              label="Storefront photo. Drop storefront.jpg in public/photos/."
               ratio="4 / 5"
             />
           </div>

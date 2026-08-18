@@ -5,12 +5,6 @@
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
 import {
-  validateContactLead,
-  validateTransferLead,
-  validateEmailSignupLead,
-  isSpam,
-} from '../shared/validation.js';
-import {
   validateProduct,
   validateCollection,
   validateBundle,
@@ -24,9 +18,6 @@ import {
   askAboutMessage,
 } from '../src/lib/catalogView.js';
 import { verifyToken } from '../api/_lib/auth.js';
-import contactHandler from '../api/forms/contact.js';
-import transferHandler from '../api/forms/transfer.js';
-import emailSignupHandler from '../api/forms/email-signup.js';
 import loginHandler from '../api/admin/login.js';
 import inventoryHandler from '../api/inventory/index.js';
 import adminProductsHandler from '../api/admin/products.js';
@@ -75,51 +66,6 @@ async function call(handler, reqOptions) {
   await handler(mockReq(reqOptions), res);
   return res;
 }
-
-// ---- form validation (unchanged from the leads era) ----
-
-ok('contact: valid input passes and is normalized', () => {
-  const r = validateContactLead({
-    name: '  Jane Doe  ',
-    email: 'JANE@Example.com',
-    phone: '',
-    message: 'Do you carry small-gauge shells?',
-  });
-  assert.equal(r.ok, true);
-  assert.equal(r.data.name, 'Jane Doe');
-  assert.equal(r.data.email, 'jane@example.com');
-});
-
-ok('contact: missing fields produce per-field errors', () => {
-  const r = validateContactLead({ name: '', email: 'nope', message: '' });
-  assert.equal(r.ok, false);
-  assert.ok(r.errors.name);
-  assert.ok(r.errors.email);
-  assert.ok(r.errors.message);
-});
-
-ok('transfer: requires item description', () => {
-  const r = validateTransferLead({
-    name: 'A B',
-    phone: '6105551234',
-    email: 'a@b.co',
-    itemDescription: '',
-  });
-  assert.equal(r.ok, false);
-  assert.ok(r.errors.itemDescription);
-});
-
-ok('email signup: name and email required', () => {
-  const r = validateEmailSignupLead({ name: '', email: '' });
-  assert.equal(r.ok, false);
-  assert.ok(r.errors.name);
-  assert.ok(r.errors.email);
-});
-
-ok('honeypot: filled company field flags spam', () => {
-  assert.equal(isSpam({ company: 'bot inc' }), true);
-  assert.equal(isSpam({ company: '' }), false);
-});
 
 // ---- catalog validation ----
 
@@ -204,53 +150,6 @@ await (async () => {
   ok('admin login: demo password returns valid signed token', () => {});
 
   const auth = { authorization: `Bearer ${token}` };
-
-  // ---- public forms -> Web3Forms ----
-
-  res = await call(contactHandler, { body: { company: 'bot' } });
-  assert.equal(res.statusCode, 200);
-  ok('forms: honeypot answers success and forwards nothing', () => {});
-
-  res = await call(contactHandler, { body: { name: '', email: 'x', message: '' } });
-  assert.equal(res.statusCode, 422);
-  ok('forms: invalid input returns 422 with field errors', () => {});
-
-  delete process.env.WEB3FORMS_ACCESS_KEY;
-  res = await call(contactHandler, {
-    body: { name: 'Jane', email: 'j@x.co', message: 'Hello there' },
-  });
-  assert.equal(res.statusCode, 503);
-  assert.equal(res.body.setup, true);
-  ok('forms: no access key returns graceful 503 setup message', () => {});
-
-  process.env.WEB3FORMS_ACCESS_KEY = 'test-key-123';
-  const originalFetch = globalThis.fetch;
-  let captured = null;
-  globalThis.fetch = async (url, options) => {
-    captured = { url, body: JSON.parse(options.body) };
-    return { ok: true, json: async () => ({ success: true }) };
-  };
-  res = await call(transferHandler, {
-    body: {
-      name: 'Jane',
-      phone: '6105551234',
-      email: 'j@x.co',
-      itemDescription: 'DEMO rifle from an online seller',
-    },
-  });
-  globalThis.fetch = originalFetch;
-  delete process.env.WEB3FORMS_ACCESS_KEY;
-  assert.equal(res.statusCode, 201);
-  assert.equal(captured.url, 'https://api.web3forms.com/submit');
-  assert.equal(captured.body.access_key, 'test-key-123');
-  assert.equal(captured.body.form_type, 'transfer');
-  assert.ok(captured.body.subject.includes('transfer'));
-  assert.equal(captured.body.name, 'Jane');
-  ok('forms: with key, submission hits Web3Forms with the right shape', () => {});
-
-  res = await call(emailSignupHandler, { method: 'GET' });
-  assert.equal(res.statusCode, 405);
-  ok('forms: unsupported method returns 405', () => {});
 
   // ---- public catalog read: published snapshot only ----
 

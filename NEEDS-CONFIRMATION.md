@@ -3,14 +3,14 @@
 Nothing below may be published as fact until the owner confirms it. Each
 item renders as a labeled placeholder (or intentionally neutral copy) in the
 build. Confirmed facts already hardcoded: business name (S&S Guns & Ammo),
-address (10 S. 3rd Street, Unit 5, Oxford, PA 19363), phone ((610) 467-0284), owner email for form delivery (sandsammozone@gmail.com).
+address (10 S. 3rd Street, Unit 5, Oxford, PA 19363), phone ((610) 467-0284), owner email on file (sandsammozone@gmail.com; not shown publicly, the site is phone-first).
 
 ## Placeholders currently rendered on the site
 
 | Item | Where it renders | Placeholder |
 | --- | --- | --- |
 | Business hours | Home visit block, Contact, footer | `[[HOURS - confirm with owner]]` |
-| Shop email address | Contact | `[[EMAIL ADDRESS - confirm with owner]]` |
+| Shop email address | Not shown (phone-first; kept in siteFacts if the owner ever wants it displayed) | `[[EMAIL ADDRESS - confirm with owner]]` |
 | Owner names | About | `[[OWNER NAMES - confirm with owner]]` |
 | Founding year | About | `[[FOUNDING YEAR - confirm with owner]]` |
 | Family story | About | `[[FAMILY STORY - confirm with owner]]` |
@@ -37,8 +37,10 @@ be swapped in later for extra sharpness if Rob ever has them.
 
 ## Assets Rob must still supply (labeled slots render until then)
 
-- Photography: owner or storefront photo (About), map image or embed
-  (Home visit block, Contact).
+- Store photography: drop `.jpg` files into `public/photos/` using the
+  names in `public/photos/README.md`. Storefront photo (About) and the
+  "Inside the Shop" gallery (Home) fill in automatically as files land.
+- Map image or embed (Home visit block, Contact).
 
 ## Unconfirmed facts (do not fabricate)
 
@@ -87,16 +89,14 @@ answered with "Call the shop" language pending owner and counsel review.
 - Condition values (New, Used) and stock statuses (In Stock, Low Stock,
   Sold, Hidden) are drafts to confirm with the owner.
 
-## Owner email for form delivery (CONFIRMED)
+## Owner email (CONFIRMED, kept on file)
 
-- Confirmed owner email: sandsammozone@gmail.com. This is the Web3Forms
-  destination: create the access key with this address and set
-  `WEB3FORMS_ACCESS_KEY` (see PRODUCTION-SETUP.md). Until the key is set,
-  the forms show a "form is being set up" message and deliver nothing.
-- Whether this address should also DISPLAY publicly on the Contact page
-  is a separate choice; the public email line still renders the
-  `[[EMAIL ADDRESS - confirm with owner]]` placeholder until the owner
-  decides.
+- Confirmed owner email: sandsammozone@gmail.com, kept for internal
+  reference only. The public site is phone-first: there are no contact
+  forms, so this address is not used for message delivery.
+- Whether this address should DISPLAY publicly on the Contact page is a
+  separate owner choice. It currently does not display; the site directs
+  everyone to call.
 
 ## Demo-mode items to revisit at production
 
@@ -104,5 +104,3 @@ answered with "Call the shop" language pending owner and counsel review.
   PRODUCTION-SETUP.md for the Postgres and Vercel Blob promotion steps.
 - Admin gate uses a documented demo password (see README); set
   `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET` in Vercel before launch.
-- Set `WEB3FORMS_ACCESS_KEY` so the public forms deliver to the owner's
-  inbox instead of showing the setup message.
