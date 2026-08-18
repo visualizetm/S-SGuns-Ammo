@@ -8,15 +8,16 @@ import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
-import { BUSINESS } from '../data/business.js';
+import { TransferInquiryForm } from '../components/forms/TransferInquiryForm.jsx';
+import { usePageMeta } from '../lib/usePageMeta.js';
 import {
+  BUSINESS,
   TRANSFERS_INTRO,
   TRANSFER_STEPS,
   WHAT_TO_BRING,
   FAQ_ITEMS,
-} from '../data/transfersFaq.js';
-import { TransferInquiryForm } from '../components/forms/TransferInquiryForm.jsx';
-import { usePageMeta } from '../lib/usePageMeta.js';
+  PAGE_META,
+} from '../content/siteFacts.js';
 
 // Accessible disclosure accordion: real buttons with aria-expanded, panels
 // hidden with the hidden attribute. More consistent across browsers than
@@ -76,10 +77,7 @@ function FaqAccordion() {
 }
 
 export function TransfersFaq() {
-  usePageMeta(
-    'Transfers & FAQ',
-    'How firearm transfers work at S&S Guns & Ammo in Oxford, PA. Call (610) 467-0284 for current transfer details.'
-  );
+  usePageMeta(PAGE_META.transfers.title, PAGE_META.transfers.description);
 
   return (
     <>

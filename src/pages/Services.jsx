@@ -5,18 +5,16 @@
 import { Link } from 'react-router-dom';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
-import { BUSINESS } from '../data/business.js';
+import { usePageMeta } from '../lib/usePageMeta.js';
 import {
+  BUSINESS,
   CONFIRMED_SERVICES,
   SERVICES_CONFIRMATION_NOTE,
-} from '../data/services.js';
-import { usePageMeta } from '../lib/usePageMeta.js';
+  PAGE_META,
+} from '../content/siteFacts.js';
 
 export function Services() {
-  usePageMeta(
-    'Services',
-    'What S&S Guns & Ammo offers at the shop in Oxford, PA. Call (610) 467-0284 with questions or to check stock.'
-  );
+  usePageMeta(PAGE_META.services.title, PAGE_META.services.description);
 
   return (
     <>

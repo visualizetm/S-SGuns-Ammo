@@ -3,7 +3,7 @@
 // to the item page; nothing is for sale online.
 
 import { Link } from 'react-router-dom';
-import { LOGO_ASSETS } from '../data/business.js';
+import { LOGO_ASSETS } from '../content/siteFacts.js';
 import { badgesFor } from '../lib/catalogView.js';
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });

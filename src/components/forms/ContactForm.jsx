@@ -1,6 +1,6 @@
 import { useLeadForm, FORM_STATUS } from './useLeadForm.js';
 import { FormField, FormErrorSummary, HoneypotField } from './FormField.jsx';
-import { BUSINESS } from '../../data/business.js';
+import { BUSINESS } from '../../content/siteFacts.js';
 
 const BLANK = { name: '', email: '', phone: '', message: '', company: '' };
 

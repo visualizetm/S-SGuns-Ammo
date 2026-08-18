@@ -7,6 +7,10 @@
 // trusted, and the honeypot silently drops bot submissions.
 
 import { validateLead, isSpam } from '../../shared/validation.js';
+import {
+  BUSINESS,
+  FORM_SETUP_MESSAGE as SETUP_MESSAGE,
+} from '../../src/content/siteFacts.js';
 import { readJsonBody, sendJson, methodNotAllowed } from './http.js';
 
 const WEB3FORMS_URL = 'https://api.web3forms.com/submit';
@@ -16,9 +20,6 @@ const SUBJECTS = {
   transfer: 'S&S website: transfer inquiry',
   email_signup: 'S&S website: email updates signup',
 };
-
-const SETUP_MESSAGE =
-  'This form is still being set up. Please call the shop at (610) 467-0284.';
 
 export function createFormEndpoint(type) {
   return async function handler(req, res) {
@@ -70,13 +71,13 @@ export function createFormEndpoint(type) {
       return sendJson(res, 502, {
         ok: false,
         error:
-          'Your message could not be sent right now. Please call the shop at (610) 467-0284.',
+          `Your message could not be sent right now. Please call the shop at ${BUSINESS.phoneDisplay}.`,
       });
     } catch {
       return sendJson(res, 502, {
         ok: false,
         error:
-          'Your message could not be sent right now. Please call the shop at (610) 467-0284.',
+          `Your message could not be sent right now. Please call the shop at ${BUSINESS.phoneDisplay}.`,
       });
     }
   };

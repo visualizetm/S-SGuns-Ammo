@@ -8,7 +8,7 @@ import { Link, useParams } from 'react-router-dom';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
-import { BUSINESS, LOGO_ASSETS } from '../data/business.js';
+import { BUSINESS, LOGO_ASSETS } from '../content/siteFacts.js';
 import { publicGetItem } from '../lib/apiClient.js';
 import { badgesFor } from '../lib/catalogView.js';
 import { usePageMeta } from '../lib/usePageMeta.js';
@@ -56,9 +56,9 @@ function ItemView({ item }) {
   usePageMeta(
     item.name,
     `${item.name}: ${item.condition} ${item.manufacturer} ${item.model}` +
-      `${item.caliber ? `, ${item.caliber}` : ''}, ${USD.format(item.price)} at S&S Guns & Ammo in Oxford, PA. Call (610) 467-0284.`,
+      `${item.caliber ? `, ${item.caliber}` : ''}, ${USD.format(item.price)} at ${BUSINESS.name} in ${BUSINESS.address.city}, ${BUSINESS.address.state}. Call ${BUSINESS.phoneDisplay}.`,
     {
-      title: `${item.name} | S&S Guns & Ammo`,
+      title: `${item.name} | ${BUSINESS.name}`,
       image: photos[0]?.url || undefined,
     }
   );

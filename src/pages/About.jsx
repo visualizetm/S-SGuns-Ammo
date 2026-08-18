@@ -10,15 +10,14 @@ import {
   PLACEHOLDERS,
   SHOP_VALUES,
   LOGO_ASSETS,
-} from '../data/business.js';
+  ABOUT_COPY,
+  PAGE_META,
+} from '../content/siteFacts.js';
 import { Slot } from '../components/Slot.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 
 export function About() {
-  usePageMeta(
-    'About',
-    'S&S Guns & Ammo is a family-owned firearms and ammunition shop in Oxford, Pennsylvania.'
-  );
+  usePageMeta(PAGE_META.about.title, PAGE_META.about.description);
 
   return (
     <>
@@ -29,11 +28,7 @@ export function About() {
           <h1 id="about-heading" className="display ab-title">
             About {BUSINESS.name}
           </h1>
-          <p className="ab-lede">
-            A family-owned shop on S. 3rd Street in Oxford, Pennsylvania,
-            serving local firearm owners, transfer customers and sporting
-            enthusiasts.
-          </p>
+          <p className="ab-lede">{ABOUT_COPY.lede}</p>
         </div>
         <style>{`
           .ab-head {
@@ -187,7 +182,7 @@ export function About() {
             <div className="ab-town-frame">
               <Slot
                 src={LOGO_ASSETS.sealAlt}
-                alt="S&S Guns & Ammo rifle badge seal, Oxford, PA"
+                alt={`${BUSINESS.name} rifle badge seal, Oxford, PA`}
                 ratio="1 / 1"
                 fit="contain"
               />
@@ -198,12 +193,7 @@ export function About() {
             <h2 id="ab-town-heading" className="display section-title">
               A local shop, on purpose
             </h2>
-            <p>
-              The shop sits at {BUSINESS.address.line1} in Oxford,
-              Pennsylvania. If you live or hunt in the area, you are the
-              customer this place was built for. Stop in, call, or send a
-              message and talk to the people who run it.
-            </p>
+            <p>{ABOUT_COPY.community}</p>
             <div className="ab-town-ctas">
               <a href={BUSINESS.phoneHref} className="btn btn-primary">
                 <Phone01 aria-hidden="true" width={18} height={18} />

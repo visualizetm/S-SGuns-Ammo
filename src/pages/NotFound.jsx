@@ -2,7 +2,7 @@
 
 import { Link } from 'react-router-dom';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
-import { BUSINESS } from '../data/business.js';
+import { BUSINESS } from '../content/siteFacts.js';
 import { usePageMeta } from '../lib/usePageMeta.js';
 
 export function NotFound() {

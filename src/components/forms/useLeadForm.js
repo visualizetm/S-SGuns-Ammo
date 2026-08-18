@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { validateLead } from '../../../shared/validation.js';
+import { FORM_FAILURE_MESSAGE } from '../../content/siteFacts.js';
 import { submitLead } from '../../lib/apiClient.js';
 
 export const FORM_STATUS = {
@@ -62,8 +63,7 @@ export function useLeadForm(type, initialValues, idPrefix) {
       return;
     }
     setFailureMessage(
-      body?.error ||
-        'Something went wrong. Please try again or call the shop at (610) 467-0284.'
+      body?.error || FORM_FAILURE_MESSAGE
     );
     setStatus(FORM_STATUS.FAILED);
   }

@@ -10,7 +10,7 @@ import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import Menu02 from '@untitled-ui/icons-react/build/esm/Menu02';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Clock from '@untitled-ui/icons-react/build/esm/Clock';
-import { BUSINESS, PLACEHOLDERS, LOGO_ASSETS } from '../data/business.js';
+import { BUSINESS, PLACEHOLDERS, LOGO_ASSETS } from '../content/siteFacts.js';
 import { useReveal } from '../lib/useReveal.js';
 
 const NAV_ITEMS = [

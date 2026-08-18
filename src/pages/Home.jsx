@@ -12,19 +12,20 @@ import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
 import MessageChatCircle from '@untitled-ui/icons-react/build/esm/MessageChatCircle';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import Clock from '@untitled-ui/icons-react/build/esm/Clock';
+import { publicGetCatalog } from '../lib/apiClient.js';
+import { HOME_COPY, PAGE_META } from '../content/siteFacts.js';
+import { featuredItems } from '../lib/catalogView.js';
+import { ProductCard, ProductCardStyles } from '../components/ProductCard.jsx';
+import { EmailSignupForm } from '../components/forms/EmailSignupForm.jsx';
+import { Slot } from '../components/Slot.jsx';
+import { usePageMeta } from '../lib/usePageMeta.js';
 import {
   BUSINESS,
   PLACEHOLDERS,
   TRUST_POINTS,
   LOGO_ASSETS,
-} from '../data/business.js';
-import { publicGetCatalog } from '../lib/apiClient.js';
-import { featuredItems } from '../lib/catalogView.js';
-import { ProductCard, ProductCardStyles } from '../components/ProductCard.jsx';
-import { CONFIRMED_SERVICES } from '../data/services.js';
-import { EmailSignupForm } from '../components/forms/EmailSignupForm.jsx';
-import { Slot } from '../components/Slot.jsx';
-import { usePageMeta } from '../lib/usePageMeta.js';
+  CONFIRMED_SERVICES,
+} from '../content/siteFacts.js';
 
 const TRUST_ICONS = {
   users: Users01,
@@ -93,10 +94,7 @@ function FeaturedStrip() {
 }
 
 export function Home() {
-  usePageMeta(
-    null,
-    'S&S Guns & Ammo is a family-owned firearms and ammunition shop at 10 S. 3rd Street, Unit 5, Oxford, PA 19363. Call (610) 467-0284.'
-  );
+  usePageMeta(PAGE_META.home.title, PAGE_META.home.description);
 
   return (
     <>
@@ -107,21 +105,16 @@ export function Home() {
             {/* Signature seal: confirmed facts only, typographic, weapon-free.
                 The one rotated element on the site. */}
             <p className="stamp stamp--seal hero-seal">
-              <span>Family Owned</span>
-              <span className="hero-seal-loc">Oxford, Penna.</span>
+              <span>{HOME_COPY.sealLine1}</span>
+              <span className="hero-seal-loc">{HOME_COPY.sealLine2}</span>
             </p>
             <h1 id="home-heading" className="display hero-headline">
-              Local knowledge.
+              {HOME_COPY.headline[0]}
               <br />
-              Straight answers.
+              {HOME_COPY.headline[1]}
             </h1>
-            {/* Supporting line is SERVICE-DEPENDENT: adjust after the owner
-                confirms the exact service list. See NEEDS-CONFIRMATION.md. */}
-            <p className="hero-sub">
-              Family-owned in Oxford, Pennsylvania. Straightforward service for
-              local firearm owners, transfer customers and sporting
-              enthusiasts.
-            </p>
+            {/* Hero sub is SERVICE-DEPENDENT; the copy lives in siteFacts. */}
+            <p className="hero-sub">{HOME_COPY.heroSub}</p>
             <div className="hero-ctas">
               <a href={BUSINESS.phoneHref} className="btn btn-primary">
                 <Phone01 aria-hidden="true" width={18} height={18} />
@@ -144,7 +137,7 @@ export function Home() {
             <div className="hero-art-frame">
               <Slot
                 src={LOGO_ASSETS.seal}
-                alt="S&S Guns & Ammo crossed-rifles seal, Oxford, PA"
+                alt={`${BUSINESS.name} crossed-rifles seal, Oxford, PA`}
                 ratio="1 / 1"
                 fit="contain"
                 eager

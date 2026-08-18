@@ -6,7 +6,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
-import { BUSINESS, LOGO_ASSETS } from '../data/business.js';
+import {
+  BUSINESS,
+  LOGO_ASSETS,
+  PAGE_META,
+} from '../content/siteFacts.js';
 import { publicGetCatalog } from '../lib/apiClient.js';
 import {
   orderProducts,
@@ -59,10 +63,7 @@ function BundleCard({ bundle }) {
 }
 
 export function Inventory() {
-  usePageMeta(
-    'Inventory',
-    'Browse what S&S Guns & Ammo carries in Oxford, PA: firearms, ammunition, optics and package deals. Call (610) 467-0284 to check availability.'
-  );
+  usePageMeta(PAGE_META.inventory.title, PAGE_META.inventory.description);
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

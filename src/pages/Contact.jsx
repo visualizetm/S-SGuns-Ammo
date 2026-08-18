@@ -9,7 +9,12 @@ import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import Clock from '@untitled-ui/icons-react/build/esm/Clock';
 import Building02 from '@untitled-ui/icons-react/build/esm/Building02';
-import { BUSINESS, PLACEHOLDERS, SOCIAL_LINKS } from '../data/business.js';
+import {
+  BUSINESS,
+  PLACEHOLDERS,
+  SOCIAL_LINKS,
+  PAGE_META,
+} from '../content/siteFacts.js';
 import { ContactForm } from '../components/forms/ContactForm.jsx';
 import { askAboutMessage } from '../lib/catalogView.js';
 import { Slot } from '../components/Slot.jsx';
@@ -18,10 +23,7 @@ import { usePageMeta } from '../lib/usePageMeta.js';
 export function Contact() {
   const [searchParams] = useSearchParams();
   const aboutItem = searchParams.get('about') || '';
-  usePageMeta(
-    'Contact & Visit',
-    'Contact S&S Guns & Ammo: 10 S. 3rd Street, Unit 5, Oxford, PA 19363. Call (610) 467-0284 or send a message.'
-  );
+  usePageMeta(PAGE_META.contact.title, PAGE_META.contact.description);
 
   return (
     <>
