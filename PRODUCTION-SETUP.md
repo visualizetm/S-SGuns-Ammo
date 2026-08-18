@@ -64,6 +64,20 @@ Set all five for a real deployment. Redeploy after changing any of them.
 4. Deleting a product does not delete its blobs; prune from the Blob
    dashboard if storage ever matters.
 
+## SEO output (automatic at build)
+
+- `npm run build` runs `scripts/generate-seo.mjs` after vite: it writes
+  `robots.txt` (public routes allowed, `/admin` and `/api` disallowed),
+  `sitemap.xml`, prerendered head metadata for each static public route,
+  and LocalBusiness JSON-LD (confirmed fields only) on the home page.
+- `BASE_URL` lives in `src/content/siteFacts.js`; swap it to the custom
+  domain at launch and redeploy so the sitemap and JSON-LD follow.
+- Documented limitation: item pages (`/inventory/:id`) are
+  client-rendered. Their titles and og tags are set dynamically in the
+  browser, which most modern crawlers execute, but raw-HTML scrapers see
+  the site defaults. Revisit with prerendering or SSR if item-level
+  social previews matter later.
+
 ## Local development
 
 - `node scripts/dev-api.mjs` serves every endpoint on
