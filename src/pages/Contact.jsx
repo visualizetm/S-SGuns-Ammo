@@ -20,7 +20,7 @@ export function Contact() {
   const aboutItem = searchParams.get('about') || '';
   usePageMeta(
     'Contact & Visit',
-    'Contact S&S Guns & Ammo: 10 S. 3rd Street, Unit 5, Oxford, PA 19363. Call (610) 368-6984 or send a message.'
+    'Contact S&S Guns & Ammo: 10 S. 3rd Street, Unit 5, Oxford, PA 19363. Call (610) 467-0284 or send a message.'
   );
 
   return (

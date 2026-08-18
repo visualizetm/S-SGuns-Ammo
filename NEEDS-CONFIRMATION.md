@@ -3,7 +3,7 @@
 Nothing below may be published as fact until the owner confirms it. Each
 item renders as a labeled placeholder (or intentionally neutral copy) in the
 build. Confirmed facts already hardcoded: business name (S&S Guns & Ammo),
-address (10 S. 3rd Street, Unit 5, Oxford, PA 19363), phone ((610) 368-6984).
+address (10 S. 3rd Street, Unit 5, Oxford, PA 19363), phone ((610) 467-0284), owner email for form delivery (sandsammozone@gmail.com).
 
 ## Placeholders currently rendered on the site
 
@@ -87,14 +87,16 @@ answered with "Call the shop" language pending owner and counsel review.
 - Condition values (New, Used) and stock statuses (In Stock, Low Stock,
   Sold, Hidden) are drafts to confirm with the owner.
 
-## Owner email for form delivery (UNCONFIRMED)
+## Owner email for form delivery (CONFIRMED)
 
-- The public forms (contact, transfer inquiry, email signup) forward to
-  the owner's email through Web3Forms; nothing is stored server-side.
-- `[[OWNER DESTINATION EMAIL - confirm with owner]]` is needed to create
-  the Web3Forms access key (`WEB3FORMS_ACCESS_KEY` env var, see
-  PRODUCTION-SETUP.md). Until it is set, the forms show a "form is being
-  set up" message and deliver nothing.
+- Confirmed owner email: sandsammozone@gmail.com. This is the Web3Forms
+  destination: create the access key with this address and set
+  `WEB3FORMS_ACCESS_KEY` (see PRODUCTION-SETUP.md). Until the key is set,
+  the forms show a "form is being set up" message and deliver nothing.
+- Whether this address should also DISPLAY publicly on the Contact page
+  is a separate choice; the public email line still renders the
+  `[[EMAIL ADDRESS - confirm with owner]]` placeholder until the owner
+  decides.
 
 ## Demo-mode items to revisit at production
 

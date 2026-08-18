@@ -54,7 +54,7 @@ export const FAQ_ITEMS = [
     // LEGAL REVIEW REQUIRED before publish
     question: 'What does a transfer cost?',
     answer:
-      'Call the shop at (610) 368-6984 for current transfer pricing and details.',
+      'Call the shop at (610) 467-0284 for current transfer pricing and details.',
   },
   {
     id: 'what-to-bring',

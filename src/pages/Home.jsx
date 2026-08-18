@@ -95,7 +95,7 @@ function FeaturedStrip() {
 export function Home() {
   usePageMeta(
     null,
-    'S&S Guns & Ammo is a family-owned firearms and ammunition shop at 10 S. 3rd Street, Unit 5, Oxford, PA 19363. Call (610) 368-6984.'
+    'S&S Guns & Ammo is a family-owned firearms and ammunition shop at 10 S. 3rd Street, Unit 5, Oxford, PA 19363. Call (610) 467-0284.'
   );
 
   return (

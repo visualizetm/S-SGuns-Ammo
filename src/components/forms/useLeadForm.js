@@ -63,7 +63,7 @@ export function useLeadForm(type, initialValues, idPrefix) {
     }
     setFailureMessage(
       body?.error ||
-        'Something went wrong. Please try again or call the shop at (610) 368-6984.'
+        'Something went wrong. Please try again or call the shop at (610) 467-0284.'
     );
     setStatus(FORM_STATUS.FAILED);
   }

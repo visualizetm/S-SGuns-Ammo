@@ -78,7 +78,7 @@ function FaqAccordion() {
 export function TransfersFaq() {
   usePageMeta(
     'Transfers & FAQ',
-    'How firearm transfers work at S&S Guns & Ammo in Oxford, PA. Call (610) 368-6984 for current transfer details.'
+    'How firearm transfers work at S&S Guns & Ammo in Oxford, PA. Call (610) 467-0284 for current transfer details.'
   );
 
   return (

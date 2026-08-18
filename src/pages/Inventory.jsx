@@ -61,7 +61,7 @@ function BundleCard({ bundle }) {
 export function Inventory() {
   usePageMeta(
     'Inventory',
-    'Browse what S&S Guns & Ammo carries in Oxford, PA: firearms, ammunition, optics and package deals. Call (610) 368-6984 to check availability.'
+    'Browse what S&S Guns & Ammo carries in Oxford, PA: firearms, ammunition, optics and package deals. Call (610) 467-0284 to check availability.'
   );
 
   const [data, setData] = useState(null);

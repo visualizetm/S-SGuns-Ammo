@@ -2,7 +2,7 @@
 
 Informational website for S&S Guns & Ammo, a family-owned firearms and
 ammunition shop at 10 S. 3rd Street, Unit 5, Oxford, PA 19363.
-Phone: (610) 368-6984.
+Phone: (610) 467-0284.
 
 Informational only. No e-commerce, no cart, no checkout, and no online
 payments, by design. The catalog displays products and prices (public

@@ -18,7 +18,7 @@ const SUBJECTS = {
 };
 
 const SETUP_MESSAGE =
-  'This form is still being set up. Please call the shop at (610) 368-6984.';
+  'This form is still being set up. Please call the shop at (610) 467-0284.';
 
 export function createFormEndpoint(type) {
   return async function handler(req, res) {
@@ -70,13 +70,13 @@ export function createFormEndpoint(type) {
       return sendJson(res, 502, {
         ok: false,
         error:
-          'Your message could not be sent right now. Please call the shop at (610) 368-6984.',
+          'Your message could not be sent right now. Please call the shop at (610) 467-0284.',
       });
     } catch {
       return sendJson(res, 502, {
         ok: false,
         error:
-          'Your message could not be sent right now. Please call the shop at (610) 368-6984.',
+          'Your message could not be sent right now. Please call the shop at (610) 467-0284.',
       });
     }
   };

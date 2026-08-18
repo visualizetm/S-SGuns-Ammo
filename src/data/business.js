@@ -10,8 +10,8 @@ export const BUSINESS = {
     state: 'PA',
     zip: '19363',
   },
-  phoneDisplay: '(610) 368-6984',
-  phoneHref: 'tel:+16103686984',
+  phoneDisplay: '(610) 467-0284',
+  phoneHref: 'tel:+16104670284',
   directionsUrl:
     'https://www.google.com/maps/search/?api=1&query=' +
     encodeURIComponent('10 S. 3rd Street, Unit 5, Oxford, PA 19363'),

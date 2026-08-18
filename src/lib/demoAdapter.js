@@ -45,7 +45,7 @@ const DEMO_PASSWORD = 'oxford-demo';
 const DEMO_TOKEN = 'demo-local-token';
 
 const SETUP_MESSAGE =
-  'This form is still being set up. Please call the shop at (610) 368-6984.';
+  'This form is still being set up. Please call the shop at (610) 467-0284.';
 
 function loadCatalog() {
   try {

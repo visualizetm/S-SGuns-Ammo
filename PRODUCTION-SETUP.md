@@ -24,8 +24,8 @@ Set all five for a real deployment. Redeploy after changing any of them.
   https://api.web3forms.com/submit with the env key. Nothing is stored
   server-side.
 - Setup: create a free access key at https://web3forms.com using the
-  owner's destination email (UNCONFIRMED, see NEEDS-CONFIRMATION.md),
-  set `WEB3FORMS_ACCESS_KEY`, redeploy, send a test through each form.
+  confirmed owner email sandsammozone@gmail.com, set
+  `WEB3FORMS_ACCESS_KEY`, redeploy, send a test through each form.
 - The key never ships to the browser; it lives only in the env var.
 
 ## Admin auth

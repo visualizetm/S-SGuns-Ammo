@@ -56,7 +56,7 @@ function ItemView({ item }) {
   usePageMeta(
     item.name,
     `${item.name}: ${item.condition} ${item.manufacturer} ${item.model}` +
-      `${item.caliber ? `, ${item.caliber}` : ''}, ${USD.format(item.price)} at S&S Guns & Ammo in Oxford, PA. Call (610) 368-6984.`,
+      `${item.caliber ? `, ${item.caliber}` : ''}, ${USD.format(item.price)} at S&S Guns & Ammo in Oxford, PA. Call (610) 467-0284.`,
     {
       title: `${item.name} | S&S Guns & Ammo`,
       image: photos[0]?.url || undefined,

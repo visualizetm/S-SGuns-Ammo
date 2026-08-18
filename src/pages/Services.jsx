@@ -15,7 +15,7 @@ import { usePageMeta } from '../lib/usePageMeta.js';
 export function Services() {
   usePageMeta(
     'Services',
-    'What S&S Guns & Ammo offers at the shop in Oxford, PA. Call (610) 368-6984 with questions or to check stock.'
+    'What S&S Guns & Ammo offers at the shop in Oxford, PA. Call (610) 467-0284 with questions or to check stock.'
   );
 
   return (
