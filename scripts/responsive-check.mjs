@@ -14,7 +14,7 @@ const ROUTES = ['/', '/about', '/services', '/transfers', '/contact', '/admin', 
 // Admin screens behind the login gate: audited in a second context that
 // pre-seeds the demo session token, so the dashboard renders through the
 // in-browser demo adapter (vite preview has no serverless functions).
-const AUTH_ROUTES = ['/admin?tab=leads', '/admin?tab=inventory'];
+const AUTH_ROUTES = ['/admin', '/admin?tab=collections', '/admin?tab=bundles', '/admin?tab=bulk'];
 const AUTH_INIT = `
   sessionStorage.setItem('ssga-admin-token', 'demo-local-token');
 `;

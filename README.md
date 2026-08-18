@@ -4,9 +4,11 @@ Informational website for S&S Guns & Ammo, a family-owned firearms and
 ammunition shop at 10 S. 3rd Street, Unit 5, Oxford, PA 19363.
 Phone: (610) 368-6984.
 
-Informational only. No e-commerce, no cart, no checkout, no online payments,
-and no firearm price listings, by design. See `NEEDS-CONFIRMATION.md` for
-every fact that still needs owner confirmation before publish.
+Informational only. No e-commerce, no cart, no checkout, and no online
+payments, by design. The catalog displays products and prices (public
+pricing approved by the owner) with "call the shop" as the only next
+step. See `NEEDS-CONFIRMATION.md` for every fact that still needs owner
+confirmation before publish.
 
 ## Stack
 
@@ -48,20 +50,15 @@ npm run responsive-check  # headless responsive / no-overlap checks
 
 ## Demo mode, and how it promotes to production
 
-All three forms and the admin dashboard call the serverless endpoints
-first. When those are unreachable (plain `vite dev` / `vite preview`), the
-client falls back to an in-browser demo adapter (`src/lib/demoAdapter.js`)
-with the same shared validation, the same seeded leads, and the same
-response shapes, persisted in localStorage. So the demo is fully
-interactive anywhere, and on Vercel the real API handles everything.
-
-The server stores leads through a data adapter interface
-(`api/_lib/adapter.js`). Demo mode uses an in-memory adapter seeded from
-`shared/seeds.js` (state resets on serverless cold starts; that is expected
-for the demo). To promote to production, implement the same four methods
-(`createLead`, `listLeads`, `setLeadRead`, `getLead`) against a real
-database and return that adapter from `getLeadsAdapter()`. No endpoint code
-changes.
+The public forms and the admin call the serverless endpoints first. When
+those are unreachable (plain `vite dev` / `vite preview`), the client
+falls back to an in-browser demo adapter (`src/lib/demoAdapter.js`). The
+demo catalog mirrors the server exactly because both wrap the same pure
+draft/publish operations (`shared/catalogStore.js`), persisted in
+localStorage; the forms answer with the honest "being set up" message
+since there is nothing to forward to. On Vercel the real API handles
+everything; the promotion path to Postgres, Vercel Blob, and Web3Forms
+is in `PRODUCTION-SETUP.md`.
 
 ## API
 
@@ -71,20 +68,23 @@ changes.
 | `/api/leads/transfer` | POST | Transfer inquiry form |
 | `/api/leads/email-signup` | POST | Email capture |
 | `/api/admin/login` | POST | Admin login, returns signed expiring bearer token |
-| `/api/admin/leads` | GET | List leads, optional `?type=` filter (auth) |
-| `/api/admin/leads` | PATCH | Mark lead read/unread (auth) |
-| `/api/inventory` | GET | Public inventory, Hidden excluded, `?category=&q=` |
-| `/api/admin/inventory` | GET | All inventory including Hidden (auth) |
-| `/api/admin/inventory` | POST | Create item (auth) |
-| `/api/admin/inventory` | PATCH | Update item fields by `id` (auth) |
-| `/api/admin/inventory` | DELETE | Delete item by `id` (auth) |
-| `/api/admin/inventory-image` | POST | Upload item photo (auth) |
+| `/api/inventory` | GET | Public catalog: PUBLISHED products and collections only, `?collection=&q=` |
+| `/api/admin/products` | GET POST PATCH DELETE | Product drafts: list, save, restore, delete (auth) |
+| `/api/admin/collections` | GET POST PATCH DELETE | Collection drafts, plus `{order:[ids]}` reorder (auth) |
+| `/api/admin/bundles` | GET POST PATCH DELETE | Bundle drafts (auth) |
+| `/api/admin/publish` | GET POST | Unpublished-changes summary; publish or discard all (auth) |
+| `/api/admin/products-csv` | GET POST | CSV export / import of product drafts (auth) |
+| `/api/admin/inventory-image` | POST | Upload a photo (auth) |
 
-The inventory store and photo storage sit behind the same swappable
-adapter pattern as leads: zero-credential dev implementations (JSON file
-store, data-URL images) with production Postgres and Vercel Blob
-selected by env vars. See `PRODUCTION-SETUP.md`. Inventory is display
-data only: no cart, no checkout, no purchase flow.
+The catalog is a draft/publish store: every admin edit is a draft, and
+the public read serves only the published snapshot, promoted atomically
+by the Publish bar. Storage sits behind swappable adapters
+(zero-credential JSON file and data-URL images in dev; Postgres and
+Vercel Blob behind env vars in production; see `PRODUCTION-SETUP.md`).
+The public forms store nothing server-side: they validate, drop
+honeypot hits, and forward to the owner's email through Web3Forms.
+Everything is display data only: no cart, no checkout, no purchase
+flow.
 
 Every POST body is validated server-side in `shared/validation.js` (also
 reused client-side for inline errors). Invalid input returns 422 with
@@ -92,7 +92,8 @@ per-field errors. A hidden honeypot field silently drops bot submissions.
 
 ## Admin (demo)
 
-- Visit `/admin`, password: `oxford-demo`
+- Visit `/admin`, password: `oxford-demo`. Tabs: Products, Collections,
+  Bundles, Bulk Editor, with the persistent Publish bar on top.
 - Auth is checked server-side only (`api/_lib/auth.js`); the password never
   appears in a `VITE_` variable or the client bundle. Set `ADMIN_PASSWORD`
   in Vercel project settings to override the demo password.

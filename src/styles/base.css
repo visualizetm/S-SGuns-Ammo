@@ -676,6 +676,17 @@ textarea {
   line-height: 1.5;
 }
 
+/* Checkboxes and radios keep their natural size; the 44px tap area comes
+   from the label that wraps them, not from stretching the control. */
+input[type='checkbox'],
+input[type='radio'] {
+  min-height: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  accent-color: var(--brand);
+}
+
 button {
   font: inherit;
   font-size: 16px;

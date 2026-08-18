@@ -8,9 +8,12 @@ import contactHandler from '../api/leads/contact.js';
 import transferHandler from '../api/leads/transfer.js';
 import emailSignupHandler from '../api/leads/email-signup.js';
 import loginHandler from '../api/admin/login.js';
-import adminLeadsHandler from '../api/admin/leads.js';
 import inventoryHandler from '../api/inventory/index.js';
-import adminInventoryHandler from '../api/admin/inventory.js';
+import adminProductsHandler from '../api/admin/products.js';
+import adminCollectionsHandler from '../api/admin/collections.js';
+import adminBundlesHandler from '../api/admin/bundles.js';
+import adminPublishHandler from '../api/admin/publish.js';
+import adminProductsCsvHandler from '../api/admin/products-csv.js';
 import adminInventoryImageHandler from '../api/admin/inventory-image.js';
 
 const ROUTES = {
@@ -18,9 +21,12 @@ const ROUTES = {
   '/api/leads/transfer': transferHandler,
   '/api/leads/email-signup': emailSignupHandler,
   '/api/admin/login': loginHandler,
-  '/api/admin/leads': adminLeadsHandler,
   '/api/inventory': inventoryHandler,
-  '/api/admin/inventory': adminInventoryHandler,
+  '/api/admin/products': adminProductsHandler,
+  '/api/admin/collections': adminCollectionsHandler,
+  '/api/admin/bundles': adminBundlesHandler,
+  '/api/admin/publish': adminPublishHandler,
+  '/api/admin/products-csv': adminProductsCsvHandler,
   '/api/admin/inventory-image': adminInventoryImageHandler,
 };
 

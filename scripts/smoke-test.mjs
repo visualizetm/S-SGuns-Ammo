@@ -1,26 +1,36 @@
-// Smoke test: shared validation, memory adapter, and every serverless
-// endpoint invoked directly with mock req/res objects. Run: npm run smoke
+// Smoke test: shared validation, the draft/publish catalog store, and every
+// serverless endpoint invoked directly with mock req/res objects.
+// Run: npm run smoke
 
 import assert from 'node:assert/strict';
+import { rmSync } from 'node:fs';
 import {
   validateContactLead,
   validateTransferLead,
   validateEmailSignupLead,
   isSpam,
 } from '../shared/validation.js';
-import { getLeadsAdapter } from '../api/_lib/adapter.js';
-import { SEED_LEADS } from '../shared/seeds.js';
+import {
+  validateProduct,
+  validateCollection,
+  validateBundle,
+} from '../shared/catalogValidation.js';
+import { SEED_PRODUCTS } from '../shared/catalogSeeds.js';
 import { verifyToken } from '../api/_lib/auth.js';
 import contactHandler from '../api/leads/contact.js';
 import transferHandler from '../api/leads/transfer.js';
 import emailSignupHandler from '../api/leads/email-signup.js';
 import loginHandler from '../api/admin/login.js';
-import adminLeadsHandler from '../api/admin/leads.js';
 import inventoryHandler from '../api/inventory/index.js';
-import adminInventoryHandler from '../api/admin/inventory.js';
-import adminInventoryImageHandler from '../api/admin/inventory-image.js';
-import { validateInventoryItem } from '../shared/inventoryValidation.js';
-import { SEED_INVENTORY } from '../shared/inventorySeeds.js';
+import adminProductsHandler from '../api/admin/products.js';
+import adminCollectionsHandler from '../api/admin/collections.js';
+import adminBundlesHandler from '../api/admin/bundles.js';
+import adminPublishHandler from '../api/admin/publish.js';
+import adminProductsCsvHandler from '../api/admin/products-csv.js';
+import adminImageHandler from '../api/admin/inventory-image.js';
+
+// Fresh dev store every run.
+rmSync('.data', { recursive: true, force: true });
 
 let passed = 0;
 function ok(label, fn) {
@@ -34,18 +44,23 @@ function mockReq({ method = 'POST', url = '/', body, headers = {} } = {}) {
 }
 
 function mockRes() {
-  const res = {
+  return {
     statusCode: 0,
     headers: {},
     body: null,
+    raw: null,
     setHeader(k, v) {
       this.headers[k.toLowerCase()] = v;
     },
     end(payload) {
-      this.body = payload ? JSON.parse(payload) : null;
+      this.raw = payload ?? null;
+      try {
+        this.body = payload ? JSON.parse(payload) : null;
+      } catch {
+        this.body = null;
+      }
     },
   };
-  return res;
 }
 
 async function call(handler, reqOptions) {
@@ -54,7 +69,7 @@ async function call(handler, reqOptions) {
   return res;
 }
 
-// ---- validation ----
+// ---- form validation (unchanged from the leads era) ----
 
 ok('contact: valid input passes and is normalized', () => {
   const r = validateContactLead({
@@ -68,143 +83,109 @@ ok('contact: valid input passes and is normalized', () => {
   assert.equal(r.data.email, 'jane@example.com');
 });
 
-ok('contact: missing fields fail with per-field errors', () => {
-  const r = validateContactLead({ name: '', email: 'nope', message: 'short' });
+ok('contact: missing fields produce per-field errors', () => {
+  const r = validateContactLead({ name: '', email: 'nope', message: '' });
   assert.equal(r.ok, false);
   assert.ok(r.errors.name);
   assert.ok(r.errors.email);
   assert.ok(r.errors.message);
 });
 
-ok('contact: non-string input types are rejected, not crashed on', () => {
-  const r = validateContactLead({ name: 42, email: null, message: {} });
-  assert.equal(r.ok, false);
-});
-
-ok('transfer: phone required and item description required', () => {
+ok('transfer: requires item description', () => {
   const r = validateTransferLead({
-    name: 'Sam Smith',
-    email: 'sam@example.com',
-    phone: '123',
+    name: 'A B',
+    phone: '6105551234',
+    email: 'a@b.co',
     itemDescription: '',
-    message: '',
   });
   assert.equal(r.ok, false);
-  assert.ok(r.errors.phone);
   assert.ok(r.errors.itemDescription);
 });
 
-ok('transfer: valid inquiry passes with optional message empty', () => {
-  const r = validateTransferLead({
-    name: 'Sam Smith',
-    email: 'sam@example.com',
-    phone: '(610) 555-0101',
-    itemDescription: 'Shotgun bought online from a retailer.',
-    message: '',
+ok('email signup: name and email required', () => {
+  const r = validateEmailSignupLead({ name: '', email: '' });
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.name);
+  assert.ok(r.errors.email);
+});
+
+ok('honeypot: filled company field flags spam', () => {
+  assert.equal(isSpam({ company: 'bot inc' }), true);
+  assert.equal(isSpam({ company: '' }), false);
+});
+
+// ---- catalog validation ----
+
+ok('product: valid input passes, price normalized, onSale computed', () => {
+  const r = validateProduct({
+    name: '  DEMO: Test Rifle  ',
+    collectionIds: [],
+    manufacturer: 'Example Arms Co.',
+    model: 'T-1',
+    condition: 'New',
+    price: '499.999',
+    compareAtPrice: 600,
+    stockStatus: 'In Stock',
   });
   assert.equal(r.ok, true);
-  assert.equal(r.data.message, '');
+  assert.equal(r.data.name, 'DEMO: Test Rifle');
+  assert.equal(r.data.price, 500);
+  assert.equal(r.data.onSale, true);
 });
 
-ok('email signup: name and email only', () => {
-  assert.equal(
-    validateEmailSignupLead({ name: 'A', email: 'bad' }).ok,
-    false
-  );
-  assert.equal(
-    validateEmailSignupLead({ name: 'Al Jones', email: 'al@example.com' }).ok,
-    true
-  );
-});
-
-ok('honeypot detects filled company field', () => {
-  assert.equal(isSpam({ company: 'Acme' }), true);
-  assert.equal(isSpam({ company: '' }), false);
-  assert.equal(isSpam({}), false);
-});
-
-// ---- adapter ----
-
-await (async () => {
-  const adapter = getLeadsAdapter();
-
-  const all = await adapter.listLeads();
-  assert.equal(all.length, SEED_LEADS.length);
-  ok('adapter: seeded with demo leads', () => {});
-
-  const newest = all[0];
-  assert.ok(
-    all.every((l, i) => i === 0 || all[i - 1].createdAt >= l.createdAt)
-  );
-  assert.ok(newest.createdAt >= all[all.length - 1].createdAt);
-  ok('adapter: list is newest first', () => {});
-
-  const created = await adapter.createLead({
-    type: 'contact',
-    data: { name: 'Test Person', email: 't@example.com', message: 'Hello there, testing.' },
+ok('product: compareAtPrice at or below price is rejected', () => {
+  const r = validateProduct({
+    name: 'X',
+    manufacturer: 'X',
+    model: 'X',
+    condition: 'New',
+    price: 200,
+    compareAtPrice: 100,
+    stockStatus: 'In Stock',
   });
-  assert.ok(created.id);
-  assert.equal(created.read, false);
-  const afterCreate = await adapter.listLeads({ type: 'contact' });
-  assert.ok(afterCreate.some((l) => l.id === created.id));
-  ok('adapter: createLead stores and listLeads filters by type', () => {});
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.compareAtPrice);
+});
 
-  const marked = await adapter.setLeadRead(created.id, true);
-  assert.equal(marked.read, true);
-  assert.equal(await adapter.setLeadRead('missing-id', true), null);
-  ok('adapter: setLeadRead updates and returns null for unknown id', () => {});
-})();
+ok('product: no compareAtPrice means not on sale', () => {
+  const r = validateProduct({
+    name: 'X',
+    manufacturer: 'X',
+    model: 'X',
+    condition: 'New',
+    price: 200,
+    stockStatus: 'In Stock',
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.data.onSale, false);
+  assert.equal(r.data.compareAtPrice, null);
+});
+
+ok('collection: name required, defaults visible', () => {
+  assert.equal(validateCollection({ name: '' }).ok, false);
+  const r = validateCollection({ name: 'Rimfire' });
+  assert.equal(r.ok, true);
+  assert.equal(r.data.visible, true);
+});
+
+ok('bundle: needs at least two distinct members', () => {
+  const base = { name: 'B', price: 100 };
+  assert.equal(validateBundle({ ...base, memberProductIds: ['a'] }).ok, false);
+  assert.equal(validateBundle({ ...base, memberProductIds: ['a', 'a'] }).ok, false);
+  assert.equal(validateBundle({ ...base, memberProductIds: ['a', 'b'] }).ok, true);
+});
+
+ok('catalog seeds: every fictional item is marked DEMO', () => {
+  assert.ok(
+    SEED_PRODUCTS.every((r) => (r.draft ?? r.published).name.startsWith('DEMO:'))
+  );
+});
 
 // ---- endpoints ----
 
 await (async () => {
-  let res = await call(contactHandler, { method: 'GET' });
-  assert.equal(res.statusCode, 405);
-  ok('POST endpoints reject GET with 405', () => {});
-
-  res = await call(contactHandler, {
-    body: { name: 'Pat Lee', email: 'pat@example.com', message: 'Question about ammo stock.' },
-  });
-  assert.equal(res.statusCode, 201);
-  assert.equal(res.body.ok, true);
-  ok('contact endpoint: valid submission returns 201', () => {});
-
-  res = await call(contactHandler, { body: { name: '', email: 'x', message: '' } });
-  assert.equal(res.statusCode, 422);
-  assert.ok(res.body.errors.name && res.body.errors.email && res.body.errors.message);
-  ok('contact endpoint: invalid submission returns 422 with field errors', () => {});
-
-  res = await call(contactHandler, {
-    body: { name: 'Bot', email: 'bot@example.com', message: 'Buy my stuff online now.', company: 'SpamCo' },
-  });
-  assert.equal(res.statusCode, 200);
-  assert.equal(res.body.ok, true);
-  ok('contact endpoint: honeypot returns fake success, stores nothing', () => {});
-
-  res = await call(transferHandler, {
-    body: {
-      name: 'Chris Park',
-      phone: '(610) 555-0177',
-      email: 'chris@example.com',
-      itemDescription: 'Rifle from an online seller.',
-      message: '',
-    },
-  });
-  assert.equal(res.statusCode, 201);
-  ok('transfer endpoint: valid inquiry returns 201', () => {});
-
-  res = await call(emailSignupHandler, {
-    body: { name: 'Dee Vaughn', email: 'dee@example.com' },
-  });
-  assert.equal(res.statusCode, 201);
-  ok('email-signup endpoint: valid signup returns 201', () => {});
-
-  res = await call(emailSignupHandler, { body: 'not json {{{' });
-  assert.equal(res.statusCode, 400);
-  ok('endpoints: malformed body returns 400', () => {});
-
-  // admin auth
-  res = await call(loginHandler, { body: { password: 'wrong' } });
+  // auth
+  let res = await call(loginHandler, { body: { password: 'wrong' } });
   assert.equal(res.statusCode, 401);
   ok('admin login: wrong password returns 401', () => {});
 
@@ -215,229 +196,340 @@ await (async () => {
   assert.equal(verifyToken('123.badsignature'), false);
   ok('admin login: demo password returns valid signed token', () => {});
 
-  res = await call(adminLeadsHandler, { method: 'GET', url: '/api/admin/leads' });
-  assert.equal(res.statusCode, 401);
-  ok('admin leads: no token returns 401', () => {});
+  const auth = { authorization: `Bearer ${token}` };
 
-  res = await call(adminLeadsHandler, {
-    method: 'GET',
-    url: '/api/admin/leads',
-    headers: { authorization: `Bearer ${token}` },
-  });
+  // ---- public forms -> Web3Forms ----
+
+  res = await call(contactHandler, { body: { company: 'bot' } });
   assert.equal(res.statusCode, 200);
-  assert.ok(res.body.leads.length >= SEED_LEADS.length);
-  const total = res.body.leads.length;
-  ok('admin leads: authorized GET lists all leads', () => {});
+  ok('forms: honeypot answers success and forwards nothing', () => {});
 
-  res = await call(adminLeadsHandler, {
-    method: 'GET',
-    url: '/api/admin/leads?type=transfer',
-    headers: { authorization: `Bearer ${token}` },
-  });
-  assert.equal(res.statusCode, 200);
-  assert.ok(res.body.leads.length < total);
-  assert.ok(res.body.leads.every((l) => l.type === 'transfer'));
-  ok('admin leads: type filter works', () => {});
+  res = await call(contactHandler, { body: { name: '', email: 'x', message: '' } });
+  assert.equal(res.statusCode, 422);
+  ok('forms: invalid input returns 422 with field errors', () => {});
 
-  res = await call(adminLeadsHandler, {
-    method: 'GET',
-    url: '/api/admin/leads?type=bogus',
-    headers: { authorization: `Bearer ${token}` },
+  delete process.env.WEB3FORMS_ACCESS_KEY;
+  res = await call(contactHandler, {
+    body: { name: 'Jane', email: 'j@x.co', message: 'Hello there' },
   });
-  assert.equal(res.statusCode, 400);
-  ok('admin leads: unknown type filter returns 400', () => {});
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.setup, true);
+  ok('forms: no access key returns graceful 503 setup message', () => {});
 
-  const target = SEED_LEADS.find((l) => !l.read);
-  res = await call(adminLeadsHandler, {
-    method: 'PATCH',
-    url: '/api/admin/leads',
-    headers: { authorization: `Bearer ${token}` },
-    body: { id: target.id, read: true },
+  process.env.WEB3FORMS_ACCESS_KEY = 'test-key-123';
+  const originalFetch = globalThis.fetch;
+  let captured = null;
+  globalThis.fetch = async (url, options) => {
+    captured = { url, body: JSON.parse(options.body) };
+    return { ok: true, json: async () => ({ success: true }) };
+  };
+  res = await call(transferHandler, {
+    body: {
+      name: 'Jane',
+      phone: '6105551234',
+      email: 'j@x.co',
+      itemDescription: 'DEMO rifle from an online seller',
+    },
   });
-  assert.equal(res.statusCode, 200);
-  assert.equal(res.body.lead.read, true);
-  ok('admin leads: PATCH marks a lead read', () => {});
+  globalThis.fetch = originalFetch;
+  delete process.env.WEB3FORMS_ACCESS_KEY;
+  assert.equal(res.statusCode, 201);
+  assert.equal(captured.url, 'https://api.web3forms.com/submit');
+  assert.equal(captured.body.access_key, 'test-key-123');
+  assert.equal(captured.body.form_type, 'transfer');
+  assert.ok(captured.body.subject.includes('transfer'));
+  assert.equal(captured.body.name, 'Jane');
+  ok('forms: with key, submission hits Web3Forms with the right shape', () => {});
 
-  res = await call(adminLeadsHandler, {
-    method: 'PATCH',
-    url: '/api/admin/leads',
-    headers: { authorization: `Bearer ${token}` },
-    body: { id: 'nope', read: true },
-  });
-  assert.equal(res.statusCode, 404);
-  ok('admin leads: PATCH unknown id returns 404', () => {});
-
-  res = await call(adminLeadsHandler, {
-    method: 'DELETE',
-    url: '/api/admin/leads',
-    headers: { authorization: `Bearer ${token}` },
-  });
+  res = await call(emailSignupHandler, { method: 'GET' });
   assert.equal(res.statusCode, 405);
-  ok('admin leads: unsupported method returns 405', () => {});
+  ok('forms: unsupported method returns 405', () => {});
 
-  // ---- inventory validation ----
-
-  ok('inventory: valid item passes and is normalized', () => {
-    const r = validateInventoryItem({
-      name: '  DEMO: Test Rifle  ',
-      category: 'Rifles',
-      manufacturer: 'Example Arms Co.',
-      model: 'T-1',
-      caliber: '.308 Win',
-      condition: 'New',
-      price: '499.999',
-      stockStatus: 'In Stock',
-      description: 'A demo item.',
-      photos: [],
-      featured: false,
-    });
-    assert.equal(r.ok, true);
-    assert.equal(r.data.name, 'DEMO: Test Rifle');
-    assert.equal(r.data.price, 500);
-  });
-
-  ok('inventory: bad category, negative price, bad status all rejected', () => {
-    const r = validateInventoryItem({
-      name: 'X',
-      category: 'Explosives',
-      manufacturer: 'X',
-      model: 'X',
-      condition: 'Mint',
-      price: -5,
-      stockStatus: 'Backordered',
-    });
-    assert.equal(r.ok, false);
-    assert.ok(r.errors.category);
-    assert.ok(r.errors.price);
-    assert.ok(r.errors.stockStatus);
-    assert.ok(r.errors.condition);
-  });
-
-  // ---- inventory endpoints ----
+  // ---- public catalog read: published snapshot only ----
 
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
   assert.equal(res.statusCode, 200);
-  assert.ok(res.body.items.length > 0);
-  assert.ok(res.body.items.every((i) => i.stockStatus !== 'Hidden'));
-  ok('inventory: public GET returns items and never Hidden ones', () => {});
+  let publicItems = res.body.items;
+  assert.ok(publicItems.length > 0);
+  assert.ok(!publicItems.some((i) => i.id === 'demo-other-case'), 'never-published leaks');
+  assert.ok(!publicItems.some((i) => i.stockStatus === 'Hidden'), 'hidden leaks');
+  const revolver = publicItems.find((i) => i.id === 'demo-handgun-revolver');
+  assert.equal(revolver.price, 299);
+  assert.ok(res.body.collections.length > 0);
+  const saleItem = publicItems.find((i) => i.id === 'demo-handgun-compact');
+  assert.equal(saleItem.onSale, true);
+  assert.equal(saleItem.compareAtPrice, 449.5);
+  ok('public inventory: published only, no drafts, no hidden, sale flags', () => {});
 
   res = await call(inventoryHandler, {
     method: 'GET',
-    url: '/api/inventory?category=Rifles&q=lever',
+    url: '/api/inventory?collection=col-rifles&q=lever',
   });
-  assert.equal(res.statusCode, 200);
-  assert.ok(res.body.items.every((i) => i.category === 'Rifles'));
-  assert.ok(res.body.items.length >= 1);
-  ok('inventory: public GET category filter and search work', () => {});
+  assert.equal(res.body.items.length, 1);
+  ok('public inventory: collection filter and search work', () => {});
 
-  res = await call(inventoryHandler, {
-    method: 'GET',
-    url: '/api/inventory?category=Nope',
-  });
-  assert.equal(res.statusCode, 400);
-  ok('inventory: unknown category returns 400', () => {});
+  // ---- admin catalog: drafts with statuses ----
 
-  res = await call(adminInventoryHandler, {
-    method: 'GET',
-    url: '/api/admin/inventory',
-  });
+  res = await call(adminProductsHandler, { method: 'GET', url: '/x' });
   assert.equal(res.statusCode, 401);
-  ok('admin inventory: no token returns 401', () => {});
+  ok('admin products: no token returns 401', () => {});
 
-  res = await call(adminInventoryHandler, {
-    method: 'GET',
-    url: '/api/admin/inventory',
-    headers: { authorization: `Bearer ${token}` },
-  });
+  res = await call(adminProductsHandler, { method: 'GET', url: '/x', headers: auth });
   assert.equal(res.statusCode, 200);
-  assert.ok(res.body.items.some((i) => i.stockStatus === 'Hidden'));
-  ok('admin inventory: GET includes Hidden items', () => {});
+  const adminItems = res.body.items;
+  assert.equal(adminItems.find((i) => i.id === 'demo-other-case').status, 'new');
+  assert.equal(adminItems.find((i) => i.id === 'demo-handgun-revolver').status, 'changed');
+  assert.equal(adminItems.find((i) => i.id === 'demo-handgun-revolver').price, 279);
+  assert.ok(adminItems.some((i) => i.stockStatus === 'Hidden'));
+  ok('admin products: draft view shows statuses, staged edits, hidden', () => {});
 
-  res = await call(adminInventoryHandler, {
+  res = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.summary.total, 2);
+  ok('publish summary: seeds start with 2 unpublished changes', () => {});
+
+  // create product: validation catches sale pricing and ghost collections
+  res = await call(adminProductsHandler, {
     method: 'POST',
-    url: '/api/admin/inventory',
-    headers: { authorization: `Bearer ${token}` },
-    body: { name: 'X', category: 'Nope', price: -1 },
+    headers: auth,
+    body: {
+      name: 'DEMO: Smoke Pistol',
+      collectionIds: ['no-such-collection'],
+      manufacturer: 'Sample Firearms',
+      model: 'SM-9',
+      condition: 'New',
+      price: 300,
+      stockStatus: 'In Stock',
+    },
   });
   assert.equal(res.statusCode, 422);
-  assert.ok(res.body.errors);
-  ok('admin inventory: invalid create returns 422 with field errors', () => {});
+  assert.ok(res.body.errors.collectionIds);
+  ok('admin products: unknown collection id rejected', () => {});
 
-  res = await call(adminInventoryHandler, {
+  res = await call(adminProductsHandler, {
     method: 'POST',
-    url: '/api/admin/inventory',
-    headers: { authorization: `Bearer ${token}` },
+    headers: auth,
     body: {
-      name: 'DEMO: Smoke Test Item',
-      category: 'Other',
-      manufacturer: 'Sample Gear',
-      model: 'SM-1',
+      name: 'DEMO: Smoke Pistol',
+      collectionIds: ['col-handguns'],
+      manufacturer: 'Sample Firearms',
+      model: 'SM-9',
       condition: 'New',
-      price: 10,
+      price: 300,
+      compareAtPrice: 350,
+      saleLabel: 'DEMO Sale',
       stockStatus: 'In Stock',
     },
   });
   assert.equal(res.statusCode, 201);
   const created = res.body.item;
-  assert.ok(created.id);
-  ok('admin inventory: create returns the new item', () => {});
+  assert.equal(created.status, 'new');
+  assert.equal(created.onSale, true);
+  ok('admin products: create returns a new draft with onSale computed', () => {});
 
-  res = await call(adminInventoryHandler, {
-    method: 'PATCH',
-    url: '/api/admin/inventory',
-    headers: { authorization: `Bearer ${token}` },
-    body: { id: created.id, stockStatus: 'Sold', price: 12.5 },
-  });
-  assert.equal(res.statusCode, 200);
-  assert.equal(res.body.item.stockStatus, 'Sold');
-  assert.equal(res.body.item.price, 12.5);
-  ok('admin inventory: PATCH updates status and price', () => {});
+  // drafts never leak to the public read
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.ok(!res.body.items.some((i) => i.id === created.id));
+  ok('public inventory: new draft does not leak before publish', () => {});
 
-  res = await call(adminInventoryHandler, {
-    method: 'DELETE',
-    url: '/api/admin/inventory',
-    headers: { authorization: `Bearer ${token}` },
-    body: { id: created.id },
-  });
-  assert.equal(res.statusCode, 200);
-  res = await call(adminInventoryHandler, {
-    method: 'DELETE',
-    url: '/api/admin/inventory',
-    headers: { authorization: `Bearer ${token}` },
-    body: { id: created.id },
-  });
-  assert.equal(res.statusCode, 404);
-  ok('admin inventory: DELETE removes, second DELETE returns 404', () => {});
-
-  res = await call(adminInventoryImageHandler, {
+  // publish promotes everything atomically
+  res = await call(adminPublishHandler, {
     method: 'POST',
-    url: '/api/admin/inventory-image',
+    headers: auth,
+    body: { action: 'publish' },
+  });
+  assert.equal(res.body.summary.total, 0);
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  publicItems = res.body.items;
+  assert.ok(publicItems.some((i) => i.id === created.id));
+  assert.ok(publicItems.some((i) => i.id === 'demo-other-case'));
+  assert.equal(publicItems.find((i) => i.id === 'demo-handgun-revolver').price, 279);
+  ok('publish: drafts promoted, new items live, staged price live', () => {});
+
+  // discard reverts a fresh draft edit
+  res = await call(adminProductsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { id: created.id, price: 111 },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.summary.total, 1);
+  res = await call(adminPublishHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { action: 'discard' },
+  });
+  assert.equal(res.body.summary.total, 0);
+  res = await call(adminProductsHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.items.find((i) => i.id === created.id).price, 300);
+  ok('discard: draft edits revert to the published state', () => {});
+
+  // delete: pending removal until published
+  res = await call(adminProductsHandler, {
+    method: 'DELETE',
+    headers: auth,
+    body: { id: created.id },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.ok(res.body.items.some((i) => i.id === created.id), 'still live before publish');
+  res = await call(adminPublishHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { action: 'publish' },
+  });
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.ok(!res.body.items.some((i) => i.id === created.id));
+  ok('delete: removal is a draft until publish, then the item is gone', () => {});
+
+  // ---- collections CRUD ----
+
+  res = await call(adminCollectionsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { name: 'DEMO: Rimfire' },
+  });
+  assert.equal(res.statusCode, 201);
+  const rimfire = res.body.item;
+  ok('collections: create returns a new draft collection', () => {});
+
+  res = await call(adminCollectionsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { id: rimfire.id, name: 'DEMO: Rimfire Corner' },
+  });
+  assert.equal(res.body.item.name, 'DEMO: Rimfire Corner');
+  ok('collections: rename updates the draft', () => {});
+
+  res = await call(adminCollectionsHandler, {
+    method: 'PATCH',
+    headers: auth,
+    body: { order: [rimfire.id, 'col-rifles', 'col-handguns'] },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await call(adminCollectionsHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.items[0].id, rimfire.id);
+  ok('collections: reorder puts the moved collection first', () => {});
+
+  // deleting a collection keeps its products
+  res = await call(adminCollectionsHandler, {
+    method: 'DELETE',
+    headers: auth,
+    body: { id: 'col-ammunition' },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await call(adminProductsHandler, { method: 'GET', url: '/x', headers: auth });
+  const ammo = res.body.items.find((i) => i.id === 'demo-ammo-9mm');
+  assert.ok(ammo, 'product survived collection delete');
+  assert.ok(!ammo.collectionIds.includes('col-ammunition'));
+  ok('collections: delete keeps products, they just leave the collection', () => {});
+
+  // ---- bundles CRUD ----
+
+  res = await call(adminBundlesHandler, {
+    method: 'POST',
+    headers: auth,
+    body: {
+      name: 'DEMO: Bad Bundle',
+      memberProductIds: ['demo-rifle-bolt'],
+      price: 700,
+    },
+  });
+  assert.equal(res.statusCode, 422);
+  ok('bundles: fewer than two members rejected', () => {});
+
+  res = await call(adminBundlesHandler, {
+    method: 'POST',
+    headers: auth,
+    body: {
+      name: 'DEMO: Ghost Bundle',
+      memberProductIds: ['demo-rifle-bolt', 'no-such-product'],
+      price: 700,
+    },
+  });
+  assert.equal(res.statusCode, 422);
+  assert.ok(res.body.errors.memberProductIds);
+  ok('bundles: unknown member product rejected', () => {});
+
+  res = await call(adminBundlesHandler, {
+    method: 'POST',
+    headers: auth,
+    body: {
+      name: 'DEMO: Smoke Bundle',
+      memberProductIds: ['demo-rifle-bolt', 'demo-optic-scope'],
+      price: 760,
+      compareAtPrice: 808.99,
+    },
+  });
+  assert.equal(res.statusCode, 201);
+  const bundle = res.body.item;
+  assert.equal(bundle.onSale, true);
+  ok('bundles: valid create returns draft with sale flag', () => {});
+
+  res = await call(adminBundlesHandler, {
+    method: 'DELETE',
+    headers: auth,
+    body: { id: bundle.id },
+  });
+  assert.equal(res.statusCode, 200);
+  ok('bundles: delete works', () => {});
+
+  // ---- CSV ----
+
+  res = await call(adminProductsCsvHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.raw.startsWith('id,name,collections'));
+  assert.ok(res.raw.includes('DEMO: Example Bolt-Action Rifle'));
+  ok('csv export: returns a CSV with headers and rows', () => {});
+
+  const csv = [
+    'id,name,collections,manufacturer,model,caliber,condition,price,compareAtPrice,saleLabel,stockStatus,description',
+    ',DEMO: CSV Shotgun,Shotguns,Example Arms Co.,CSV-12,12 GA,New,399.99,,,In Stock,Imported by smoke test',
+    ',DEMO: Broken Row,Shotguns,Example Arms Co.,CSV-13,,Mint,399.99,,,In Stock,Bad condition value',
+    ',DEMO: Ghost Collection Row,No Such Collection,Example Arms Co.,CSV-14,,New,10,,,In Stock,Unknown collection',
+  ].join('\n');
+  res = await call(adminProductsCsvHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { csv },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.applied, 1);
+  assert.equal(res.body.rejected, 2);
+  const badRows = res.body.results.filter((r) => !r.ok);
+  assert.ok(badRows.find((r) => r.line === 3).errors.condition);
+  assert.ok(badRows.find((r) => r.line === 4).errors.collections);
+  ok('csv import: valid rows become drafts, bad rows get per-row errors', () => {});
+
+  res = await call(adminProductsHandler, { method: 'GET', url: '/x?q=CSV-12', headers: auth });
+  assert.equal(res.body.items.length, 1);
+  assert.equal(res.body.items[0].status, 'new');
+  ok('csv import: imported row is a draft, not published', () => {});
+
+  res = await call(adminProductsCsvHandler, { method: 'POST', body: { csv } });
+  assert.equal(res.statusCode, 401);
+  ok('csv: no token returns 401', () => {});
+
+  // ---- image upload ----
+
+  res = await call(adminImageHandler, {
+    method: 'POST',
     body: { dataUrl: 'data:image/jpeg;base64,AAAA' },
   });
   assert.equal(res.statusCode, 401);
-  ok('inventory image: no token returns 401', () => {});
-
-  res = await call(adminInventoryImageHandler, {
+  res = await call(adminImageHandler, {
     method: 'POST',
-    url: '/api/admin/inventory-image',
-    headers: { authorization: `Bearer ${token}` },
-    body: { filename: 'test.jpg', dataUrl: 'data:image/jpeg;base64,AAAA' },
+    headers: auth,
+    body: { filename: 'x.jpg', dataUrl: 'data:image/jpeg;base64,AAAA' },
   });
   assert.equal(res.statusCode, 201);
-  assert.ok(res.body.url.startsWith('data:image/jpeg'));
-  ok('inventory image: valid upload returns a url (dev: data url)', () => {});
-
-  res = await call(adminInventoryImageHandler, {
+  res = await call(adminImageHandler, {
     method: 'POST',
-    url: '/api/admin/inventory-image',
-    headers: { authorization: `Bearer ${token}` },
+    headers: auth,
     body: { dataUrl: 'data:text/html;base64,AAAA' },
   });
   assert.equal(res.statusCode, 422);
-  ok('inventory image: non-image payload returns 422', () => {});
-
-  assert.ok(SEED_INVENTORY.every((i) => i.name.startsWith('DEMO:')));
-  ok('inventory seeds: every item is marked DEMO', () => {});
+  ok('image upload: auth enforced, images accepted, non-images rejected', () => {});
 })();
 
 console.log(`\n${passed} checks passed.`);

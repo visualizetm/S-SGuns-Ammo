@@ -1,13 +1,14 @@
-// API client used by all forms and the admin dashboard.
+// API client used by the public forms, the public catalog reads, and the
+// admin product studio.
 //
 // It calls the real serverless endpoints first. If the API is unreachable
 // (plain `vite dev` / `vite preview` with no functions runtime), it falls
-// back to the in-browser demo adapter so everything stays fully interactive.
+// back to the in-browser demo adapter so the admin stays fully interactive.
 // Both paths return the same shape: { status, body }.
 
 import { demoAdapter } from './demoAdapter.js';
 
-const LEAD_PATHS = {
+const FORM_PATHS = {
   contact: '/api/leads/contact',
   transfer: '/api/leads/transfer',
   email_signup: '/api/leads/email-signup',
@@ -16,17 +17,29 @@ const LEAD_PATHS = {
 async function callApi(path, options) {
   const res = await fetch(path, options);
   const contentType = res.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
+  if (!contentType.includes('application/json') && !contentType.includes('text/csv')) {
     // Vite's SPA fallback answers unknown paths with index.html; treat any
     // non-JSON response as "no API available" so we switch to demo mode.
     throw new Error('api-unavailable');
   }
+  if (contentType.includes('text/csv')) {
+    return { status: res.status, body: await res.text() };
+  }
   return { status: res.status, body: await res.json() };
 }
 
+function authHeaders(token, json = true) {
+  return {
+    ...(json ? { 'Content-Type': 'application/json' } : {}),
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+// ---- Public forms (validated server-side, forwarded to the owner's email) ----
+
 export async function submitLead(type, input) {
   try {
-    return await callApi(LEAD_PATHS[type], {
+    return await callApi(FORM_PATHS[type], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
@@ -35,6 +48,8 @@ export async function submitLead(type, input) {
     return demoAdapter.submitLead(type, input);
   }
 }
+
+// ---- Admin auth ----
 
 export async function adminLogin(password) {
   try {
@@ -48,120 +63,137 @@ export async function adminLogin(password) {
   }
 }
 
-export async function adminListLeads(token, type) {
-  const query = type ? `?type=${encodeURIComponent(type)}` : '';
-  try {
-    return await callApi(`/api/admin/leads${query}`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-  } catch {
-    return demoAdapter.listLeads(token, type);
-  }
-}
+// ---- Catalog: generic admin CRUD over products / collections / bundles ----
 
-export async function adminSetLeadRead(token, id, read) {
-  try {
-    return await callApi('/api/admin/leads', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ id, read }),
-    });
-  } catch {
-    return demoAdapter.setLeadRead(token, id, read);
-  }
-}
+const ADMIN_PATHS = {
+  products: '/api/admin/products',
+  collections: '/api/admin/collections',
+  bundles: '/api/admin/bundles',
+};
 
-// ---- Inventory ----
-
-function inventoryQuery({ category, q } = {}) {
+export async function adminListCatalog(token, kind, { collectionId, q } = {}) {
   const params = new URLSearchParams();
-  if (category) params.set('category', category);
+  if (collectionId) params.set('collection', collectionId);
   if (q) params.set('q', q);
-  const query = params.toString();
-  return query ? `?${query}` : '';
-}
-
-export async function listPublicInventory(options) {
+  const query = params.toString() ? `?${params.toString()}` : '';
   try {
-    return await callApi(`/api/inventory${inventoryQuery(options)}`, {
+    return await callApi(`${ADMIN_PATHS[kind]}${query}`, {
       method: 'GET',
+      headers: authHeaders(token, false),
     });
   } catch {
-    return demoAdapter.listInventory(null, { ...options, includeHidden: false });
+    return demoAdapter.listCatalog(token, kind, { collectionId, q });
   }
 }
 
-export async function adminListInventory(token, options) {
+export async function adminSaveDraft(token, kind, idOrNull, fields) {
   try {
-    return await callApi(`/api/admin/inventory${inventoryQuery(options)}`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-  } catch {
-    return demoAdapter.listInventory(token, { ...options, includeHidden: true });
-  }
-}
-
-export async function adminCreateInventoryItem(token, input) {
-  try {
-    return await callApi('/api/admin/inventory', {
+    return await callApi(ADMIN_PATHS[kind], {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(input),
+      headers: authHeaders(token),
+      body: JSON.stringify(idOrNull ? { id: idOrNull, ...fields } : fields),
     });
   } catch {
-    return demoAdapter.createInventoryItem(token, input);
+    return demoAdapter.saveDraft(token, kind, idOrNull, fields);
   }
 }
 
-export async function adminUpdateInventoryItem(token, id, patch) {
+export async function adminDeleteDraft(token, kind, id) {
   try {
-    return await callApi('/api/admin/inventory', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ id, ...patch }),
-    });
-  } catch {
-    return demoAdapter.updateInventoryItem(token, id, patch);
-  }
-}
-
-export async function adminDeleteInventoryItem(token, id) {
-  try {
-    return await callApi('/api/admin/inventory', {
+    return await callApi(ADMIN_PATHS[kind], {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: authHeaders(token),
       body: JSON.stringify({ id }),
     });
   } catch {
-    return demoAdapter.deleteInventoryItem(token, id);
+    return demoAdapter.deleteDraft(token, kind, id);
   }
 }
 
-export async function adminUploadInventoryImage(token, payload) {
+export async function adminRestoreDraft(token, kind, id) {
+  try {
+    return await callApi(ADMIN_PATHS[kind], {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify({ id, restore: true }),
+    });
+  } catch {
+    return demoAdapter.restoreDraft(token, kind, id);
+  }
+}
+
+export async function adminReorderCollections(token, order) {
+  try {
+    return await callApi(ADMIN_PATHS.collections, {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify({ order }),
+    });
+  } catch {
+    return demoAdapter.reorderCollections(token, order);
+  }
+}
+
+// ---- Publish flow ----
+
+export async function adminPublishSummary(token) {
+  try {
+    return await callApi('/api/admin/publish', {
+      method: 'GET',
+      headers: authHeaders(token, false),
+    });
+  } catch {
+    return demoAdapter.publishSummary(token);
+  }
+}
+
+export async function adminPublishAction(token, action) {
+  try {
+    return await callApi('/api/admin/publish', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ action }),
+    });
+  } catch {
+    return demoAdapter.publishAction(token, action);
+  }
+}
+
+// ---- Bulk CSV ----
+
+export async function adminExportCsv(token) {
+  try {
+    return await callApi('/api/admin/products-csv', {
+      method: 'GET',
+      headers: authHeaders(token, false),
+    });
+  } catch {
+    return demoAdapter.exportCsv(token);
+  }
+}
+
+export async function adminImportCsv(token, csv) {
+  try {
+    return await callApi('/api/admin/products-csv', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ csv }),
+    });
+  } catch {
+    return demoAdapter.importCsv(token, csv);
+  }
+}
+
+// ---- Photo upload (products, collection covers, bundle photos) ----
+
+export async function adminUploadImage(token, payload) {
   try {
     return await callApi('/api/admin/inventory-image', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: authHeaders(token),
       body: JSON.stringify(payload),
     });
   } catch {
-    return demoAdapter.uploadInventoryImage(token, payload);
+    return demoAdapter.uploadImage(token, payload);
   }
 }

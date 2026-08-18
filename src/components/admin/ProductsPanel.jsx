@@ -1,37 +1,35 @@
-// Admin inventory section: list with search, category filter, one-tap stock
-// status changes, and a phone-first add/edit form with photo upload.
-// Display data only: no cart, no checkout, no purchase flow.
+// Products panel: list with search and collection filter, one-tap stock
+// status, sale pricing, confirm-step delete, restore for pending removals,
+// and a phone-first add/edit form. Every write here is a DRAFT; the
+// Publish bar controls what goes live. Display data only: no cart, no
+// checkout, no purchase flow.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
-  adminListInventory,
-  adminCreateInventoryItem,
-  adminUpdateInventoryItem,
-  adminDeleteInventoryItem,
-  adminUploadInventoryImage,
+  adminListCatalog,
+  adminSaveDraft,
+  adminDeleteDraft,
+  adminRestoreDraft,
+  adminUploadImage,
 } from '../../lib/apiClient.js';
 import { downscaleImage } from '../../lib/downscaleImage.js';
-import {
-  INVENTORY_CATEGORIES,
-  CONDITIONS,
-  STOCK_STATUSES,
-} from '../../../shared/inventoryValidation.js';
+import { CONDITIONS, STOCK_STATUSES } from '../../../shared/catalogValidation.js';
+import { StatusBadge } from './StatusBadge.jsx';
 
-const USD = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
+const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 const EMPTY_FORM = {
   name: '',
-  category: INVENTORY_CATEGORIES[0],
+  collectionIds: [],
   manufacturer: '',
   model: '',
   caliber: '',
   condition: 'New',
   price: '',
+  compareAtPrice: '',
+  saleLabel: '',
   stockStatus: 'In Stock',
   description: '',
   photos: [],
@@ -53,16 +51,22 @@ function Field({ id, label, error, children, hint }) {
   );
 }
 
-function ItemForm({ token, item, onSaved, onCancel }) {
+function ProductForm({ token, item, collections, onSaved, onCancel }) {
   const editing = Boolean(item);
   const [values, setValues] = useState(() =>
-    editing ? { ...EMPTY_FORM, ...item, price: String(item.price) } : EMPTY_FORM
+    editing
+      ? {
+          ...EMPTY_FORM,
+          ...item,
+          price: String(item.price),
+          compareAtPrice: item.compareAtPrice == null ? '' : String(item.compareAtPrice),
+        }
+      : EMPTY_FORM
   );
   const [errors, setErrors] = useState({});
   const [generalError, setGeneralError] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileRef = useRef(null);
 
   function set(field, value) {
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -74,6 +78,15 @@ function ItemForm({ token, item, onSaved, onCancel }) {
     });
   }
 
+  function toggleCollection(id) {
+    set(
+      'collectionIds',
+      values.collectionIds.includes(id)
+        ? values.collectionIds.filter((c) => c !== id)
+        : [...values.collectionIds, id]
+    );
+  }
+
   async function handlePhoto(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -82,10 +95,7 @@ function ItemForm({ token, item, onSaved, onCancel }) {
     setGeneralError('');
     try {
       const dataUrl = await downscaleImage(file);
-      const { body } = await adminUploadInventoryImage(token, {
-        filename: file.name,
-        dataUrl,
-      });
+      const { body } = await adminUploadImage(token, { filename: file.name, dataUrl });
       if (body?.ok && body.url) {
         set('photos', [...values.photos, { url: body.url }]);
       } else {
@@ -97,13 +107,6 @@ function ItemForm({ token, item, onSaved, onCancel }) {
     setUploading(false);
   }
 
-  function removePhoto(index) {
-    set(
-      'photos',
-      values.photos.filter((_, i) => i !== index)
-    );
-  }
-
   async function handleSubmit(event) {
     event.preventDefault();
     if (saving) return;
@@ -111,23 +114,28 @@ function ItemForm({ token, item, onSaved, onCancel }) {
     setGeneralError('');
     const payload = {
       name: values.name,
-      category: values.category,
+      collectionIds: values.collectionIds,
       manufacturer: values.manufacturer,
       model: values.model,
       caliber: values.caliber,
       condition: values.condition,
       price: Number(values.price),
+      compareAtPrice: values.compareAtPrice === '' ? null : Number(values.compareAtPrice),
+      saleLabel: values.saleLabel,
       stockStatus: values.stockStatus,
       description: values.description,
       photos: values.photos,
       featured: values.featured,
     };
-    const { status, body } = editing
-      ? await adminUpdateInventoryItem(token, item.id, payload)
-      : await adminCreateInventoryItem(token, payload);
+    const { status, body } = await adminSaveDraft(
+      token,
+      'products',
+      editing ? item.id : null,
+      payload
+    );
     setSaving(false);
     if (body?.ok) {
-      onSaved(body.item, editing);
+      onSaved();
       return;
     }
     if (status === 422 && body?.errors) {
@@ -139,139 +147,109 @@ function ItemForm({ token, item, onSaved, onCancel }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate aria-label={editing ? 'Edit item' : 'Add item'} className="inv-form">
-      <h2 className="display inv-form-title">
-        {editing ? 'Edit item' : 'Add item'}
-      </h2>
+    <form onSubmit={handleSubmit} noValidate aria-label={editing ? 'Edit product' : 'Add product'} className="inv-form">
+      <h2 className="display inv-form-title">{editing ? 'Edit product' : 'Add product'}</h2>
+      <p className="ssga-field-hint">
+        Saving stores a draft. Nothing changes on the public site until you tap Publish.
+      </p>
 
       <Field id="inv-name" label="Name (required)" error={errors.name}>
-        <input
-          id="inv-name"
-          type="text"
-          value={values.name}
-          onChange={(e) => set('name', e.target.value)}
-          disabled={saving}
-        />
+        <input id="inv-name" type="text" value={values.name} onChange={(e) => set('name', e.target.value)} disabled={saving} />
       </Field>
 
-      <div className="inv-form-row">
-        <Field id="inv-category" label="Category" error={errors.category}>
-          <select
-            id="inv-category"
-            value={values.category}
-            onChange={(e) => set('category', e.target.value)}
-            disabled={saving}
-          >
-            {INVENTORY_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+      <div className="inv-collections" role="group" aria-labelledby="inv-collections-label">
+        <p className="inv-photos-label" id="inv-collections-label">Collections</p>
+        {errors.collectionIds ? (
+          <p role="alert" className="ssga-field-error">{errors.collectionIds}</p>
+        ) : null}
+        {collections.length === 0 ? (
+          <p className="ssga-field-hint">No collections yet. Create them on the Collections tab.</p>
+        ) : (
+          <ul className="inv-collection-list">
+            {collections.map((c) => (
+              <li key={c.id}>
+                <label className="inv-check">
+                  <input
+                    type="checkbox"
+                    checked={values.collectionIds.includes(c.id)}
+                    onChange={() => toggleCollection(c.id)}
+                    disabled={saving}
+                  />{' '}
+                  {c.name}
+                </label>
+              </li>
             ))}
-          </select>
-        </Field>
-        <Field id="inv-condition" label="Condition" error={errors.condition}>
-          <select
-            id="inv-condition"
-            value={values.condition}
-            onChange={(e) => set('condition', e.target.value)}
-            disabled={saving}
-          >
-            {CONDITIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </Field>
+          </ul>
+        )}
       </div>
 
       <div className="inv-form-row">
         <Field id="inv-manufacturer" label="Manufacturer (required)" error={errors.manufacturer}>
-          <input
-            id="inv-manufacturer"
-            type="text"
-            value={values.manufacturer}
-            onChange={(e) => set('manufacturer', e.target.value)}
-            disabled={saving}
-          />
+          <input id="inv-manufacturer" type="text" value={values.manufacturer} onChange={(e) => set('manufacturer', e.target.value)} disabled={saving} />
         </Field>
         <Field id="inv-model" label="Model (required)" error={errors.model}>
-          <input
-            id="inv-model"
-            type="text"
-            value={values.model}
-            onChange={(e) => set('model', e.target.value)}
-            disabled={saving}
-          />
+          <input id="inv-model" type="text" value={values.model} onChange={(e) => set('model', e.target.value)} disabled={saving} />
         </Field>
       </div>
 
       <div className="inv-form-row">
         <Field id="inv-caliber" label="Caliber" error={errors.caliber} hint="Leave blank if it does not apply.">
-          <input
-            id="inv-caliber"
-            type="text"
-            value={values.caliber}
-            onChange={(e) => set('caliber', e.target.value)}
-            disabled={saving}
-          />
+          <input id="inv-caliber" type="text" value={values.caliber} onChange={(e) => set('caliber', e.target.value)} disabled={saving} />
         </Field>
-        <Field id="inv-price" label="Price in dollars (required)" error={errors.price}>
-          <input
-            id="inv-price"
-            type="text"
-            inputMode="decimal"
-            value={values.price}
-            onChange={(e) => set('price', e.target.value)}
-            disabled={saving}
-          />
+        <Field id="inv-condition" label="Condition" error={errors.condition}>
+          <select id="inv-condition" value={values.condition} onChange={(e) => set('condition', e.target.value)} disabled={saving}>
+            {CONDITIONS.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </Field>
       </div>
 
-      <Field id="inv-status" label="Stock status" error={errors.stockStatus} hint="Hidden items never show on the public site.">
-        <select
-          id="inv-status"
-          value={values.stockStatus}
-          onChange={(e) => set('stockStatus', e.target.value)}
-          disabled={saving}
+      <div className="inv-form-row">
+        <Field id="inv-price" label="Price in dollars (required)" error={errors.price}>
+          <input id="inv-price" type="text" inputMode="decimal" value={values.price} onChange={(e) => set('price', e.target.value)} disabled={saving} />
+        </Field>
+        <Field
+          id="inv-compare"
+          label="Compare-at price"
+          error={errors.compareAtPrice}
+          hint="Set this higher than the price to show the item on sale."
         >
+          <input id="inv-compare" type="text" inputMode="decimal" value={values.compareAtPrice} onChange={(e) => set('compareAtPrice', e.target.value)} disabled={saving} />
+        </Field>
+      </div>
+
+      <Field id="inv-salelabel" label="Sale label" error={errors.saleLabel} hint='Short text shown with the sale, like "Holiday Sale".'>
+        <input id="inv-salelabel" type="text" value={values.saleLabel} onChange={(e) => set('saleLabel', e.target.value)} disabled={saving} />
+      </Field>
+
+      <Field id="inv-status" label="Stock status" error={errors.stockStatus} hint="Hidden items never show on the public site.">
+        <select id="inv-status" value={values.stockStatus} onChange={(e) => set('stockStatus', e.target.value)} disabled={saving}>
           {STOCK_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
+            <option key={s} value={s}>{s}</option>
           ))}
         </select>
       </Field>
 
       <Field id="inv-description" label="Description" error={errors.description}>
-        <textarea
-          id="inv-description"
-          rows={4}
-          value={values.description}
-          onChange={(e) => set('description', e.target.value)}
-          disabled={saving}
-        />
+        <textarea id="inv-description" rows={4} value={values.description} onChange={(e) => set('description', e.target.value)} disabled={saving} />
       </Field>
 
       <div className="inv-photos-block">
-        <p className="inv-photos-label" id="inv-photos-label">
-          Photos
-        </p>
+        <p className="inv-photos-label" id="inv-photos-label">Photos</p>
         {errors.photos ? (
-          <p role="alert" className="ssga-field-error">
-            {errors.photos}
-          </p>
+          <p role="alert" className="ssga-field-error">{errors.photos}</p>
         ) : null}
         <ul className="inv-photo-list" aria-labelledby="inv-photos-label">
           {values.photos.map((photo, index) => (
             <li key={index} className="inv-photo">
-              <img src={photo.url} alt={`Photo ${index + 1} of ${values.name || 'item'}`} />
+              <img src={photo.url} alt={`Photo ${index + 1} of ${values.name || 'product'}`} />
               {index === 0 ? <span className="inv-photo-primary">Primary</span> : null}
               <button
                 type="button"
                 className="inv-photo-remove"
                 aria-label={`Remove photo ${index + 1}`}
-                onClick={() => removePhoto(index)}
+                onClick={() => set('photos', values.photos.filter((_, i) => i !== index))}
                 disabled={saving}
               >
                 <XClose aria-hidden="true" width={16} height={16} />
@@ -280,41 +258,26 @@ function ItemForm({ token, item, onSaved, onCancel }) {
           ))}
         </ul>
         <label className="inv-upload">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            onChange={handlePhoto}
-            disabled={saving || uploading}
-          />
+          <input type="file" accept="image/*" onChange={handlePhoto} disabled={saving || uploading} />
           <span>{uploading ? 'Uploading photo...' : 'Add a photo'}</span>
         </label>
-        <p className="ssga-field-hint">
-          Photos are shrunk on your phone before upload, so camera shots are fine.
-        </p>
+        <p className="ssga-field-hint">Photos are shrunk on your phone before upload, so camera shots are fine.</p>
       </div>
 
       <p className="inv-featured">
         <label className="inv-check">
-          <input
-            type="checkbox"
-            checked={values.featured}
-            onChange={(e) => set('featured', e.target.checked)}
-            disabled={saving}
-          />{' '}
+          <input type="checkbox" checked={values.featured} onChange={(e) => set('featured', e.target.checked)} disabled={saving} />{' '}
           Featured (for future homepage use)
         </label>
       </p>
 
       {generalError ? (
-        <p role="alert" className="ssga-form-failure">
-          {generalError}
-        </p>
+        <p role="alert" className="ssga-form-failure">{generalError}</p>
       ) : null}
 
       <div className="inv-form-actions">
         <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
-          {saving ? 'Saving...' : 'Save item'}
+          {saving ? 'Saving...' : 'Save draft'}
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>
           Cancel
@@ -324,141 +287,165 @@ function ItemForm({ token, item, onSaved, onCancel }) {
   );
 }
 
-function ItemRow({ token, item, onEdit, onDeleted, onChanged, onError }) {
+function ProductRow({ token, item, collections, onEdit, onChanged, onError }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const removing = item.status === 'removing';
   const primaryPhoto = item.photos?.[0]?.url;
+  const collectionNames = (item.collectionIds || [])
+    .map((id) => collections.find((c) => c.id === id)?.name)
+    .filter(Boolean)
+    .join(', ');
 
   async function changeStatus(stockStatus) {
     setBusy(true);
-    const { body } = await adminUpdateInventoryItem(token, item.id, { stockStatus });
+    const { body } = await adminSaveDraft(token, 'products', item.id, { stockStatus });
     setBusy(false);
-    if (body?.ok) onChanged(body.item);
+    if (body?.ok) onChanged();
     else onError(body?.error || 'Could not change the status.');
   }
 
   async function confirmDelete() {
     setBusy(true);
-    const { body } = await adminDeleteInventoryItem(token, item.id);
+    const { body } = await adminDeleteDraft(token, 'products', item.id);
     setBusy(false);
-    if (body?.ok) onDeleted(item.id);
-    else onError(body?.error || 'Could not delete the item.');
+    if (body?.ok) onChanged();
+    else onError(body?.error || 'Could not delete the product.');
+  }
+
+  async function restore() {
+    setBusy(true);
+    const { body } = await adminRestoreDraft(token, 'products', item.id);
+    setBusy(false);
+    if (body?.ok) onChanged();
+    else onError(body?.error || 'Could not restore the product.');
   }
 
   return (
-    <li className="inv-row" data-status={item.stockStatus}>
+    <li className="inv-row" data-status={item.stockStatus} data-removing={removing || undefined}>
       <div className="inv-thumb" aria-hidden={primaryPhoto ? undefined : 'true'}>
-        {primaryPhoto ? (
-          <img src={primaryPhoto} alt="" loading="lazy" />
-        ) : (
-          <span className="inv-thumb-empty">No photo</span>
-        )}
+        {primaryPhoto ? <img src={primaryPhoto} alt="" loading="lazy" /> : <span className="inv-thumb-empty">No photo</span>}
       </div>
       <div className="inv-row-main">
-        <p className="inv-row-name">{item.name}</p>
+        <p className="inv-row-name">
+          {item.name} <StatusBadge status={item.status} />
+        </p>
         <p className="inv-row-meta">
-          {item.category} | {USD.format(item.price)} | {item.condition}
-          {item.featured ? ' | Featured' : ''}
+          {item.onSale ? (
+            <>
+              <s>{USD.format(item.compareAtPrice)}</s> {USD.format(item.price)}
+              {item.saleLabel ? ` (${item.saleLabel})` : ' (Sale)'}
+            </>
+          ) : (
+            USD.format(item.price)
+          )}
+          {' | '}
+          {item.condition}
+          {collectionNames ? ` | ${collectionNames}` : ''}
         </p>
       </div>
       <div className="inv-row-actions">
-        <label className="inv-status-label">
-          <span className="inv-visually-hidden">Stock status for {item.name}</span>
-          <select
-            className="inv-status-select"
-            value={item.stockStatus}
-            onChange={(e) => changeStatus(e.target.value)}
-            disabled={busy}
-          >
-            {STOCK_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        {confirming ? (
-          <span className="inv-confirm" role="alert">
-            <span>Delete this item?</span>
-            <button type="button" onClick={confirmDelete} disabled={busy}>
-              {busy ? 'Deleting...' : 'Yes, delete'}
-            </button>
-            <button type="button" onClick={() => setConfirming(false)} disabled={busy}>
-              Keep it
-            </button>
-          </span>
+        {removing ? (
+          <button type="button" onClick={restore} disabled={busy}>
+            {busy ? 'Restoring...' : 'Restore'}
+          </button>
         ) : (
-          <span className="inv-row-buttons">
-            <button type="button" onClick={() => onEdit(item)} disabled={busy}>
-              Edit
-            </button>
-            <button type="button" onClick={() => setConfirming(true)} disabled={busy}>
-              Delete
-            </button>
-          </span>
+          <>
+            <label className="inv-status-label">
+              <span className="inv-visually-hidden">Stock status for {item.name}</span>
+              <select className="inv-status-select" value={item.stockStatus} onChange={(e) => changeStatus(e.target.value)} disabled={busy}>
+                {STOCK_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            {confirming ? (
+              <span className="inv-confirm" role="alert">
+                <span>Delete this product?</span>
+                <button type="button" onClick={confirmDelete} disabled={busy}>
+                  {busy ? 'Deleting...' : 'Yes, delete'}
+                </button>
+                <button type="button" onClick={() => setConfirming(false)} disabled={busy}>
+                  Keep it
+                </button>
+              </span>
+            ) : (
+              <span className="inv-row-buttons">
+                <button type="button" onClick={() => onEdit(item)} disabled={busy}>
+                  Edit
+                </button>
+                <button type="button" onClick={() => setConfirming(true)} disabled={busy}>
+                  Delete
+                </button>
+              </span>
+            )}
+          </>
         )}
       </div>
     </li>
   );
 }
 
-export function InventoryPanel({ token, onAuthFail }) {
+export function ProductsPanel({ token, version, onAuthFail, notifyChange }) {
   const [items, setItems] = useState([]);
+  const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [category, setCategory] = useState('');
+  const [collectionId, setCollectionId] = useState('');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
-  const [mode, setMode] = useState('list'); // list | add | edit
+  const [mode, setMode] = useState('list');
   const [editingItem, setEditingItem] = useState(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError('');
-    const { status, body } = await adminListInventory(token, {
-      category: category || undefined,
-      q: query || undefined,
-    });
+    const [products, cols] = await Promise.all([
+      adminListCatalog(token, 'products', { collectionId: collectionId || undefined, q: query || undefined }),
+      adminListCatalog(token, 'collections'),
+    ]);
     setLoading(false);
-    if (status === 401) {
+    if (products.status === 401 || cols.status === 401) {
       onAuthFail();
       return;
     }
-    if (body?.ok) setItems(body.items);
-    else setError(body?.error || 'Could not load the inventory.');
-  }, [token, category, query, onAuthFail]);
+    if (products.body?.ok) setItems(products.body.items);
+    else setError(products.body?.error || 'Could not load products.');
+    if (cols.body?.ok) setCollections(cols.body.items.filter((c) => c.status !== 'removing'));
+  }, [token, collectionId, query, onAuthFail]);
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, version]);
 
-  // Debounce typing into one query change every 300ms.
   useEffect(() => {
     const timer = setTimeout(() => setQuery(search.trim()), 300);
     return () => clearTimeout(timer);
   }, [search]);
 
-  function handleSaved(item, wasEdit) {
-    setMode('list');
-    setEditingItem(null);
-    setItems((prev) =>
-      wasEdit ? prev.map((i) => (i.id === item.id ? item : i)) : [item, ...prev]
-    );
+  function changed() {
+    notifyChange();
+    refresh();
   }
 
   if (mode !== 'list') {
     return (
       <div className="inv-panel">
-        <ItemForm
+        <ProductForm
           token={token}
           item={mode === 'edit' ? editingItem : null}
-          onSaved={handleSaved}
+          collections={collections}
+          onSaved={() => {
+            setMode('list');
+            setEditingItem(null);
+            changed();
+          }}
           onCancel={() => {
             setMode('list');
             setEditingItem(null);
           }}
         />
-        <InventoryStyles />
+        <ProductsStyles />
       </div>
     );
   }
@@ -470,65 +457,59 @@ export function InventoryPanel({ token, onAuthFail }) {
           type="search"
           className="inv-search"
           placeholder="Search name, model, caliber"
-          aria-label="Search inventory"
+          aria-label="Search products"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <label className="inv-filter-label">
-          <span className="inv-visually-hidden">Filter by category</span>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">All categories</option>
-            {INVENTORY_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+          <span className="inv-visually-hidden">Filter by collection</span>
+          <select value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
+            <option value="">All collections</option>
+            {collections.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </label>
         <button type="button" className="btn btn-primary inv-add" onClick={() => setMode('add')}>
           <Plus aria-hidden="true" width={18} height={18} />
-          Add item
+          Add product
         </button>
       </div>
 
       {error ? (
-        <p role="alert" className="ssga-form-failure">
-          {error}
-        </p>
+        <p role="alert" className="ssga-form-failure">{error}</p>
       ) : null}
-      {loading ? <p role="status">Loading inventory...</p> : null}
+      {loading ? <p role="status">Loading products...</p> : null}
       {!loading && items.length === 0 ? (
         <p className="inv-empty">
-          {query || category
-            ? 'Nothing matches that filter. Clear the search or pick another category.'
-            : 'No items yet. Tap Add item to create the first one.'}
+          {query || collectionId
+            ? 'Nothing matches that filter. Clear the search or pick another collection.'
+            : 'No products yet. Tap Add product to create the first one.'}
         </p>
       ) : null}
 
       <ul className="inv-list">
         {items.map((item) => (
-          <ItemRow
+          <ProductRow
             key={item.id}
             token={token}
             item={item}
+            collections={collections}
             onEdit={(target) => {
               setEditingItem(target);
               setMode('edit');
             }}
-            onDeleted={(id) => setItems((prev) => prev.filter((i) => i.id !== id))}
-            onChanged={(updated) =>
-              setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
-            }
+            onChanged={changed}
             onError={setError}
           />
         ))}
       </ul>
-      <InventoryStyles />
+      <ProductsStyles />
     </div>
   );
 }
 
-function InventoryStyles() {
+function ProductsStyles() {
   return (
     <style>{`
       .inv-panel { max-width: 56rem; }
@@ -573,6 +554,7 @@ function InventoryStyles() {
       .inv-row[data-status='Sold'] { border-left-color: var(--wood); }
       .inv-row[data-status='Hidden'] { border-left-color: var(--border-strong); opacity: 0.75; }
       .inv-row[data-status='Low Stock'] { border-left-color: var(--accent-fall); }
+      .inv-row[data-removing] { opacity: 0.6; }
       .inv-thumb {
         width: 4rem;
         height: 4rem;
@@ -592,13 +574,22 @@ function InventoryStyles() {
         color: var(--text-muted);
         text-align: center;
       }
-      .inv-row-name { margin: 0 0 0.15rem; font-weight: 600; }
+      .inv-row-name {
+        margin: 0 0 0.15rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
       .inv-row-meta { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+      .inv-row-meta s { color: var(--text-faint, var(--text-muted)); }
       .inv-row-actions {
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
         align-items: stretch;
+        min-width: 9rem;
       }
       .inv-status-select { min-height: 44px; width: 100%; }
       .inv-row-buttons { display: flex; gap: 0.5rem; }
@@ -612,16 +603,25 @@ function InventoryStyles() {
       }
       .inv-confirm button { width: 100%; }
       .inv-form { max-width: 34rem; }
-      .inv-form-title { font-size: 1.6rem; margin: 0 0 1.25rem; }
+      .inv-form-title { font-size: 1.6rem; margin: 0 0 0.5rem; }
       .inv-form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 0 1rem;
       }
       .inv-field select { width: 100%; }
+      .inv-collections { margin: 0 0 1.1rem; }
+      .inv-collection-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 1.25rem;
+      }
       .inv-photos-block { margin: 0 0 1.1rem; }
       .inv-photos-label {
-        margin: 0 0 0.35rem;
+        margin: 0.75rem 0 0.35rem;
         font-size: 0.8rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -685,6 +685,9 @@ function InventoryStyles() {
       .inv-upload:hover { border-color: var(--brand); color: var(--brand-dark); }
       .inv-upload input {
         position: absolute;
+        min-height: 0;
+        padding: 0;
+        border: 0;
         width: 1px;
         height: 1px;
         overflow: hidden;

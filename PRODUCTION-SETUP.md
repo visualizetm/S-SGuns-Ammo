@@ -2,8 +2,8 @@
 
 How to promote the demo-mode backends to production. Nothing here is
 required to run locally: with zero env vars the site uses the dev/demo
-implementations (in-memory leads, JSON-file inventory, data-URL images,
-demo admin password).
+implementations (JSON-file catalog with DEMO seeds, data-URL images,
+demo admin password, "form is being set up" answers on the public forms).
 
 ## Environment variables (Vercel project settings)
 
@@ -11,75 +11,65 @@ demo admin password).
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Real admin password for `/admin` | Documented demo password `oxford-demo` |
 | `ADMIN_SESSION_SECRET` | Random secret that signs admin session tokens | Secret derived from the admin password (demo grade) |
-| `DATABASE_URL` | Postgres connection string for the inventory store | Dev JSON file store (`.data/inventory-dev.json`), in-memory on read-only filesystems |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for inventory photo storage | Photos stored as small data URLs inside the item records |
+| `DATABASE_URL` | Postgres connection string for the catalog store | Dev JSON file store (`.data/catalog-dev.json`), in-memory on read-only filesystems |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for photo storage | Photos stored as small data URLs inside the records |
+| `WEB3FORMS_ACCESS_KEY` | Web3Forms key; public forms forward to the owner's email | Forms answer 503 with a "form is being set up" message |
 
-Set all four for a real deployment. Redeploy after changing any of them.
+Set all five for a real deployment. Redeploy after changing any of them.
+
+## Public forms (Web3Forms)
+
+- Contact, transfer inquiry, and email signup validate server-side
+  (shared/validation.js), drop honeypot hits silently, and forward to
+  https://api.web3forms.com/submit with the env key. Nothing is stored
+  server-side.
+- Setup: create a free access key at https://web3forms.com using the
+  owner's destination email (UNCONFIRMED, see NEEDS-CONFIRMATION.md),
+  set `WEB3FORMS_ACCESS_KEY`, redeploy, send a test through each form.
+- The key never ships to the browser; it lives only in the env var.
 
 ## Admin auth
 
-- Login (`POST /api/admin/login`) exchanges the password for a bearer
-  token signed with HMAC-SHA256 (`ADMIN_SESSION_SECRET`) that expires
-  after 7 days. Tokens are stateless; nothing is stored server-side.
-- Rotating `ADMIN_SESSION_SECRET` invalidates every issued token
-  immediately (logs every device out).
+- Login exchanges the password for an HMAC-SHA256-signed bearer token
+  that expires after 7 days. Stateless; nothing stored server-side.
+- Rotating `ADMIN_SESSION_SECRET` logs every device out immediately.
 - Generate a secret: `openssl rand -hex 32`
-- The password and secret never appear in any `VITE_` variable or the
-  client bundle. The in-browser demo gate only exists when the API is
-  unreachable and never guards real data.
-- Not yet implemented (acceptable for a single-owner admin, revisit if
-  that changes): login rate limiting, multiple users, token revocation
-  short of rotating the secret.
+- Not yet implemented (fine for a single-owner admin): login rate
+  limiting, multiple users, per-token revocation.
 
-## Inventory database (Neon or Vercel Postgres)
+## Catalog database (Neon or Vercel Postgres)
 
-1. Create a database: either [Neon](https://neon.tech) (free tier is
-   fine) or Vercel Postgres from the Vercel dashboard (Storage tab).
-2. Copy the pooled connection string and set it as `DATABASE_URL`.
-3. There is no migration step: the adapter creates its table on first
-   use with
-
-   ```sql
-   CREATE TABLE IF NOT EXISTS inventory_items (
-     id TEXT PRIMARY KEY,
-     created_at TIMESTAMPTZ NOT NULL,
-     updated_at TIMESTAMPTZ NOT NULL,
-     data JSONB NOT NULL
-   )
-   ```
-
-4. The driver is `@neondatabase/serverless` (HTTP-based, works on any
-   serverless runtime; also compatible with Vercel Postgres). It is only
-   imported when `DATABASE_URL` is set.
-5. Seeding: production starts empty on purpose. The owner adds real
-   items through the admin. Do not copy the DEMO seed items into
-   production.
+1. Create a database (Neon free tier or Vercel Postgres, Storage tab).
+2. Set the pooled connection string as `DATABASE_URL`.
+3. No migration step: the adapter creates its three tables on first use
+   (`catalog_products`, `catalog_collections`, `catalog_bundles`), each
+   `id TEXT PRIMARY KEY, created_at, updated_at, draft JSONB, published
+   JSONB`.
+4. Draft/publish semantics are identical to the dev store because both
+   run the same operations (shared/catalogStore.js). Publish and Discard
+   write through a single transaction, so the promotion is atomic.
+5. Production starts EMPTY on purpose. The owner adds real products
+   through the admin; DEMO seeds never promote to production.
+6. Single-editor assumption: writes are read-modify-write without row
+   locking. Fine for one owner on one phone; revisit before adding a
+   second concurrent editor.
 
 ## Photo storage (Vercel Blob)
 
-1. In the Vercel dashboard: Storage tab, create a Blob store, connect it
-   to the project. That injects `BLOB_READ_WRITE_TOKEN`.
-2. Uploads then return public `*.public.blob.vercel-storage.com` URLs
-   stored on the item; nothing else changes.
-3. The admin form downscales photos in the browser (max edge 1200px,
-   JPEG) before upload, so blobs stay small. Server-side cap: ~1.5 MB
-   per image, JPEG/PNG/WebP only.
-4. Deleting an item does not delete its blobs yet; prune from the Blob
-   dashboard if storage ever matters. Listed as a follow-up.
-
-## Leads store
-
-Leads still use the demo in-memory adapter (`api/_lib/adapter.js`).
-When a database exists (step above), the same promotion pattern applies:
-implement the four leads adapter methods against Postgres and return
-that adapter from `getLeadsAdapter()` when `DATABASE_URL` is set. This
-is the next production task and is intentionally out of scope for the
-inventory phase.
+1. Storage tab, create a Blob store, connect it to the project (injects
+   `BLOB_READ_WRITE_TOKEN`).
+2. Uploads return public blob URLs stored on the records.
+3. The admin downscales photos in the browser (max edge 1200px, JPEG)
+   before upload; server caps ~1.5 MB, JPEG/PNG/WebP only.
+4. Deleting a product does not delete its blobs; prune from the Blob
+   dashboard if storage ever matters.
 
 ## Local development
 
-- `node scripts/dev-api.mjs` starts every serverless endpoint on
+- `node scripts/dev-api.mjs` serves every endpoint on
   http://localhost:3999 with zero credentials for curl testing.
-- The dev inventory store persists to `.data/inventory-dev.json`
-  (gitignored). Delete the file to reseed the DEMO items.
-- `npm run smoke` covers validation, auth, and every endpoint.
+- The dev catalog persists to `.data/catalog-dev.json` (gitignored).
+  Delete the folder to reseed the DEMO catalog.
+- `npm run smoke` covers validation, auth, the draft/publish flow, CSV,
+  and every endpoint. `npm run responsive-check` audits every public
+  page and all four admin tabs.

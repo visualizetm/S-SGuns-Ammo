@@ -1,5 +1,4 @@
 // POST /api/leads/email-signup
-// Email capture (name + email) for future shop updates.
-import { createLeadEndpoint } from '../_lib/leadEndpoint.js';
+import { createFormEndpoint } from '../_lib/formEndpoint.js';
 
-export default createLeadEndpoint('email_signup');
+export default createFormEndpoint('email_signup');

@@ -72,28 +72,35 @@ files and carries a `// LEGAL REVIEW REQUIRED before publish` comment:
 No fee numbers and no legal claims appear anywhere; regulated questions are
 answered with "Call the shop" language pending owner and counsel review.
 
-## Inventory system (added with the inventory phase)
+## Product catalog (product studio phase)
 
-- All seeded inventory is fictional and prefixed "DEMO:". No real
+- All seeded catalog data is fictional and prefixed "DEMO:". No real
   products, prices, calibers, or stock levels exist anywhere in the
-  build. The owner enters real items through /admin.
-- Category list (`INVENTORY_CATEGORIES` in
-  `shared/inventoryValidation.js`: Handguns, Rifles, Shotguns,
-  Ammunition, Optics & Accessories, Other) is a draft. Confirm with the
-  owner before the public catalog phase.
-- Whether prices may be shown on the PUBLIC site at all is UNCONFIRMED
-  and needs owner plus compliance review before the public catalog
-  phase. Prompt 1 barred public firearm price listings; inventory prices
-  currently render only inside the authenticated admin.
+  build. The owner enters real items through /admin. Production data
+  starts empty.
+- Public pricing approved by owner: prices (and sale pricing with
+  compare-at values) may appear on the public site. The public catalog
+  page itself is the next phase.
+- Starter collections (Handguns, Rifles, Shotguns, Ammunition, Optics &
+  Accessories, Other) migrated from the old category list; the owner can
+  rename, reorder, hide, or delete them freely in the admin.
 - Condition values (New, Used) and stock statuses (In Stock, Low Stock,
   Sold, Hidden) are drafts to confirm with the owner.
 
+## Owner email for form delivery (UNCONFIRMED)
+
+- The public forms (contact, transfer inquiry, email signup) forward to
+  the owner's email through Web3Forms; nothing is stored server-side.
+- `[[OWNER DESTINATION EMAIL - confirm with owner]]` is needed to create
+  the Web3Forms access key (`WEB3FORMS_ACCESS_KEY` env var, see
+  PRODUCTION-SETUP.md). Until it is set, the forms show a "form is being
+  set up" message and deliver nothing.
+
 ## Demo-mode items to revisit at production
 
-- Leads are stored in-memory (serverless) or localStorage (browser demo)
-  behind the data adapter in `api/_lib/adapter.js`; swap in a real database
-  adapter before launch.
+- Catalog storage is a JSON file (dev) until `DATABASE_URL` is set; see
+  PRODUCTION-SETUP.md for the Postgres and Vercel Blob promotion steps.
 - Admin gate uses a documented demo password (see README); set
-  `ADMIN_PASSWORD` in Vercel and promote to real session auth before launch.
-- Form submissions send no email notification yet; wire the owner's
-  confirmed email into a notification step at production.
+  `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET` in Vercel before launch.
+- Set `WEB3FORMS_ACCESS_KEY` so the public forms deliver to the owner's
+  inbox instead of showing the setup message.

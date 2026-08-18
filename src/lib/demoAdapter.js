@@ -1,82 +1,71 @@
 // In-browser DEMO adapter.
 //
 // Used only when the serverless API is unreachable (e.g. `vite dev` or
-// `vite preview` without Vercel functions). It mirrors the server exactly:
-// same shared validation, same seeded leads, same response shapes, so the
-// whole site is fully interactive with no database and no env vars.
-// Persistence is localStorage, so demo submissions survive reloads.
+// `vite preview` without Vercel functions). The catalog mirrors the server
+// exactly because both wrap the same pure store operations in
+// shared/catalogStore.js; persistence here is localStorage.
+//
+// Public forms: the real endpoints forward to the owner's email through
+// Web3Forms and store nothing. With no API there is nothing to forward to,
+// so the demo returns the same honest "form is being set up" answer the
+// server gives without an access key.
 //
 // The demo admin gate here is cosmetic by design: anything shipped to the
 // browser can be inspected, so this path must never guard real data. Real
 // deployments authenticate in api/_lib/auth.js on the server.
 
 import { validateLead, isSpam, LEAD_TYPES } from '../../shared/validation.js';
-import { SEED_LEADS } from '../../shared/seeds.js';
-import { validateInventoryItem } from '../../shared/inventoryValidation.js';
-import { SEED_INVENTORY } from '../../shared/inventorySeeds.js';
+import {
+  listProducts,
+  listCollections,
+  listBundles,
+  getRecord,
+  saveDraft,
+  deleteDraft,
+  restoreDraft,
+  reorderCollections,
+  changesSummary,
+  publishAll,
+  discardAll,
+  displayOf,
+  statusOf,
+} from '../../shared/catalogStore.js';
+import { seedCatalogStore } from '../../shared/catalogSeeds.js';
+import {
+  validateProduct,
+  validateCollection,
+  validateBundle,
+  withComputedSale,
+} from '../../shared/catalogValidation.js';
 
-const STORE_KEY = 'ssga-demo-leads';
-const INVENTORY_KEY = 'ssga-demo-inventory';
+const CATALOG_KEY = 'ssga-demo-catalog';
 const DEMO_PASSWORD = 'oxford-demo';
 const DEMO_TOKEN = 'demo-local-token';
 
-function loadInventory() {
+const SETUP_MESSAGE =
+  'This form is still being set up. Please call the shop at (610) 368-6984.';
+
+function loadCatalog() {
   try {
-    const raw = localStorage.getItem(INVENTORY_KEY);
+    const raw = localStorage.getItem(CATALOG_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
     // fall through to reseed
   }
-  const seeded = SEED_INVENTORY.map((item) => ({ ...item }));
-  saveInventory(seeded);
+  const seeded = seedCatalogStore();
+  saveCatalog(seeded);
   return seeded;
 }
 
-function saveInventory(items) {
+function saveCatalog(store) {
   try {
-    localStorage.setItem(INVENTORY_KEY, JSON.stringify(items));
+    localStorage.setItem(CATALOG_KEY, JSON.stringify(store));
   } catch {
     // storage unavailable; demo continues in-memory for this page load
   }
 }
 
-function filterInventory(items, { includeHidden, category, q }) {
-  const needle = (q || '').toLowerCase();
-  return items
-    .filter((i) => includeHidden || i.stockStatus !== 'Hidden')
-    .filter((i) => !category || i.category === category)
-    .filter(
-      (i) =>
-        !needle ||
-        [i.name, i.manufacturer, i.model, i.caliber, i.description]
-          .join(' ')
-          .toLowerCase()
-          .includes(needle)
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-
-function loadStore() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // fall through to reseed
-  }
-  const seeded = SEED_LEADS.map((lead) => ({ ...lead }));
-  saveStore(seeded);
-  return seeded;
-}
-
-function saveStore(leads) {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(leads));
-  } catch {
-    // storage unavailable; demo continues in-memory for this page load
-  }
-}
-
-function delay(ms = 350) {
+function delay(ms = 250) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -84,38 +73,44 @@ function makeId() {
   return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function denied() {
+  return { status: 401, body: { ok: false, error: 'Not authorized.' } };
+}
+
+function invalid(errors) {
+  return {
+    status: 422,
+    body: { ok: false, error: 'Please correct the highlighted fields.', errors },
+  };
+}
+
+function itemOf(record) {
+  return { ...displayOf(record), id: record.id, status: statusOf(record) };
+}
+
+const VALIDATORS = {
+  products: validateProduct,
+  collections: validateCollection,
+  bundles: validateBundle,
+};
+
 export const demoAdapter = {
+  // ---- Public forms ----
+
   async submitLead(type, input) {
-    await delay();
+    await delay(300);
     if (!LEAD_TYPES.includes(type)) {
-      return { status: 404, body: { ok: false, error: 'Unknown lead type.' } };
+      return { status: 404, body: { ok: false, error: 'Unknown form.' } };
     }
     if (isSpam(input)) {
       return { status: 200, body: { ok: true } };
     }
     const result = validateLead(type, input);
     if (!result.ok) {
-      return {
-        status: 422,
-        body: {
-          ok: false,
-          error: 'Please correct the highlighted fields.',
-          errors: result.errors,
-        },
-      };
+      return invalid(result.errors);
     }
-    const leads = loadStore();
-    const lead = {
-      id: makeId(),
-      type,
-      createdAt: new Date().toISOString(),
-      read: false,
-      source: 'form',
-      data: result.data,
-    };
-    leads.push(lead);
-    saveStore(leads);
-    return { status: 201, body: { ok: true, id: lead.id } };
+    // No API means no Web3Forms forwarding: honest setup answer.
+    return { status: 503, body: { ok: false, setup: true, error: SETUP_MESSAGE } };
   },
 
   async login(password) {
@@ -126,109 +121,142 @@ export const demoAdapter = {
     return { status: 401, body: { ok: false, error: 'Incorrect password.' } };
   },
 
-  async listLeads(token, type) {
-    await delay(200);
-    if (token !== DEMO_TOKEN) {
-      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
-    }
-    let leads = loadStore();
-    if (type) leads = leads.filter((l) => l.type === type);
-    leads = [...leads].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return { status: 200, body: { ok: true, leads } };
-  },
+  // ---- Catalog (same pure operations as the server dev store) ----
 
-  async setLeadRead(token, id, read) {
+  async listCatalog(token, kind, { collectionId, q } = {}) {
     await delay(150);
-    if (token !== DEMO_TOKEN) {
-      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
-    }
-    const leads = loadStore();
-    const lead = leads.find((l) => l.id === id);
-    if (!lead) {
-      return { status: 404, body: { ok: false, error: 'Lead not found.' } };
-    }
-    lead.read = Boolean(read);
-    saveStore(leads);
-    return { status: 200, body: { ok: true, lead } };
-  },
-
-  // ---- Inventory (mirrors the serverless endpoints exactly) ----
-
-  async listInventory(token, { includeHidden, category, q } = {}) {
-    await delay(200);
-    if (includeHidden && token !== DEMO_TOKEN) {
-      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
-    }
-    const items = filterInventory(loadInventory(), { includeHidden, category, q });
+    if (token !== DEMO_TOKEN) return denied();
+    const store = loadCatalog();
+    const items =
+      kind === 'products'
+        ? listProducts(store, { scope: 'draft', collectionId, q, includeHidden: true })
+        : kind === 'collections'
+          ? listCollections(store, { scope: 'draft' })
+          : listBundles(store, { scope: 'draft' });
     return { status: 200, body: { ok: true, items } };
   },
 
-  async createInventoryItem(token, input) {
-    await delay(200);
-    if (token !== DEMO_TOKEN) {
-      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
+  async saveDraft(token, kind, id, fields) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
+    const store = loadCatalog();
+
+    let base = {};
+    if (id) {
+      const existing = getRecord(store, kind, id);
+      if (!existing || existing.draft === null) {
+        return { status: 404, body: { ok: false, error: 'Not found.' } };
+      }
+      base = existing.draft;
     }
-    const result = validateInventoryItem(input);
-    if (!result.ok) {
-      return {
-        status: 422,
-        body: { ok: false, error: 'Please correct the highlighted fields.', errors: result.errors },
-      };
+
+    const result = VALIDATORS[kind]({ ...base, ...fields });
+    if (!result.ok) return invalid(result.errors);
+    let data = result.data;
+
+    if (kind === 'products') {
+      const known = new Set(listCollections(store, { scope: 'draft' }).map((c) => c.id));
+      if ((data.collectionIds || []).some((cid) => !known.has(cid))) {
+        return invalid({ collectionIds: 'One of those collections no longer exists.' });
+      }
+      data = withComputedSale(data);
     }
-    const items = loadInventory();
-    const now = new Date().toISOString();
-    const item = { id: makeId(), createdAt: now, updatedAt: now, ...result.data };
-    items.push(item);
-    saveInventory(items);
-    return { status: 201, body: { ok: true, item } };
+    if (kind === 'collections' && data.sortOrder === undefined) {
+      const existing = listCollections(store, { scope: 'draft' });
+      data.sortOrder = existing.length
+        ? Math.max(...existing.map((c) => c.sortOrder ?? 0)) + 1
+        : 0;
+    }
+    if (kind === 'bundles') {
+      const known = new Set(
+        listProducts(store, { scope: 'draft', includeHidden: true }).map((p) => p.id)
+      );
+      if ((data.memberProductIds || []).some((pid) => !known.has(pid))) {
+        return invalid({
+          memberProductIds: 'One of those products no longer exists. Re-pick the bundle members.',
+        });
+      }
+    }
+
+    const record = saveDraft(store, kind, id || null, data, makeId);
+    saveCatalog(store);
+    return { status: id ? 200 : 201, body: { ok: true, item: itemOf(record) } };
   },
 
-  async updateInventoryItem(token, id, patch) {
+  async deleteDraft(token, kind, id) {
     await delay(150);
-    if (token !== DEMO_TOKEN) {
-      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
-    }
-    const result = validateInventoryItem(patch, { partial: true });
-    if (!result.ok) {
-      return {
-        status: 422,
-        body: { ok: false, error: 'Please correct the highlighted fields.', errors: result.errors },
-      };
-    }
-    const items = loadInventory();
-    const item = items.find((i) => i.id === id);
-    if (!item) {
-      return { status: 404, body: { ok: false, error: 'Item not found.' } };
-    }
-    Object.assign(item, result.data, { updatedAt: new Date().toISOString() });
-    saveInventory(items);
-    return { status: 200, body: { ok: true, item } };
-  },
-
-  async deleteInventoryItem(token, id) {
-    await delay(150);
-    if (token !== DEMO_TOKEN) {
-      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
-    }
-    const items = loadInventory();
-    const index = items.findIndex((i) => i.id === id);
-    if (index === -1) {
-      return { status: 404, body: { ok: false, error: 'Item not found.' } };
-    }
-    items.splice(index, 1);
-    saveInventory(items);
+    if (token !== DEMO_TOKEN) return denied();
+    const store = loadCatalog();
+    const deleted = deleteDraft(store, kind, id);
+    if (!deleted) return { status: 404, body: { ok: false, error: 'Not found.' } };
+    saveCatalog(store);
     return { status: 200, body: { ok: true } };
   },
 
-  async uploadInventoryImage(token, { dataUrl } = {}) {
+  async restoreDraft(token, kind, id) {
     await delay(150);
-    if (token !== DEMO_TOKEN) {
-      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
+    if (token !== DEMO_TOKEN) return denied();
+    const store = loadCatalog();
+    const record = restoreDraft(store, kind, id);
+    if (!record) return { status: 404, body: { ok: false, error: 'Nothing to restore.' } };
+    saveCatalog(store);
+    return { status: 200, body: { ok: true, item: itemOf(record) } };
+  },
+
+  async reorderCollections(token, order) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
+    const store = loadCatalog();
+    reorderCollections(store, order);
+    saveCatalog(store);
+    return { status: 200, body: { ok: true } };
+  },
+
+  async publishSummary(token) {
+    await delay(120);
+    if (token !== DEMO_TOKEN) return denied();
+    return { status: 200, body: { ok: true, summary: changesSummary(loadCatalog()) } };
+  },
+
+  async publishAction(token, action) {
+    await delay(250);
+    if (token !== DEMO_TOKEN) return denied();
+    if (action !== 'publish' && action !== 'discard') {
+      return { status: 400, body: { ok: false, error: 'Action must be "publish" or "discard".' } };
     }
+    const store = loadCatalog();
+    if (action === 'publish') publishAll(store);
+    else discardAll(store);
+    saveCatalog(store);
+    return { status: 200, body: { ok: true, summary: changesSummary(store) } };
+  },
+
+  // ---- CSV: needs the real API (server-side row validation) ----
+
+  async exportCsv() {
+    await delay(100);
+    return {
+      status: 503,
+      body: { ok: false, error: 'CSV export runs on the deployed site, not the local demo.' },
+    };
+  },
+
+  async importCsv() {
+    await delay(100);
+    return {
+      status: 503,
+      body: { ok: false, error: 'CSV import runs on the deployed site, not the local demo.' },
+    };
+  },
+
+  // ---- Photo upload ----
+
+  async uploadImage(token, { dataUrl } = {}) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
     if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
       return { status: 422, body: { ok: false, error: 'Upload must be an image.' } };
     }
-    // Demo storage: the data URL itself is the stored URL.
     return { status: 201, body: { ok: true, url: dataUrl } };
   },
 };

@@ -1,0 +1,2 @@
+id,name,collections,manufacturer,model,caliber,condition,price,compareAtPrice,saleLabel,stockStatus,description
+,Example product name,Rifles; Optics & Accessories,Example Maker,Model 1,.308 Win,New,499.99,,,In Stock,Leave the id column empty for new products. Separate multiple collections with semicolons.

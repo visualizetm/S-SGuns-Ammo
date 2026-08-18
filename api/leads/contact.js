@@ -1,4 +1,4 @@
 // POST /api/leads/contact
-import { createLeadEndpoint } from '../_lib/leadEndpoint.js';
+import { createFormEndpoint } from '../_lib/formEndpoint.js';
 
-export default createLeadEndpoint('contact');
+export default createFormEndpoint('contact');
