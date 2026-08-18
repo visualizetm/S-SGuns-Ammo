@@ -8,7 +8,8 @@
     "build": "vite build && node scripts/generate-seo.mjs",
     "preview": "vite preview",
     "smoke": "node scripts/smoke-test.mjs",
-    "responsive-check": "node scripts/responsive-check.mjs"
+    "responsive-check": "node scripts/responsive-check.mjs",
+    "preflight": "node scripts/preflight.mjs"
   },
   "dependencies": {
     "@babel/runtime": "^7",

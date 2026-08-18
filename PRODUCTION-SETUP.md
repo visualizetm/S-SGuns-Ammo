@@ -17,6 +17,31 @@ demo admin password, "form is being set up" answers on the public forms).
 
 Set all five for a real deployment. Redeploy after changing any of them.
 
+Copy-paste with the Vercel CLI (or paste the same values into Project
+Settings, Environment Variables, in the dashboard):
+
+```sh
+# Generate the two secrets first and keep the password for the owner.
+openssl rand -base64 24   # -> ADMIN_PASSWORD (or any strong password)
+openssl rand -hex 32      # -> ADMIN_SESSION_SECRET
+
+vercel env add ADMIN_PASSWORD production
+vercel env add ADMIN_SESSION_SECRET production
+vercel env add DATABASE_URL production
+vercel env add BLOB_READ_WRITE_TOKEN production
+vercel env add WEB3FORMS_ACCESS_KEY production
+vercel --prod   # redeploy so the new env takes effect
+```
+
+## Pre-deploy gate
+
+Run `npm run build` then `npm run preflight` before any production
+deploy. It fails the deploy if the retired phone number reappears, if an
+em or en dash slips into copy, if DEMO seed data could reach the
+Postgres path, or if the build did not emit robots.txt, sitemap.xml,
+and the web manifest. It also lists every `[[...]]` owner-confirmation
+placeholder still in `src/content/siteFacts.js`.
+
 ## Public forms (Web3Forms)
 
 - Contact, transfer inquiry, and email signup validate server-side
