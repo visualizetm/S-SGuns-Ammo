@@ -24,9 +24,9 @@ import {
   askAboutMessage,
 } from '../src/lib/catalogView.js';
 import { verifyToken } from '../api/_lib/auth.js';
-import contactHandler from '../api/leads/contact.js';
-import transferHandler from '../api/leads/transfer.js';
-import emailSignupHandler from '../api/leads/email-signup.js';
+import contactHandler from '../api/forms/contact.js';
+import transferHandler from '../api/forms/transfer.js';
+import emailSignupHandler from '../api/forms/email-signup.js';
 import loginHandler from '../api/admin/login.js';
 import inventoryHandler from '../api/inventory/index.js';
 import adminProductsHandler from '../api/admin/products.js';

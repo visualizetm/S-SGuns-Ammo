@@ -9,9 +9,9 @@
 import { demoAdapter } from './demoAdapter.js';
 
 const FORM_PATHS = {
-  contact: '/api/leads/contact',
-  transfer: '/api/leads/transfer',
-  email_signup: '/api/leads/email-signup',
+  contact: '/api/forms/contact',
+  transfer: '/api/forms/transfer',
+  email_signup: '/api/forms/email-signup',
 };
 
 async function callApi(path, options) {

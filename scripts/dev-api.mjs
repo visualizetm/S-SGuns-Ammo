@@ -4,9 +4,9 @@
 //   node scripts/dev-api.mjs   (PORT env to override, default 3999)
 
 import { createServer } from 'node:http';
-import contactHandler from '../api/leads/contact.js';
-import transferHandler from '../api/leads/transfer.js';
-import emailSignupHandler from '../api/leads/email-signup.js';
+import contactHandler from '../api/forms/contact.js';
+import transferHandler from '../api/forms/transfer.js';
+import emailSignupHandler from '../api/forms/email-signup.js';
 import loginHandler from '../api/admin/login.js';
 import inventoryHandler from '../api/inventory/index.js';
 import adminProductsHandler from '../api/admin/products.js';
@@ -17,9 +17,9 @@ import adminProductsCsvHandler from '../api/admin/products-csv.js';
 import adminInventoryImageHandler from '../api/admin/inventory-image.js';
 
 const ROUTES = {
-  '/api/leads/contact': contactHandler,
-  '/api/leads/transfer': transferHandler,
-  '/api/leads/email-signup': emailSignupHandler,
+  '/api/forms/contact': contactHandler,
+  '/api/forms/transfer': transferHandler,
+  '/api/forms/email-signup': emailSignupHandler,
   '/api/admin/login': loginHandler,
   '/api/inventory': inventoryHandler,
   '/api/admin/products': adminProductsHandler,

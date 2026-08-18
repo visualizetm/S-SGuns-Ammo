@@ -64,9 +64,9 @@ is in `PRODUCTION-SETUP.md`.
 
 | Route | Method | Purpose |
 | --- | --- | --- |
-| `/api/leads/contact` | POST | Contact form |
-| `/api/leads/transfer` | POST | Transfer inquiry form |
-| `/api/leads/email-signup` | POST | Email capture |
+| `/api/forms/contact` | POST | Contact form |
+| `/api/forms/transfer` | POST | Transfer inquiry form |
+| `/api/forms/email-signup` | POST | Email capture |
 | `/api/admin/login` | POST | Admin login, returns signed expiring bearer token |
 | `/api/inventory` | GET | Public catalog: PUBLISHED products, collections, gated bundles; `?collection=&q=` or `?id=` for one item |
 | `/api/admin/products` | GET POST PATCH DELETE | Product drafts: list, save, restore, delete (auth) |
