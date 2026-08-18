@@ -16,7 +16,7 @@ export function ProductCard({ item }) {
     <Link to={`/inventory/${item.id}`} className="pc-card" data-dimmed={badges.dimmed || undefined}>
       <span className="pc-photo">
         {photo ? (
-          <img src={photo} alt={item.name} loading="lazy" />
+          <img src={photo} alt={`${item.name}, ${item.condition}`} loading="lazy" />
         ) : (
           <span className="pc-photo-empty">
             <img src={LOGO_ASSETS.submark} alt="" loading="lazy" />

@@ -1,0 +1,14 @@
+{
+  "name": "S&S Guns & Ammo",
+  "short_name": "S&S Guns & Ammo",
+  "description": "Family-owned firearms and ammunition shop in Oxford, Pennsylvania.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#f2ebdd",
+  "theme_color": "#f2ebdd",
+  "icons": [
+    { "src": "/brand/favicon-64.png", "sizes": "64x64", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/brand/submark.web.webp", "sizes": "512x514", "type": "image/webp" }
+  ]
+}

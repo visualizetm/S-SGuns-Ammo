@@ -77,7 +77,7 @@ function ItemView({ item }) {
           <div className="itm-media reveal-left">
             <div className="itm-photo">
               {mainPhoto ? (
-                <img src={mainPhoto} alt={item.name} />
+                <img src={mainPhoto} alt={`${item.name}, ${item.condition}`} />
               ) : (
                 <span className="itm-photo-empty">
                   <img src={LOGO_ASSETS.submark} alt="" />
@@ -344,10 +344,38 @@ export function InventoryItem() {
 
   if (state.loading) {
     return (
-      <section className="section">
-        <div className="wrap">
-          <p role="status">Loading the item...</p>
+      <section className="section" aria-label="Loading">
+        <div className="wrap" role="status">
+          <span className="sr-only">Loading the item</span>
+          <div className="itm-skel" aria-hidden="true">
+            <span className="sk sk--photo" />
+            <span className="itm-skel-info">
+              <span className="sk sk--line itm-skel-name" />
+              <span className="sk sk--line itm-skel-price" />
+              <span className="sk sk--line itm-skel-spec" />
+              <span className="sk sk--line itm-skel-spec" />
+            </span>
+          </div>
         </div>
+        <style>{`
+          .itm-skel {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 3rem;
+            align-items: start;
+          }
+          .itm-skel-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+          }
+          .itm-skel-name { width: 70%; height: 2.4rem; }
+          .itm-skel-price { width: 35%; height: 1.6rem; }
+          .itm-skel-spec { width: 55%; }
+          @media (max-width: 899.98px) {
+            .itm-skel { grid-template-columns: 1fr; gap: 1.75rem; }
+          }
+        `}</style>
       </section>
     );
   }

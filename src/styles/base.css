@@ -877,3 +877,57 @@ dl div + div dt {
   letter-spacing: 0.08em;
   color: var(--text-on-dark-muted);
 }
+
+/* Screen-reader-only text: visually hidden, still announced. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Loading skeletons: field-tone blocks sized like the content they stand
+   in for, so nothing jumps when real data arrives. The pulse is subtle
+   and disabled entirely under prefers-reduced-motion. */
+.sk {
+  display: block;
+  background: var(--bg-field);
+  border-radius: var(--radius);
+  animation: sk-pulse 1.4s ease-in-out infinite;
+}
+
+.sk--photo {
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.sk--line {
+  height: 1rem;
+}
+
+.sk--chip {
+  height: 44px;
+  width: 6.5rem;
+}
+
+@keyframes sk-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk {
+    animation: none;
+  }
+}

@@ -141,7 +141,26 @@ export function Inventory() {
 
       <section className="cat-browse section" aria-label="Browse inventory">
         <div className="wrap">
-          {loading ? <p role="status">Loading the inventory...</p> : null}
+          {loading ? (
+            <div role="status" className="cat-skel">
+              <span className="sr-only">Loading the inventory</span>
+              <div className="cat-skel-chips" aria-hidden="true">
+                <span className="sk sk--chip" />
+                <span className="sk sk--chip" />
+                <span className="sk sk--chip" />
+                <span className="sk sk--chip" />
+              </div>
+              <div className="cat-grid" aria-hidden="true">
+                {Array.from({ length: 8 }, (_, index) => (
+                  <span key={index} className="cat-skel-card">
+                    <span className="sk sk--photo" />
+                    <span className="sk sk--line cat-skel-name" />
+                    <span className="sk sk--line cat-skel-meta" />
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {failed ? (
             <p role="alert" className="cat-empty">
               The inventory list could not be loaded. Call the shop at{' '}
@@ -326,6 +345,19 @@ export function Inventory() {
             grid-template-columns: repeat(4, 1fr);
             gap: 1.25rem;
           }
+          .cat-skel-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 0 0 1.5rem;
+          }
+          .cat-skel-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+          .cat-skel-name { width: 75%; height: 1.25rem; }
+          .cat-skel-meta { width: 50%; height: 0.85rem; }
           .cat-empty { color: var(--text-secondary); max-width: 34rem; }
           .cat-empty-state {
             display: flex;
