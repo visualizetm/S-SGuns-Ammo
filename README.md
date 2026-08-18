@@ -70,9 +70,21 @@ changes.
 | `/api/leads/contact` | POST | Contact form |
 | `/api/leads/transfer` | POST | Transfer inquiry form |
 | `/api/leads/email-signup` | POST | Email capture |
-| `/api/admin/login` | POST | Admin login, returns bearer token |
+| `/api/admin/login` | POST | Admin login, returns signed expiring bearer token |
 | `/api/admin/leads` | GET | List leads, optional `?type=` filter (auth) |
 | `/api/admin/leads` | PATCH | Mark lead read/unread (auth) |
+| `/api/inventory` | GET | Public inventory, Hidden excluded, `?category=&q=` |
+| `/api/admin/inventory` | GET | All inventory including Hidden (auth) |
+| `/api/admin/inventory` | POST | Create item (auth) |
+| `/api/admin/inventory` | PATCH | Update item fields by `id` (auth) |
+| `/api/admin/inventory` | DELETE | Delete item by `id` (auth) |
+| `/api/admin/inventory-image` | POST | Upload item photo (auth) |
+
+The inventory store and photo storage sit behind the same swappable
+adapter pattern as leads: zero-credential dev implementations (JSON file
+store, data-URL images) with production Postgres and Vercel Blob
+selected by env vars. See `PRODUCTION-SETUP.md`. Inventory is display
+data only: no cart, no checkout, no purchase flow.
 
 Every POST body is validated server-side in `shared/validation.js` (also
 reused client-side for inline errors). Invalid input returns 422 with

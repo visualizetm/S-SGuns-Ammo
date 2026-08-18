@@ -72,6 +72,22 @@ files and carries a `// LEGAL REVIEW REQUIRED before publish` comment:
 No fee numbers and no legal claims appear anywhere; regulated questions are
 answered with "Call the shop" language pending owner and counsel review.
 
+## Inventory system (added with the inventory phase)
+
+- All seeded inventory is fictional and prefixed "DEMO:". No real
+  products, prices, calibers, or stock levels exist anywhere in the
+  build. The owner enters real items through /admin.
+- Category list (`INVENTORY_CATEGORIES` in
+  `shared/inventoryValidation.js`: Handguns, Rifles, Shotguns,
+  Ammunition, Optics & Accessories, Other) is a draft. Confirm with the
+  owner before the public catalog phase.
+- Whether prices may be shown on the PUBLIC site at all is UNCONFIRMED
+  and needs owner plus compliance review before the public catalog
+  phase. Prompt 1 barred public firearm price listings; inventory prices
+  currently render only inside the authenticated admin.
+- Condition values (New, Used) and stock statuses (In Stock, Low Stock,
+  Sold, Hidden) are drafts to confirm with the owner.
+
 ## Demo-mode items to revisit at production
 
 - Leads are stored in-memory (serverless) or localStorage (browser demo)

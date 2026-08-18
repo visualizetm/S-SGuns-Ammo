@@ -74,3 +74,94 @@ export async function adminSetLeadRead(token, id, read) {
     return demoAdapter.setLeadRead(token, id, read);
   }
 }
+
+// ---- Inventory ----
+
+function inventoryQuery({ category, q } = {}) {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (q) params.set('q', q);
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+export async function listPublicInventory(options) {
+  try {
+    return await callApi(`/api/inventory${inventoryQuery(options)}`, {
+      method: 'GET',
+    });
+  } catch {
+    return demoAdapter.listInventory(null, { ...options, includeHidden: false });
+  }
+}
+
+export async function adminListInventory(token, options) {
+  try {
+    return await callApi(`/api/admin/inventory${inventoryQuery(options)}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    return demoAdapter.listInventory(token, { ...options, includeHidden: true });
+  }
+}
+
+export async function adminCreateInventoryItem(token, input) {
+  try {
+    return await callApi('/api/admin/inventory', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    return demoAdapter.createInventoryItem(token, input);
+  }
+}
+
+export async function adminUpdateInventoryItem(token, id, patch) {
+  try {
+    return await callApi('/api/admin/inventory', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ id, ...patch }),
+    });
+  } catch {
+    return demoAdapter.updateInventoryItem(token, id, patch);
+  }
+}
+
+export async function adminDeleteInventoryItem(token, id) {
+  try {
+    return await callApi('/api/admin/inventory', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ id }),
+    });
+  } catch {
+    return demoAdapter.deleteInventoryItem(token, id);
+  }
+}
+
+export async function adminUploadInventoryImage(token, payload) {
+  try {
+    return await callApi('/api/admin/inventory-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    return demoAdapter.uploadInventoryImage(token, payload);
+  }
+}

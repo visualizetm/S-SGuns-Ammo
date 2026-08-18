@@ -11,6 +11,13 @@ import { chromium } from 'playwright-core';
 const PORT = 4173;
 const BASE = `http://localhost:${PORT}`;
 const ROUTES = ['/', '/about', '/services', '/transfers', '/contact', '/admin', '/no-such-page'];
+// Admin screens behind the login gate: audited in a second context that
+// pre-seeds the demo session token, so the dashboard renders through the
+// in-browser demo adapter (vite preview has no serverless functions).
+const AUTH_ROUTES = ['/admin?tab=leads', '/admin?tab=inventory'];
+const AUTH_INIT = `
+  sessionStorage.setItem('ssga-admin-token', 'demo-local-token');
+`;
 const VIEWPORTS = [
   { name: 'mobile-375', width: 375, height: 667 },
   { name: 'tablet-768', width: 768, height: 1024 },
@@ -124,7 +131,7 @@ try {
       viewport: { width: viewport.width, height: viewport.height },
     });
     const page = await context.newPage();
-    for (const route of ROUTES) {
+    async function audit(page, route) {
       // 'load' + a bounded networkidle wait: external requests (web fonts)
       // can hang forever in sandboxed environments, and the audit must not
       // hang with them. The extra settle delay lets reveal-on-scroll
@@ -142,7 +149,21 @@ try {
         for (const p of problems) console.log(`FAIL - ${viewport.name} ${route}: ${p}`);
       }
     }
+
+    for (const route of ROUTES) {
+      await audit(page, route);
+    }
     await context.close();
+
+    const authContext = await browser.newContext({
+      viewport: { width: viewport.width, height: viewport.height },
+    });
+    await authContext.addInitScript(AUTH_INIT);
+    const authPage = await authContext.newPage();
+    for (const route of AUTH_ROUTES) {
+      await audit(authPage, route);
+    }
+    await authContext.close();
   }
 } finally {
   await browser.close();

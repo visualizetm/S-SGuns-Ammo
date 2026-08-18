@@ -4,7 +4,10 @@
 // the token held here is only a credential, never the gate itself.
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Inbox01 from '@untitled-ui/icons-react/build/esm/Inbox01';
+import Package from '@untitled-ui/icons-react/build/esm/Package';
+import { InventoryPanel } from '../components/admin/InventoryPanel.jsx';
 import {
   adminLogin,
   adminListLeads,
@@ -117,27 +120,13 @@ function LeadCard({ lead, onToggleRead, busy }) {
   );
 }
 
-export function Admin() {
-  usePageMeta('Admin');
-  const [token, setToken] = useState(
-    () => sessionStorage.getItem(TOKEN_KEY) || ''
-  );
+// Leads panel: the original dashboard list, unchanged in behavior.
+function LeadsPanel({ token, onAuthFail }) {
   const [filter, setFilter] = useState('');
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState('');
-
-  const handleToken = useCallback((next) => {
-    sessionStorage.setItem(TOKEN_KEY, next);
-    setToken(next);
-  }, []);
-
-  const handleLogout = useCallback(() => {
-    sessionStorage.removeItem(TOKEN_KEY);
-    setToken('');
-    setLeads([]);
-  }, []);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -146,7 +135,7 @@ export function Admin() {
     const { status, body } = await adminListLeads(token, filter || undefined);
     setLoading(false);
     if (status === 401) {
-      handleLogout();
+      onAuthFail();
       return;
     }
     if (body?.ok) {
@@ -154,7 +143,7 @@ export function Admin() {
     } else {
       setError(body?.error || 'Could not load leads.');
     }
-  }, [token, filter, handleLogout]);
+  }, [token, filter, onAuthFail]);
 
   useEffect(() => {
     refresh();
@@ -165,7 +154,7 @@ export function Admin() {
     const { status, body } = await adminSetLeadRead(token, lead.id, !lead.read);
     setBusyId('');
     if (status === 401) {
-      handleLogout();
+      onAuthFail();
       return;
     }
     if (body?.ok) {
@@ -177,24 +166,14 @@ export function Admin() {
     }
   }
 
-  if (!token) {
-    return <LoginGate onToken={handleToken} />;
-  }
-
   const unreadCount = leads.filter((l) => !l.read).length;
 
   return (
-    <section className="wrap section" aria-labelledby="admin-heading">
-      <h1 id="admin-heading" className="display">
-        <Inbox01 aria-hidden="true" width={20} height={20} /> Leads
-      </h1>
+    <div>
       <p>
         {leads.length} shown, {unreadCount} unread.{' '}
         <button type="button" onClick={refresh} disabled={loading}>
           Refresh
-        </button>{' '}
-        <button type="button" onClick={handleLogout}>
-          Log out
         </button>
       </p>
 
@@ -228,6 +207,111 @@ export function Admin() {
           />
         ))}
       </ul>
+    </div>
+  );
+}
+
+const TABS = [
+  { id: 'leads', label: 'Leads', icon: Inbox01 },
+  { id: 'inventory', label: 'Inventory', icon: Package },
+];
+
+export function Admin() {
+  usePageMeta('Admin');
+  const [token, setToken] = useState(
+    () => sessionStorage.getItem(TOKEN_KEY) || ''
+  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'inventory' ? 'inventory' : 'leads';
+
+  const handleToken = useCallback((next) => {
+    sessionStorage.setItem(TOKEN_KEY, next);
+    setToken(next);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    setToken('');
+  }, []);
+
+  if (!token) {
+    return <LoginGate onToken={handleToken} />;
+  }
+
+  return (
+    <section className="wrap section" aria-labelledby="admin-heading">
+      <div className="adm-top">
+        <h1 id="admin-heading" className="display adm-title">
+          Shop admin
+        </h1>
+        <button type="button" onClick={handleLogout}>
+          Log out
+        </button>
+      </div>
+
+      <nav aria-label="Admin sections" className="adm-tabs">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className="adm-tab"
+            aria-current={tab === id ? 'page' : undefined}
+            onClick={() => setSearchParams(id === 'leads' ? {} : { tab: id })}
+          >
+            <Icon aria-hidden="true" width={18} height={18} />
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === 'leads' ? (
+        <LeadsPanel token={token} onAuthFail={handleLogout} />
+      ) : (
+        <InventoryPanel token={token} onAuthFail={handleLogout} />
+      )}
+
+      <style>{`
+        .adm-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+        .adm-title { margin: 0; }
+        .adm-tabs {
+          display: flex;
+          gap: 0.5rem;
+          margin: 1.25rem 0 1.5rem;
+          border-bottom: 2px solid var(--border-strong);
+          padding-bottom: 0;
+        }
+        .adm-tabs .adm-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          min-height: 48px;
+          padding: 0 1.1rem;
+          background: transparent;
+          border: none;
+          border-bottom: 3px solid transparent;
+          border-radius: 0;
+          font-family: var(--font-display);
+          font-size: 1.15rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: color var(--duration-fast) var(--ease),
+            border-color var(--duration-fast) var(--ease);
+        }
+        .adm-tabs .adm-tab:hover { color: var(--brand-dark); }
+        .adm-tabs .adm-tab[aria-current='page'] {
+          color: var(--text);
+          border-bottom-color: var(--brand);
+        }
+      `}</style>
     </section>
   );
 }

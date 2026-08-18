@@ -10,12 +10,17 @@ import {
 } from '../shared/validation.js';
 import { getLeadsAdapter } from '../api/_lib/adapter.js';
 import { SEED_LEADS } from '../shared/seeds.js';
-import { tokenForPassword } from '../api/_lib/auth.js';
+import { verifyToken } from '../api/_lib/auth.js';
 import contactHandler from '../api/leads/contact.js';
 import transferHandler from '../api/leads/transfer.js';
 import emailSignupHandler from '../api/leads/email-signup.js';
 import loginHandler from '../api/admin/login.js';
 import adminLeadsHandler from '../api/admin/leads.js';
+import inventoryHandler from '../api/inventory/index.js';
+import adminInventoryHandler from '../api/admin/inventory.js';
+import adminInventoryImageHandler from '../api/admin/inventory-image.js';
+import { validateInventoryItem } from '../shared/inventoryValidation.js';
+import { SEED_INVENTORY } from '../shared/inventorySeeds.js';
 
 let passed = 0;
 function ok(label, fn) {
@@ -206,8 +211,9 @@ await (async () => {
   res = await call(loginHandler, { body: { password: 'oxford-demo' } });
   assert.equal(res.statusCode, 200);
   const token = res.body.token;
-  assert.equal(token, tokenForPassword('oxford-demo'));
-  ok('admin login: demo password returns token', () => {});
+  assert.equal(verifyToken(token), true);
+  assert.equal(verifyToken('123.badsignature'), false);
+  ok('admin login: demo password returns valid signed token', () => {});
 
   res = await call(adminLeadsHandler, { method: 'GET', url: '/api/admin/leads' });
   assert.equal(res.statusCode, 401);
@@ -268,6 +274,170 @@ await (async () => {
   });
   assert.equal(res.statusCode, 405);
   ok('admin leads: unsupported method returns 405', () => {});
+
+  // ---- inventory validation ----
+
+  ok('inventory: valid item passes and is normalized', () => {
+    const r = validateInventoryItem({
+      name: '  DEMO: Test Rifle  ',
+      category: 'Rifles',
+      manufacturer: 'Example Arms Co.',
+      model: 'T-1',
+      caliber: '.308 Win',
+      condition: 'New',
+      price: '499.999',
+      stockStatus: 'In Stock',
+      description: 'A demo item.',
+      photos: [],
+      featured: false,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.data.name, 'DEMO: Test Rifle');
+    assert.equal(r.data.price, 500);
+  });
+
+  ok('inventory: bad category, negative price, bad status all rejected', () => {
+    const r = validateInventoryItem({
+      name: 'X',
+      category: 'Explosives',
+      manufacturer: 'X',
+      model: 'X',
+      condition: 'Mint',
+      price: -5,
+      stockStatus: 'Backordered',
+    });
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.category);
+    assert.ok(r.errors.price);
+    assert.ok(r.errors.stockStatus);
+    assert.ok(r.errors.condition);
+  });
+
+  // ---- inventory endpoints ----
+
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.body.items.length > 0);
+  assert.ok(res.body.items.every((i) => i.stockStatus !== 'Hidden'));
+  ok('inventory: public GET returns items and never Hidden ones', () => {});
+
+  res = await call(inventoryHandler, {
+    method: 'GET',
+    url: '/api/inventory?category=Rifles&q=lever',
+  });
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.body.items.every((i) => i.category === 'Rifles'));
+  assert.ok(res.body.items.length >= 1);
+  ok('inventory: public GET category filter and search work', () => {});
+
+  res = await call(inventoryHandler, {
+    method: 'GET',
+    url: '/api/inventory?category=Nope',
+  });
+  assert.equal(res.statusCode, 400);
+  ok('inventory: unknown category returns 400', () => {});
+
+  res = await call(adminInventoryHandler, {
+    method: 'GET',
+    url: '/api/admin/inventory',
+  });
+  assert.equal(res.statusCode, 401);
+  ok('admin inventory: no token returns 401', () => {});
+
+  res = await call(adminInventoryHandler, {
+    method: 'GET',
+    url: '/api/admin/inventory',
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.body.items.some((i) => i.stockStatus === 'Hidden'));
+  ok('admin inventory: GET includes Hidden items', () => {});
+
+  res = await call(adminInventoryHandler, {
+    method: 'POST',
+    url: '/api/admin/inventory',
+    headers: { authorization: `Bearer ${token}` },
+    body: { name: 'X', category: 'Nope', price: -1 },
+  });
+  assert.equal(res.statusCode, 422);
+  assert.ok(res.body.errors);
+  ok('admin inventory: invalid create returns 422 with field errors', () => {});
+
+  res = await call(adminInventoryHandler, {
+    method: 'POST',
+    url: '/api/admin/inventory',
+    headers: { authorization: `Bearer ${token}` },
+    body: {
+      name: 'DEMO: Smoke Test Item',
+      category: 'Other',
+      manufacturer: 'Sample Gear',
+      model: 'SM-1',
+      condition: 'New',
+      price: 10,
+      stockStatus: 'In Stock',
+    },
+  });
+  assert.equal(res.statusCode, 201);
+  const created = res.body.item;
+  assert.ok(created.id);
+  ok('admin inventory: create returns the new item', () => {});
+
+  res = await call(adminInventoryHandler, {
+    method: 'PATCH',
+    url: '/api/admin/inventory',
+    headers: { authorization: `Bearer ${token}` },
+    body: { id: created.id, stockStatus: 'Sold', price: 12.5 },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.item.stockStatus, 'Sold');
+  assert.equal(res.body.item.price, 12.5);
+  ok('admin inventory: PATCH updates status and price', () => {});
+
+  res = await call(adminInventoryHandler, {
+    method: 'DELETE',
+    url: '/api/admin/inventory',
+    headers: { authorization: `Bearer ${token}` },
+    body: { id: created.id },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await call(adminInventoryHandler, {
+    method: 'DELETE',
+    url: '/api/admin/inventory',
+    headers: { authorization: `Bearer ${token}` },
+    body: { id: created.id },
+  });
+  assert.equal(res.statusCode, 404);
+  ok('admin inventory: DELETE removes, second DELETE returns 404', () => {});
+
+  res = await call(adminInventoryImageHandler, {
+    method: 'POST',
+    url: '/api/admin/inventory-image',
+    body: { dataUrl: 'data:image/jpeg;base64,AAAA' },
+  });
+  assert.equal(res.statusCode, 401);
+  ok('inventory image: no token returns 401', () => {});
+
+  res = await call(adminInventoryImageHandler, {
+    method: 'POST',
+    url: '/api/admin/inventory-image',
+    headers: { authorization: `Bearer ${token}` },
+    body: { filename: 'test.jpg', dataUrl: 'data:image/jpeg;base64,AAAA' },
+  });
+  assert.equal(res.statusCode, 201);
+  assert.ok(res.body.url.startsWith('data:image/jpeg'));
+  ok('inventory image: valid upload returns a url (dev: data url)', () => {});
+
+  res = await call(adminInventoryImageHandler, {
+    method: 'POST',
+    url: '/api/admin/inventory-image',
+    headers: { authorization: `Bearer ${token}` },
+    body: { dataUrl: 'data:text/html;base64,AAAA' },
+  });
+  assert.equal(res.statusCode, 422);
+  ok('inventory image: non-image payload returns 422', () => {});
+
+  assert.ok(SEED_INVENTORY.every((i) => i.name.startsWith('DEMO:')));
+  ok('inventory seeds: every item is marked DEMO', () => {});
 })();
 
 console.log(`\n${passed} checks passed.`);

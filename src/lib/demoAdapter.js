@@ -12,10 +12,49 @@
 
 import { validateLead, isSpam, LEAD_TYPES } from '../../shared/validation.js';
 import { SEED_LEADS } from '../../shared/seeds.js';
+import { validateInventoryItem } from '../../shared/inventoryValidation.js';
+import { SEED_INVENTORY } from '../../shared/inventorySeeds.js';
 
 const STORE_KEY = 'ssga-demo-leads';
+const INVENTORY_KEY = 'ssga-demo-inventory';
 const DEMO_PASSWORD = 'oxford-demo';
 const DEMO_TOKEN = 'demo-local-token';
+
+function loadInventory() {
+  try {
+    const raw = localStorage.getItem(INVENTORY_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // fall through to reseed
+  }
+  const seeded = SEED_INVENTORY.map((item) => ({ ...item }));
+  saveInventory(seeded);
+  return seeded;
+}
+
+function saveInventory(items) {
+  try {
+    localStorage.setItem(INVENTORY_KEY, JSON.stringify(items));
+  } catch {
+    // storage unavailable; demo continues in-memory for this page load
+  }
+}
+
+function filterInventory(items, { includeHidden, category, q }) {
+  const needle = (q || '').toLowerCase();
+  return items
+    .filter((i) => includeHidden || i.stockStatus !== 'Hidden')
+    .filter((i) => !category || i.category === category)
+    .filter(
+      (i) =>
+        !needle ||
+        [i.name, i.manufacturer, i.model, i.caliber, i.description]
+          .join(' ')
+          .toLowerCase()
+          .includes(needle)
+    )
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
 
 function loadStore() {
   try {
@@ -111,5 +150,85 @@ export const demoAdapter = {
     lead.read = Boolean(read);
     saveStore(leads);
     return { status: 200, body: { ok: true, lead } };
+  },
+
+  // ---- Inventory (mirrors the serverless endpoints exactly) ----
+
+  async listInventory(token, { includeHidden, category, q } = {}) {
+    await delay(200);
+    if (includeHidden && token !== DEMO_TOKEN) {
+      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
+    }
+    const items = filterInventory(loadInventory(), { includeHidden, category, q });
+    return { status: 200, body: { ok: true, items } };
+  },
+
+  async createInventoryItem(token, input) {
+    await delay(200);
+    if (token !== DEMO_TOKEN) {
+      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
+    }
+    const result = validateInventoryItem(input);
+    if (!result.ok) {
+      return {
+        status: 422,
+        body: { ok: false, error: 'Please correct the highlighted fields.', errors: result.errors },
+      };
+    }
+    const items = loadInventory();
+    const now = new Date().toISOString();
+    const item = { id: makeId(), createdAt: now, updatedAt: now, ...result.data };
+    items.push(item);
+    saveInventory(items);
+    return { status: 201, body: { ok: true, item } };
+  },
+
+  async updateInventoryItem(token, id, patch) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) {
+      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
+    }
+    const result = validateInventoryItem(patch, { partial: true });
+    if (!result.ok) {
+      return {
+        status: 422,
+        body: { ok: false, error: 'Please correct the highlighted fields.', errors: result.errors },
+      };
+    }
+    const items = loadInventory();
+    const item = items.find((i) => i.id === id);
+    if (!item) {
+      return { status: 404, body: { ok: false, error: 'Item not found.' } };
+    }
+    Object.assign(item, result.data, { updatedAt: new Date().toISOString() });
+    saveInventory(items);
+    return { status: 200, body: { ok: true, item } };
+  },
+
+  async deleteInventoryItem(token, id) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) {
+      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
+    }
+    const items = loadInventory();
+    const index = items.findIndex((i) => i.id === id);
+    if (index === -1) {
+      return { status: 404, body: { ok: false, error: 'Item not found.' } };
+    }
+    items.splice(index, 1);
+    saveInventory(items);
+    return { status: 200, body: { ok: true } };
+  },
+
+  async uploadInventoryImage(token, { dataUrl } = {}) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) {
+      return { status: 401, body: { ok: false, error: 'Not authorized.' } };
+    }
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+      return { status: 422, body: { ok: false, error: 'Upload must be an image.' } };
+    }
+    // Demo storage: the data URL itself is the stored URL.
+    return { status: 201, body: { ok: true, url: dataUrl } };
   },
 };
