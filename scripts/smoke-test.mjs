@@ -16,6 +16,13 @@ import {
   validateBundle,
 } from '../shared/catalogValidation.js';
 import { SEED_PRODUCTS } from '../shared/catalogSeeds.js';
+import {
+  orderProducts,
+  filterProducts,
+  badgesFor,
+  featuredItems,
+  askAboutMessage,
+} from '../src/lib/catalogView.js';
 import { verifyToken } from '../api/_lib/auth.js';
 import contactHandler from '../api/leads/contact.js';
 import transferHandler from '../api/leads/transfer.js';
@@ -530,6 +537,115 @@ await (async () => {
   });
   assert.equal(res.statusCode, 422);
   ok('image upload: auth enforced, images accepted, non-images rejected', () => {});
+})();
+
+// ---- Phase 3: public catalog view logic and endpoints ----
+
+// Pure view helpers, exactly what the pages render with.
+ok('catalog view: featured items order first, then newest', () => {
+  const ordered = orderProducts([
+    { id: 'b', featured: false },
+    { id: 'a', featured: true },
+    { id: 'c', featured: false },
+  ]);
+  assert.equal(ordered[0].id, 'a');
+  assert.equal(ordered[1].id, 'b');
+});
+
+ok('catalog view: search and filters match spec fields', () => {
+  const items = [
+    { id: '1', name: 'DEMO: Lever Rifle', manufacturer: 'Example', model: 'H94', caliber: '.30-30 Win', condition: 'Used', stockStatus: 'In Stock', collectionIds: ['col-rifles'] },
+    { id: '2', name: 'DEMO: Pistol', manufacturer: 'Sample', model: 'C-9', caliber: '9mm', condition: 'New', stockStatus: 'Sold', collectionIds: ['col-handguns'] },
+  ];
+  assert.equal(filterProducts(items, { q: '30-30' }).length, 1);
+  assert.equal(filterProducts(items, { q: 'sample' })[0].id, '2');
+  assert.equal(filterProducts(items, { condition: 'New' }).length, 1);
+  assert.equal(filterProducts(items, { inStockOnly: true }).length, 1);
+  assert.equal(filterProducts(items, { inStockOnly: true })[0].id, '1');
+  assert.equal(filterProducts(items, { collectionId: 'col-handguns' })[0].id, '2');
+});
+
+ok('catalog view: badge logic for sale, low stock, sold', () => {
+  const sale = badgesFor({ onSale: true, saleLabel: 'DEMO Sale', stockStatus: 'In Stock' });
+  assert.equal(sale.sale, 'DEMO Sale');
+  assert.equal(sale.stock, null);
+  const plainSale = badgesFor({ onSale: true, saleLabel: '', stockStatus: 'Low Stock' });
+  assert.equal(plainSale.sale, 'Sale');
+  assert.equal(plainSale.stock, 'Low Stock');
+  const sold = badgesFor({ onSale: false, stockStatus: 'Sold' });
+  assert.equal(sold.stock, 'Sold');
+  assert.equal(sold.dimmed, true);
+  assert.equal(sold.sale, null);
+});
+
+ok('catalog view: featured strip renders only when featured items exist', () => {
+  assert.deepEqual(featuredItems([{ featured: false }, {}]), []);
+  const four = featuredItems(
+    [1, 2, 3, 4, 5].map((n) => ({ id: n, featured: true }))
+  );
+  assert.equal(four.length, 4);
+});
+
+ok('catalog view: ask-about prefill carries the item name', () => {
+  assert.ok(askAboutMessage('DEMO: Example Revolver').includes('DEMO: Example Revolver'));
+  assert.equal(askAboutMessage(''), '');
+});
+
+await (async () => {
+  // Fresh seeded store for the public-read checks.
+  rmSync('.data', { recursive: true, force: true });
+  delete globalThis.__ssgaCatalogStore;
+
+  // Single item: published only, Hidden never served.
+  let res = await call(inventoryHandler, {
+    method: 'GET',
+    url: '/api/inventory?id=demo-rifle-bolt',
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.item.name, 'DEMO: Example Bolt-Action Rifle');
+  ok('public item: published item served by id', () => {});
+
+  for (const id of ['demo-shotgun-ou', 'demo-other-case', 'no-such-id']) {
+    res = await call(inventoryHandler, {
+      method: 'GET',
+      url: `/api/inventory?id=${id}`,
+    });
+    assert.equal(res.statusCode, 404, `${id} should 404`);
+  }
+  ok('public item: hidden, never-published, and unknown ids all 404', () => {});
+
+  // Bundles: gated on two or more live members.
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.equal(res.body.bundles.length, 1);
+  assert.equal(res.body.bundles[0].members.length, 2);
+  ok('public bundles: seed bundle serves with two live members', () => {});
+
+  const login = await call(loginHandler, { body: { password: 'oxford-demo' } });
+  const auth = { authorization: `Bearer ${login.body.token}` };
+
+  // Hide one member and publish: the bundle must disappear entirely.
+  await call(adminProductsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { id: 'demo-ammo-9mm', stockStatus: 'Hidden' },
+  });
+  await call(adminPublishHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { action: 'publish' },
+  });
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.equal(res.body.bundles.length, 0);
+  assert.ok(!res.body.items.some((i) => i.id === 'demo-ammo-9mm'));
+  ok('public bundles: bundle drops when fewer than two members are live', () => {});
+
+  // The hidden member also 404s as a single read now.
+  res = await call(inventoryHandler, {
+    method: 'GET',
+    url: '/api/inventory?id=demo-ammo-9mm',
+  });
+  assert.equal(res.statusCode, 404);
+  ok('public item: newly hidden item stops being served', () => {});
 })();
 
 console.log(`\n${passed} checks passed.`);

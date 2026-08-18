@@ -68,7 +68,7 @@ is in `PRODUCTION-SETUP.md`.
 | `/api/leads/transfer` | POST | Transfer inquiry form |
 | `/api/leads/email-signup` | POST | Email capture |
 | `/api/admin/login` | POST | Admin login, returns signed expiring bearer token |
-| `/api/inventory` | GET | Public catalog: PUBLISHED products and collections only, `?collection=&q=` |
+| `/api/inventory` | GET | Public catalog: PUBLISHED products, collections, gated bundles; `?collection=&q=` or `?id=` for one item |
 | `/api/admin/products` | GET POST PATCH DELETE | Product drafts: list, save, restore, delete (auth) |
 | `/api/admin/collections` | GET POST PATCH DELETE | Collection drafts, plus `{order:[ids]}` reorder (auth) |
 | `/api/admin/bundles` | GET POST PATCH DELETE | Bundle drafts (auth) |

@@ -2,7 +2,7 @@ import { useLeadForm, FORM_STATUS } from './useLeadForm.js';
 import { FormField, FormErrorSummary, HoneypotField } from './FormField.jsx';
 import { BUSINESS } from '../../data/business.js';
 
-const INITIAL = { name: '', email: '', phone: '', message: '', company: '' };
+const BLANK = { name: '', email: '', phone: '', message: '', company: '' };
 
 const LABELS = {
   name: 'Name',
@@ -11,8 +11,14 @@ const LABELS = {
   message: 'Message',
 };
 
-export function ContactForm() {
-  const form = useLeadForm('contact', INITIAL, 'contact');
+export function ContactForm({ initialMessage = '' }) {
+  // The item pages link here with ?about=<name>; the prefill lands in the
+  // message field so the shop knows what the customer is asking about.
+  const form = useLeadForm(
+    'contact',
+    { ...BLANK, message: initialMessage },
+    'contact'
+  );
 
   if (form.status === FORM_STATUS.SUCCESS) {
     return (

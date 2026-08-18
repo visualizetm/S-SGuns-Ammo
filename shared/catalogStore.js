@@ -104,6 +104,36 @@ export function getRecord(store, kind, id) {
   return findRecord(store, kind, id);
 }
 
+// Public single-product read: published snapshot only, Hidden never served.
+export function getPublicProduct(store, id) {
+  const record = findRecord(store, 'products', id);
+  const fields = record?.published;
+  if (!fields || fields.stockStatus === 'Hidden') return null;
+  return {
+    ...clone(fields),
+    id: record.id,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
+// Public bundles: published, visible, and only when at least two member
+// products are live (published and not Hidden). Members resolve to
+// { id, name } for live products only; dead references are dropped.
+export function listPublicBundles(store) {
+  const live = new Map(
+    listProducts(store, { scope: 'published' }).map((p) => [p.id, p])
+  );
+  return listBundles(store, { scope: 'published' })
+    .map((bundle) => ({
+      ...bundle,
+      members: (bundle.memberProductIds || [])
+        .filter((id) => live.has(id))
+        .map((id) => ({ id, name: live.get(id).name })),
+    }))
+    .filter((bundle) => bundle.members.length >= 2);
+}
+
 // ---------- Draft writes (mutate the store in place) ----------
 
 export function saveDraft(store, kind, id, fields, makeId) {

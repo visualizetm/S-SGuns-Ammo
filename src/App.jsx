@@ -3,6 +3,8 @@ import { Layout } from './components/Layout.jsx';
 import { Home } from './pages/Home.jsx';
 import { About } from './pages/About.jsx';
 import { Services } from './pages/Services.jsx';
+import { Inventory } from './pages/Inventory.jsx';
+import { InventoryItem } from './pages/InventoryItem.jsx';
 import { TransfersFaq } from './pages/TransfersFaq.jsx';
 import { Contact } from './pages/Contact.jsx';
 import { Admin } from './pages/Admin.jsx';
@@ -16,6 +18,8 @@ export function App() {
           <Route index element={<Home />} />
           <Route path="about" element={<About />} />
           <Route path="services" element={<Services />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="inventory/:id" element={<InventoryItem />} />
           <Route path="transfers" element={<TransfersFaq />} />
           <Route path="contact" element={<Contact />} />
           <Route path="admin" element={<Admin />} />

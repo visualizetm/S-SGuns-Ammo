@@ -63,6 +63,30 @@ export async function adminLogin(password) {
   }
 }
 
+// ---- Public catalog reads (published snapshot only) ----
+
+export async function publicGetCatalog({ collectionId, q } = {}) {
+  const params = new URLSearchParams();
+  if (collectionId) params.set('collection', collectionId);
+  if (q) params.set('q', q);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  try {
+    return await callApi(`/api/inventory${query}`, { method: 'GET' });
+  } catch {
+    return demoAdapter.publicGetCatalog({ collectionId, q });
+  }
+}
+
+export async function publicGetItem(id) {
+  try {
+    return await callApi(`/api/inventory?id=${encodeURIComponent(id)}`, {
+      method: 'GET',
+    });
+  } catch {
+    return demoAdapter.publicGetItem(id);
+  }
+}
+
 // ---- Catalog: generic admin CRUD over products / collections / bundles ----
 
 const ADMIN_PATHS = {

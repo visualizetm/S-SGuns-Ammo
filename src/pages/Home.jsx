@@ -3,6 +3,7 @@
 // ground. Photos and logo art are Rob-supplied; slots render labeled
 // placeholders until the real files exist.
 
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
@@ -17,6 +18,9 @@ import {
   TRUST_POINTS,
   LOGO_ASSETS,
 } from '../data/business.js';
+import { publicGetCatalog } from '../lib/apiClient.js';
+import { featuredItems } from '../lib/catalogView.js';
+import { ProductCard, ProductCardStyles } from '../components/ProductCard.jsx';
 import { CONFIRMED_SERVICES } from '../data/services.js';
 import { EmailSignupForm } from '../components/forms/EmailSignupForm.jsx';
 import { Slot } from '../components/Slot.jsx';
@@ -27,6 +31,66 @@ const TRUST_ICONS = {
   pin: MarkerPin02,
   chat: MessageChatCircle,
 };
+
+
+// "In the Case Right Now": renders only when published items are marked
+// featured; otherwise Home is unchanged. Up to four cards, linking into
+// the Inventory section.
+function FeaturedStrip() {
+  const [featured, setFeatured] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { body } = await publicGetCatalog();
+      if (alive && body?.ok) setFeatured(featuredItems(body.items));
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (featured.length === 0) return null;
+
+  return (
+    <section className="hm-feat section" aria-labelledby="hm-feat-heading">
+      <div className="wrap">
+        <div className="reveal">
+          <p className="eyebrow">From the inventory</p>
+          <h2 id="hm-feat-heading" className="display section-title">
+            In the Case Right Now
+          </h2>
+        </div>
+        <div className="hm-feat-grid stagger">
+          {featured.map((item) => (
+            <ProductCard key={item.id} item={item} />
+          ))}
+        </div>
+        <p className="hm-feat-more">
+          <Link to="/inventory" className="btn btn-secondary">
+            See the full inventory
+          </Link>
+        </p>
+      </div>
+      <ProductCardStyles />
+      <style>{`
+        .hm-feat { border-top: 1px solid var(--border); }
+        .hm-feat-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 1.25rem;
+        }
+        .hm-feat-more { margin: 1.75rem 0 0; }
+        @media (max-width: 1199.98px) {
+          .hm-feat-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 599.98px) {
+          .hm-feat-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
+    </section>
+  );
+}
 
 export function Home() {
   usePageMeta(
@@ -245,6 +309,8 @@ export function Home() {
           }
         `}</style>
       </section>
+
+      <FeaturedStrip />
 
       {/* Transfers teaser */}
       <section

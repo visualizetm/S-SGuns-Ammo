@@ -10,7 +10,7 @@ import { chromium } from 'playwright-core';
 
 const PORT = 4173;
 const BASE = `http://localhost:${PORT}`;
-const ROUTES = ['/', '/about', '/services', '/transfers', '/contact', '/admin', '/no-such-page'];
+const ROUTES = ['/', '/about', '/services', '/inventory', '/inventory/demo-rifle-bolt', '/inventory/no-such-item', '/transfers', '/contact', '/admin', '/no-such-page'];
 // Admin screens behind the login gate: audited in a second context that
 // pre-seeds the demo session token, so the dashboard renders through the
 // in-browser demo adapter (vite preview has no serverless functions).

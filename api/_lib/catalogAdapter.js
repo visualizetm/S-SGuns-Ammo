@@ -29,6 +29,8 @@ import {
   listCollections,
   listBundles,
   getRecord,
+  getPublicProduct,
+  listPublicBundles,
   saveDraft,
   deleteDraft,
   restoreDraft,
@@ -88,6 +90,12 @@ function createDevAdapter() {
     },
     async getRecord(kind, id) {
       return getRecord(load(), kind, id);
+    },
+    async getPublicProduct(id) {
+      return getPublicProduct(load(), id);
+    },
+    async listPublicBundles() {
+      return listPublicBundles(load());
     },
     async saveDraft(kind, id, fields) {
       return mutate((s) => saveDraft(s, kind, id, fields, randomUUID));
@@ -290,6 +298,12 @@ function createPostgresAdapter(databaseUrl) {
     },
     async getRecord(kind, id) {
       return withStore((s) => getRecord(s, kind, id));
+    },
+    async getPublicProduct(id) {
+      return withStore((s) => getPublicProduct(s, id));
+    },
+    async listPublicBundles() {
+      return withStore((s) => listPublicBundles(s));
     },
     async saveDraft(kind, id, fields) {
       return mutate((s) => saveDraft(s, kind, id, fields, randomUUID));

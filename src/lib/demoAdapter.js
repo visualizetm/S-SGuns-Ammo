@@ -20,6 +20,8 @@ import {
   listCollections,
   listBundles,
   getRecord,
+  getPublicProduct,
+  listPublicBundles,
   saveDraft,
   deleteDraft,
   restoreDraft,
@@ -119,6 +121,31 @@ export const demoAdapter = {
       return { status: 200, body: { ok: true, token: DEMO_TOKEN } };
     }
     return { status: 401, body: { ok: false, error: 'Incorrect password.' } };
+  },
+
+  // ---- Public catalog reads (published snapshot only) ----
+
+  async publicGetCatalog({ collectionId, q } = {}) {
+    await delay(150);
+    const store = loadCatalog();
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        items: listProducts(store, { scope: 'published', collectionId, q }),
+        collections: listCollections(store, { scope: 'published' }),
+        bundles: listPublicBundles(store),
+      },
+    };
+  },
+
+  async publicGetItem(id) {
+    await delay(150);
+    const item = getPublicProduct(loadCatalog(), id);
+    if (!item) {
+      return { status: 404, body: { ok: false, error: 'Item not found.' } };
+    }
+    return { status: 200, body: { ok: true, item } };
   },
 
   // ---- Catalog (same pure operations as the server dev store) ----

@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Home', end: true },
   { to: '/about', label: 'About' },
   { to: '/services', label: 'Services' },
+  { to: '/inventory', label: 'Inventory' },
   { to: '/transfers', label: 'Transfers & FAQ' },
   { to: '/contact', label: 'Contact' },
 ];
