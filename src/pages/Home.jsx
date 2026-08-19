@@ -24,7 +24,6 @@ import {
   TRUST_POINTS,
   LOGO_ASSETS,
   CONFIRMED_SERVICES,
-  SHOP_GALLERY,
 } from '../content/siteFacts.js';
 
 const TRUST_ICONS = {
@@ -434,55 +433,6 @@ export function Home() {
           }
           @media (max-width: 899.98px) {
             .hm-visit-grid { grid-template-columns: 1fr; gap: 2rem; }
-          }
-        `}</style>
-      </section>
-
-      {/* Inside the Shop: real store photography. Each Slot shows a labeled
-          placeholder until the matching file lands in public/photos/, then
-          the photo appears automatically. See SHOP_GALLERY in siteFacts. */}
-      <section className="hm-shop section" aria-labelledby="hm-shop-heading">
-        <div className="wrap">
-          <div className="reveal">
-            <p className="eyebrow">Come take a look</p>
-            <h2 id="hm-shop-heading" className="display section-title">
-              Inside the Shop
-            </h2>
-            <p className="section-sub">
-              A look at what is on the shelves and behind the counter. Call the
-              shop to ask about anything you see.
-            </p>
-          </div>
-          <div className="hm-shop-grid stagger">
-            {SHOP_GALLERY.map((photo) => (
-              <figure key={photo.src} className="hm-shop-item">
-                <Slot
-                  src={photo.src}
-                  alt={photo.caption}
-                  label={photo.caption}
-                  ratio="4 / 3"
-                />
-              </figure>
-            ))}
-          </div>
-        </div>
-        <style>{`
-          .hm-shop-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.25rem;
-            margin-top: 2rem;
-          }
-          .hm-shop-item {
-            margin: 0;
-            border-radius: var(--radius-lg);
-            overflow: hidden;
-          }
-          @media (max-width: 899.98px) {
-            .hm-shop-grid { grid-template-columns: repeat(2, 1fr); }
-          }
-          @media (max-width: 559.98px) {
-            .hm-shop-grid { grid-template-columns: 1fr; }
           }
         `}</style>
       </section>

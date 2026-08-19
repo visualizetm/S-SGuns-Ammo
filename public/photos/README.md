@@ -9,30 +9,36 @@ Drop a correctly named file into this folder and it appears on the site
 automatically. No code change is needed. Until a file exists, its spot on
 the site shows a labeled placeholder frame, never a broken image.
 
-## File rules
+## Naming: shop-01.jpg through shop-44.jpg
 
-- Format: **.jpg** (photographs compress best as JPEG).
-- Orientation: **landscape** for the gallery, one portrait for the storefront.
-- Size: at least **1600px on the long edge**. Bright, in focus, no heavy filter.
-- Names must match **exactly** (all lowercase, hyphens, no spaces).
+Name all 44 photos in a single numbered series, zero-padded so they sort
+in order:
 
-## Filenames the site looks for
+```
+shop-01.jpg  shop-02.jpg  shop-03.jpg  ...  shop-44.jpg
+```
 
-| File name | What it should show | Where it appears |
+- Format: **.jpg**. Landscape where possible, at least **1600px** on the
+  long edge. Bright, in focus, no heavy filter.
+- Names must match **exactly**: all lowercase, a hyphen, two digits.
+
+## Order matters (which photo goes where)
+
+The site uses the first several photos in specific spots, so put your best
+shots first:
+
+| File | Should show | Where it appears |
 | --- | --- | --- |
-| `storefront.jpg` | The front of the shop / sign (portrait works well) | About page |
-| `sales-floor.jpg` | Wide shot of the inside / sales floor | Home, "Inside the Shop" |
-| `handgun-case.jpg` | The glass display case of handguns | Home, "Inside the Shop" |
-| `long-gun-wall.jpg` | The wall of rifles and shotguns | Home, "Inside the Shop" |
-| `ammo-shelves.jpg` | Ammunition on the shelves | Home, "Inside the Shop" |
-| `optics-accessories.jpg` | Optics, sights, and accessories | Home, "Inside the Shop" |
-| `counter.jpg` | The service counter | Home, "Inside the Shop" |
+| `shop-01.jpg` | Best **exterior / storefront** shot | About page |
+| `shop-02.jpg` .. `shop-09.jpg` | Your **8 strongest interior** shots (the floor, the cases, the walls, ammo, optics, the counter) | Home page, "Inside the Shop" gallery |
+| `shop-10.jpg` .. `shop-44.jpg` | Everything else | Stored here, ready to feature later |
 
-You do not need all of them. Add the photos you have; any name not present
-just stays a labeled placeholder until you add it.
+You do not need all 44 for the site to look complete: photos 01 through 09
+fill the visible spots. The rest are kept on hand so we can swap or add to
+the gallery anytime without renaming anything.
 
-## Want a different set of photos?
+## Want different photos featured?
 
-The gallery list lives in `src/content/siteFacts.js` under `SHOP_GALLERY`
-(and `PHOTOS.storefront`). Edit the captions or add/remove rows there to
-change what the gallery shows.
+The featured list lives in `src/content/siteFacts.js` (`PHOTOS.storefront`
+and `SHOP_GALLERY`). Change the numbers there to feature different shots,
+or ask and I will adjust it.

@@ -61,30 +61,46 @@ export const LOGO_ASSETS = {
 
 // ---------- Store photography (Rob-supplied; see public/photos/) ----------
 //
+// CURRENTLY OFF AT THE OWNER'S REQUEST. No store photo renders anywhere on
+// the site right now: the home-page gallery and the About storefront photo
+// were removed until further notice. These definitions and the naming plan
+// are kept so photos can be switched back on with a small edit (re-wire
+// SHOP_GALLERY into src/pages/Home.jsx and PHOTOS.storefront into
+// src/pages/About.jsx).
+//
 // Real photos of the shop, kept apart from the logo marks above. Drop the
 // files into public/photos/ using EXACTLY these names and they appear on the
 // site automatically. Until a file exists, its slot shows a labeled
 // placeholder (see components/Slot.jsx), never a broken image.
 //
-// Names and formats: lowercase, hyphenated, .jpg (photographs compress best
-// as JPEG). Landscape orientation, at least ~1600px on the long edge.
+// Naming: all 44 photos are named shop-01.jpg .. shop-44.jpg (lowercase,
+// hyphen, zero-padded so they sort in order). Formats: .jpg, landscape
+// where possible, at least ~1600px on the long edge.
+//
+// How the site used them (when on):
+//   - shop-01.jpg  -> the storefront / exterior shot, shown on the About page.
+//   - shop-02..09  -> the 8 featured interior shots in the home-page gallery.
+//   - shop-10..44  -> stored in the folder, available to feature later.
 
 export const PHOTOS = {
-  // Exterior / storefront, used on the About page.
-  storefront: '/photos/storefront.jpg',
+  // Exterior / storefront, used on the About page. Make this your best
+  // outside shot of the shop.
+  storefront: '/photos/shop-01.jpg',
 };
 
-// "Inside the Shop" gallery on the home page. Each caption doubles as the
-// image alt text, so describe what the photo shows. Add or remove rows to
-// match the photos you have; drop the matching files in public/photos/.
-export const SHOP_GALLERY = [
-  { src: '/photos/sales-floor.jpg', caption: 'Inside the shop in Oxford, PA' },
-  { src: '/photos/handgun-case.jpg', caption: 'Handguns in the display case' },
-  { src: '/photos/long-gun-wall.jpg', caption: 'Rifles and shotguns on the wall' },
-  { src: '/photos/ammo-shelves.jpg', caption: 'Ammunition on the shelves' },
-  { src: '/photos/optics-accessories.jpg', caption: 'Optics and accessories' },
-  { src: '/photos/counter.jpg', caption: 'The counter at S&S Guns & Ammo' },
-];
+// "Inside the Shop" gallery on the home page: the 8 featured interior
+// photos (shop-02.jpg .. shop-09.jpg). Put your 8 strongest interior shots
+// in these slots. `alt` is the accessible description; `label` is the
+// placeholder shown until the file exists. To feature different photos,
+// change the numbers here.
+export const SHOP_GALLERY = Array.from({ length: 8 }, (_, i) => {
+  const n = String(i + 2).padStart(2, '0');
+  return {
+    src: `/photos/shop-${n}.jpg`,
+    alt: `Inside ${BUSINESS.name} in ${BUSINESS.address.city}, ${BUSINESS.address.state}`,
+    label: `Drop shop-${n}.jpg in public/photos/`,
+  };
+});
 
 // ---------- Page titles, descriptions, and ledes ----------
 
