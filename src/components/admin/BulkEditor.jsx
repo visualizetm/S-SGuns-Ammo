@@ -5,6 +5,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
+import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
+import UploadCloud01 from '@untitled-ui/icons-react/build/esm/UploadCloud01';
+import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import {
   adminListCatalog,
   adminSaveDraft,
@@ -225,17 +228,18 @@ export function BulkEditor({ token, version, onAuthFail, notifyChange }) {
     <div className="blk-panel">
       <div className="blk-toolbar">
         <button type="button" className="btn btn-primary" onClick={saveAll} disabled={saving || dirtyCount === 0}>
+          <Save01 aria-hidden="true" width={18} height={18} />
           {saving ? 'Saving...' : `Save ${dirtyCount || ''} change${dirtyCount === 1 ? '' : 's'}`}
         </button>
-        <button type="button" onClick={() => setRows((prev) => [...prev, { ...NEW_ROW }])}>
+        <button type="button" className="blk-tool-btn" onClick={() => setRows((prev) => [...prev, { ...NEW_ROW }])}>
           <Plus aria-hidden="true" width={16} height={16} /> Add row
         </button>
         <label className="blk-import">
           <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={handleImport} />
-          <span>Import CSV</span>
+          <span><UploadCloud01 aria-hidden="true" width={16} height={16} /> Import CSV</span>
         </label>
-        <button type="button" onClick={handleExport}>
-          Export CSV
+        <button type="button" className="blk-tool-btn" onClick={handleExport}>
+          <Download01 aria-hidden="true" width={16} height={16} /> Export CSV
         </button>
         <a href="/bulk-template.csv" download className="blk-template">
           Template file
@@ -449,6 +453,12 @@ export function BulkEditor({ token, version, onAuthFail, notifyChange }) {
           margin: 0 0 0.75rem;
         }
         .blk-toolbar .btn { min-height: 44px; font-size: 1rem; }
+        .blk-tool-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+        .blk-tool-btn svg { flex-shrink: 0; }
         .blk-import {
           display: inline-flex;
           align-items: center;
@@ -459,6 +469,11 @@ export function BulkEditor({ token, version, onAuthFail, notifyChange }) {
           cursor: pointer;
           font-weight: 500;
           background: var(--bg-card);
+        }
+        .blk-import span {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
         }
         .blk-import:hover { border-color: var(--brand); color: var(--brand-dark); }
         .blk-import input {

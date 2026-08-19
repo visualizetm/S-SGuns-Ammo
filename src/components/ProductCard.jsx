@@ -3,14 +3,22 @@
 // to the item page; nothing is for sale online.
 
 import { Link } from 'react-router-dom';
+import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
+import XCircle from '@untitled-ui/icons-react/build/esm/XCircle';
+import Tag01 from '@untitled-ui/icons-react/build/esm/Tag01';
 import { LOGO_ASSETS } from '../content/siteFacts.js';
 import { badgesFor } from '../lib/catalogView.js';
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
+// Stock-status icon, consistent site-wide: Low Stock -> AlertTriangle,
+// Sold -> XCircle. In-stock items carry no badge (and no icon).
+const STOCK_ICON = { 'Low Stock': AlertTriangle, Sold: XCircle };
+
 export function ProductCard({ item }) {
   const badges = badgesFor(item);
   const photo = item.photos?.[0]?.url;
+  const StockIcon = STOCK_ICON[item.stockStatus];
 
   return (
     <Link to={`/inventory/${item.id}`} className="pc-card" data-dimmed={badges.dimmed || undefined}>
@@ -23,9 +31,15 @@ export function ProductCard({ item }) {
             <span>Photo coming</span>
           </span>
         )}
-        {badges.sale ? <span className="pc-badge pc-badge--sale">{badges.sale}</span> : null}
+        {badges.sale ? (
+          <span className="pc-badge pc-badge--sale">
+            <Tag01 aria-hidden="true" width={13} height={13} />
+            {badges.sale}
+          </span>
+        ) : null}
         {badges.stock ? (
           <span className="pc-badge pc-badge--stock" data-stock={item.stockStatus}>
+            {StockIcon ? <StockIcon aria-hidden="true" width={13} height={13} /> : null}
             {badges.stock}
           </span>
         ) : null}
@@ -115,6 +129,9 @@ export function ProductCardStyles() {
       .pc-badge {
         position: absolute;
         top: 0.6rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.28rem;
         font-family: var(--font-display);
         font-size: 0.85rem;
         font-weight: 600;
@@ -123,6 +140,7 @@ export function ProductCardStyles() {
         padding: 0.2rem 0.6rem;
         border-radius: var(--radius-sm);
       }
+      .pc-badge svg { flex-shrink: 0; }
       .pc-badge--sale {
         left: 0.6rem;
         background: var(--brand);

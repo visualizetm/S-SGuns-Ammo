@@ -7,6 +7,9 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import ChevronUp from '@untitled-ui/icons-react/build/esm/ChevronUp';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
+import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
+import Edit01 from '@untitled-ui/icons-react/build/esm/Edit01';
+import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import {
   adminListCatalog,
   adminSaveDraft,
@@ -128,6 +131,7 @@ function CollectionForm({ token, item, onSaved, onCancel }) {
 
       <div className="col-form-actions">
         <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
+          <Save01 aria-hidden="true" width={18} height={18} />
           {saving ? 'Saving...' : 'Save draft'}
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>
@@ -289,9 +293,11 @@ export function CollectionsPanel({ token, version, onAuthFail, notifyChange }) {
                       setMode('edit');
                     }}
                   >
+                    <Edit01 aria-hidden="true" width={16} height={16} />
                     Edit
                   </button>
                   <button type="button" onClick={() => setConfirmingId(item.id)}>
+                    <Trash01 aria-hidden="true" width={16} height={16} />
                     Delete
                   </button>
                 </span>
@@ -369,7 +375,14 @@ function CollectionsStyles() {
       .col-row-desc { margin: 0.2rem 0 0; font-size: 0.85rem; color: var(--text-muted); }
       .col-row-actions { min-width: 9rem; }
       .col-row-buttons { display: flex; gap: 0.5rem; }
-      .col-row-buttons button { flex: 1; }
+      .col-row-buttons button {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+      }
+      .col-row-buttons button svg { flex-shrink: 0; }
       .col-confirm {
         display: flex;
         flex-direction: column;

@@ -6,6 +6,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
+import SearchLg from '@untitled-ui/icons-react/build/esm/SearchLg';
+import FilterFunnel01 from '@untitled-ui/icons-react/build/esm/FilterFunnel01';
 import {
   BUSINESS,
   LOGO_ASSETS,
@@ -222,16 +224,20 @@ export function Inventory() {
 
               {!showBundles ? (
                 <div className="cat-toolbar">
-                  <input
-                    type="search"
-                    className="cat-search"
-                    placeholder="Search name, maker, model, caliber"
-                    aria-label="Search inventory"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
+                  <span className="cat-search-wrap">
+                    <SearchLg className="cat-search-icon" aria-hidden="true" width={18} height={18} />
+                    <input
+                      type="search"
+                      className="cat-search"
+                      placeholder="Search name, maker, model, caliber"
+                      aria-label="Search inventory"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </span>
                   <label className="cat-filter">
                     <span className="cat-filter-hidden">Condition</span>
+                    <FilterFunnel01 className="cat-filter-icon" aria-hidden="true" width={16} height={16} />
                     <select value={condition} onChange={(e) => setCondition(e.target.value)}>
                       <option value="">New and Used</option>
                       <option value="New">New only</option>
@@ -323,7 +329,25 @@ export function Inventory() {
             gap: 0.75rem;
             margin: 0 0 1.5rem;
           }
-          .cat-search { flex: 1 1 15rem; }
+          .cat-search-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            flex: 1 1 15rem;
+          }
+          .cat-search-icon {
+            position: absolute;
+            left: 0.65rem;
+            color: var(--text-muted);
+            pointer-events: none;
+          }
+          .cat-search { width: 100%; padding-left: 2.4rem; }
+          .cat-filter {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+          }
+          .cat-filter-icon { color: var(--text-muted); flex-shrink: 0; }
           .cat-filter select { min-width: 10rem; }
           .cat-filter-hidden {
             position: absolute;

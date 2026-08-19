@@ -8,12 +8,23 @@ import { Link, useParams } from 'react-router-dom';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
+import Tag01 from '@untitled-ui/icons-react/build/esm/Tag01';
+import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
+import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
+import XCircle from '@untitled-ui/icons-react/build/esm/XCircle';
 import { BUSINESS, LOGO_ASSETS } from '../content/siteFacts.js';
 import { publicGetItem } from '../lib/apiClient.js';
 import { badgesFor } from '../lib/catalogView.js';
 import { usePageMeta } from '../lib/usePageMeta.js';
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
+// Stock-status icon, consistent with the inventory cards.
+const STOCK_ICON = {
+  'In Stock': CheckCircle,
+  'Low Stock': AlertTriangle,
+  Sold: XCircle,
+};
 
 function NotFoundState() {
   usePageMeta('Item not found');
@@ -50,6 +61,7 @@ function NotFoundState() {
 function ItemView({ item }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const badges = badgesFor(item);
+  const StockIcon = STOCK_ICON[item.stockStatus];
   const photos = item.photos || [];
   const mainPhoto = photos[photoIndex]?.url;
 
@@ -84,8 +96,18 @@ function ItemView({ item }) {
                   <span>Photo coming. Call to ask about this item.</span>
                 </span>
               )}
-              {badges.sale ? <span className="itm-badge itm-badge--sale">{badges.sale}</span> : null}
-              {badges.stock ? <span className="itm-badge itm-badge--stock">{badges.stock}</span> : null}
+              {badges.sale ? (
+                <span className="itm-badge itm-badge--sale">
+                  <Tag01 aria-hidden="true" width={15} height={15} />
+                  {badges.sale}
+                </span>
+              ) : null}
+              {badges.stock ? (
+                <span className="itm-badge itm-badge--stock">
+                  {StockIcon ? <StockIcon aria-hidden="true" width={15} height={15} /> : null}
+                  {badges.stock}
+                </span>
+              ) : null}
             </div>
             {photos.length > 1 ? (
               <div className="itm-thumbs" role="group" aria-label="More photos">
@@ -122,11 +144,14 @@ function ItemView({ item }) {
               )}
             </p>
             <p className="itm-stock" data-stock={item.stockStatus}>
-              {item.stockStatus === 'Sold'
-                ? 'Sold. Call the shop; similar items come through often.'
-                : item.stockStatus === 'Low Stock'
-                  ? 'Low stock. Call before making the drive.'
-                  : 'In stock at the shop.'}
+              {StockIcon ? <StockIcon aria-hidden="true" width={17} height={17} /> : null}
+              <span>
+                {item.stockStatus === 'Sold'
+                  ? 'Sold. Call the shop; similar items come through often.'
+                  : item.stockStatus === 'Low Stock'
+                    ? 'Low stock. Call before making the drive.'
+                    : 'In stock at the shop.'}
+              </span>
             </p>
 
             <dl className="itm-specs">
@@ -225,6 +250,9 @@ function ItemView({ item }) {
         .itm-badge {
           position: absolute;
           top: 0.75rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
           font-family: var(--font-display);
           font-size: 0.95rem;
           font-weight: 600;
@@ -233,6 +261,7 @@ function ItemView({ item }) {
           padding: 0.25rem 0.7rem;
           border-radius: var(--radius-sm);
         }
+        .itm-badge svg { flex-shrink: 0; }
         .itm-badge--sale {
           left: 0.75rem;
           background: var(--brand);
@@ -290,11 +319,17 @@ function ItemView({ item }) {
           align-self: center;
         }
         .itm-stock {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
           margin: 0 0 1.5rem;
           font-weight: 500;
           color: var(--text-secondary);
         }
+        .itm-stock svg { flex-shrink: 0; }
+        .itm-stock[data-stock='In Stock'] svg { color: var(--brand); }
         .itm-stock[data-stock='Low Stock'] { color: var(--accent-fall); }
+        .itm-stock[data-stock='Sold'] svg { color: var(--text-muted); }
         .itm-specs {
           display: grid;
           grid-template-columns: repeat(2, 1fr);

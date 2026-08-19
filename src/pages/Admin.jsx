@@ -7,9 +7,9 @@
 import { useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
-import Folder from '@untitled-ui/icons-react/build/esm/Folder';
-import Box from '@untitled-ui/icons-react/build/esm/Box';
-import Table from '@untitled-ui/icons-react/build/esm/Table';
+import Grid01 from '@untitled-ui/icons-react/build/esm/Grid01';
+import LayersThree01 from '@untitled-ui/icons-react/build/esm/LayersThree01';
+import Rows01 from '@untitled-ui/icons-react/build/esm/Rows01';
 import { adminLogin } from '../lib/apiClient.js';
 import { usePageMeta } from '../lib/usePageMeta.js';
 import { PublishBar } from '../components/admin/PublishBar.jsx';
@@ -71,9 +71,9 @@ function LoginGate({ onToken }) {
 
 const TABS = [
   { id: 'products', label: 'Products', icon: Package },
-  { id: 'collections', label: 'Collections', icon: Folder },
-  { id: 'bundles', label: 'Bundles', icon: Box },
-  { id: 'bulk', label: 'Bulk Editor', icon: Table },
+  { id: 'collections', label: 'Collections', icon: Grid01 },
+  { id: 'bundles', label: 'Bundles', icon: LayersThree01 },
+  { id: 'bulk', label: 'Bulk Editor', icon: Rows01 },
 ];
 
 export function Admin() {

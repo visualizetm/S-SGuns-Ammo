@@ -7,6 +7,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
+import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
+import Edit01 from '@untitled-ui/icons-react/build/esm/Edit01';
+import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
+import SearchLg from '@untitled-ui/icons-react/build/esm/SearchLg';
 import {
   adminListCatalog,
   adminSaveDraft,
@@ -277,6 +281,7 @@ function ProductForm({ token, item, collections, onSaved, onCancel }) {
 
       <div className="inv-form-actions">
         <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
+          <Save01 aria-hidden="true" width={18} height={18} />
           {saving ? 'Saving...' : 'Save draft'}
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>
@@ -372,9 +377,11 @@ function ProductRow({ token, item, collections, onEdit, onChanged, onError }) {
             ) : (
               <span className="inv-row-buttons">
                 <button type="button" onClick={() => onEdit(item)} disabled={busy}>
+                  <Edit01 aria-hidden="true" width={16} height={16} />
                   Edit
                 </button>
                 <button type="button" onClick={() => setConfirming(true)} disabled={busy}>
+                  <Trash01 aria-hidden="true" width={16} height={16} />
                   Delete
                 </button>
               </span>
@@ -453,14 +460,17 @@ export function ProductsPanel({ token, version, onAuthFail, notifyChange }) {
   return (
     <div className="inv-panel">
       <div className="inv-toolbar">
-        <input
-          type="search"
-          className="inv-search"
-          placeholder="Search name, model, caliber"
-          aria-label="Search products"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <span className="inv-search-wrap">
+          <SearchLg className="inv-search-icon" aria-hidden="true" width={18} height={18} />
+          <input
+            type="search"
+            className="inv-search"
+            placeholder="Search name, model, caliber"
+            aria-label="Search products"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </span>
         <label className="inv-filter-label">
           <span className="inv-visually-hidden">Filter by collection</span>
           <select value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
@@ -528,7 +538,19 @@ function ProductsStyles() {
         align-items: center;
         margin: 0 0 1.25rem;
       }
-      .inv-search { flex: 1 1 14rem; }
+      .inv-search-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        flex: 1 1 14rem;
+      }
+      .inv-search-icon {
+        position: absolute;
+        left: 0.65rem;
+        color: var(--text-muted);
+        pointer-events: none;
+      }
+      .inv-search { width: 100%; padding-left: 2.4rem; }
       .inv-filter-label select { min-width: 11rem; }
       .inv-add { font-size: 1rem; min-height: 48px; }
       .inv-empty { color: var(--text-secondary); }
@@ -593,7 +615,14 @@ function ProductsStyles() {
       }
       .inv-status-select { min-height: 44px; width: 100%; }
       .inv-row-buttons { display: flex; gap: 0.5rem; }
-      .inv-row-buttons button { flex: 1; }
+      .inv-row-buttons button {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+      }
+      .inv-row-buttons button svg { flex-shrink: 0; }
       .inv-confirm {
         display: flex;
         flex-direction: column;

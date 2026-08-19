@@ -5,6 +5,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
+import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
+import Edit01 from '@untitled-ui/icons-react/build/esm/Edit01';
+import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
+import SearchLg from '@untitled-ui/icons-react/build/esm/SearchLg';
 import {
   adminListCatalog,
   adminSaveDraft,
@@ -141,14 +145,17 @@ function BundleForm({ token, item, products, onSaved, onCancel }) {
         {errors.memberProductIds ? (
           <p role="alert" className="ssga-field-error">{errors.memberProductIds}</p>
         ) : null}
-        <input
-          type="search"
-          className="bnd-member-search"
-          placeholder="Search products"
-          aria-label="Search products to add"
-          value={memberSearch}
-          onChange={(e) => setMemberSearch(e.target.value)}
-        />
+        <span className="bnd-member-search-wrap">
+          <SearchLg className="bnd-member-search-icon" aria-hidden="true" width={18} height={18} />
+          <input
+            type="search"
+            className="bnd-member-search"
+            placeholder="Search products"
+            aria-label="Search products to add"
+            value={memberSearch}
+            onChange={(e) => setMemberSearch(e.target.value)}
+          />
+        </span>
         <ul className="bnd-member-list">
           {visibleProducts.map((p) => (
             <li key={p.id}>
@@ -227,6 +234,7 @@ function BundleForm({ token, item, products, onSaved, onCancel }) {
 
       <div className="bnd-form-actions">
         <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
+          <Save01 aria-hidden="true" width={18} height={18} />
           {saving ? 'Saving...' : 'Save draft'}
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>
@@ -384,9 +392,11 @@ export function BundlesPanel({ token, version, onAuthFail, notifyChange }) {
                       setMode('edit');
                     }}
                   >
+                    <Edit01 aria-hidden="true" width={16} height={16} />
                     Edit
                   </button>
                   <button type="button" onClick={() => setConfirmingId(item.id)}>
+                    <Trash01 aria-hidden="true" width={16} height={16} />
                     Delete
                   </button>
                 </span>
@@ -478,7 +488,26 @@ function BundlesStyles() {
         letter-spacing: 0.08em;
         color: var(--text-secondary);
       }
-      .bnd-member-search { width: 100%; margin: 0 0 0.6rem; }
+      .bnd-member-search-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+        margin: 0 0 0.6rem;
+      }
+      .bnd-member-search-icon {
+        position: absolute;
+        left: 0.65rem;
+        color: var(--text-muted);
+        pointer-events: none;
+      }
+      .bnd-member-search { width: 100%; padding-left: 2.4rem; }
+      .bnd-row-buttons button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+      }
+      .bnd-row-buttons button svg { flex-shrink: 0; }
       .bnd-member-list {
         list-style: none;
         margin: 0;
