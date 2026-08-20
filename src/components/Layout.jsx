@@ -239,6 +239,9 @@ function Navbar() {
           white-space: nowrap;
         }
         .nav-wordmark:hover { color: var(--brand-dark); }
+        /* The horizontal logo art is ivory (built for dark grounds); darken
+           it to near-black ink for the light navbar and drawer. */
+        .nav-wordmark img { filter: brightness(0); }
         .nav-desktop { margin-left: auto; }
         .nav-list {
           list-style: none;
@@ -378,7 +381,7 @@ function Footer() {
       <div className="wrap ft-grid">
         <div className="ft-brand">
           <span className="ft-wordmark">
-            <Wordmark src={LOGO_ASSETS.logoStacked} height="4.5rem" />
+            <Wordmark src={LOGO_ASSETS.logoStacked} height="2.4rem" />
           </span>
           <p className="ft-tagline">
             Family-owned firearms and ammunition shop in Oxford, Pennsylvania.
@@ -459,11 +462,9 @@ function Footer() {
           color: var(--text-on-dark);
           margin-bottom: 0.75rem;
         }
-        /* The wordmark art is near-black ink; invert it to read on the
-           dark footer ground. */
-        .ft-wordmark img {
-          filter: invert(1) brightness(0.94);
-        }
+        /* The horizontal logo art is already ivory, so it reads on the dark
+           footer ground with no filter. */
+        .ft-wordmark img { filter: none; }
         .ft-tagline { max-width: 20rem; }
         .ft-address {
           font-style: normal;

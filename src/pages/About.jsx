@@ -24,17 +24,6 @@ export function About() {
       {/* Page header */}
       <section className="ab-head" aria-labelledby="about-heading">
         <div className="wrap reveal">
-          <img
-            className="ab-logo"
-            src={LOGO_ASSETS.logoStacked}
-            alt={BUSINESS.name}
-            width={220}
-            height={120}
-            onError={(e) => {
-              const fallback = LOGO_ASSETS.submark;
-              if (!e.currentTarget.src.endsWith(fallback)) e.currentTarget.src = fallback;
-            }}
-          />
           <p className="eyebrow">Family owned in Oxford, PA</p>
           <h1 id="about-heading" className="display ab-title">
             About {BUSINESS.name}
@@ -45,14 +34,6 @@ export function About() {
           .ab-head {
             border-bottom: 1px solid var(--border);
             padding: 3.5rem 0 3rem;
-          }
-          .ab-logo {
-            display: block;
-            height: auto;
-            width: auto;
-            max-width: 13rem;
-            max-height: 5rem;
-            margin: 0 0 1.25rem;
           }
           .ab-title {
             font-size: clamp(2.3rem, 1.5rem + 3.6vw, 4rem);

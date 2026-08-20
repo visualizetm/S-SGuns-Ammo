@@ -50,17 +50,24 @@ export const SOCIAL_LINKS = [];
 
 // ---------- Brand assets (Rob-supplied; see public/brand/) ----------
 
-// Logo/icon SLOTS: fixed paths the owner can replace with real files (no
-// code change). The site references these by path; if a real file is ever
-// missing, the components fall back to the raster submark rather than break.
-// Lightweight on-brand placeholders ship at each path today. The .svg logos
-// are typographic placeholders (Rob has no vector art yet); the raster
-// icons are derived from the real submark by scripts/generate-icons.mjs.
+// Logo/icon assets. Real owner-supplied vector logos live at /public/*.svg;
+// components reference them by path and fall back to the raster submark on
+// load error rather than break.
+//
+// Weapon-free marks (confirmed by the owner): submark.svg and favicon.svg.
+// The horizontal wordmark lockup and the large emblems (logo-primary,
+// logo-stacked) include the rifle art, so those stay at wordmark/feature
+// scale, never as a tiny weapon-free icon.
 export const LOGO_ASSETS = {
-  // Primary logo lockups (SVG slots the owner replaces).
-  logoPrimary: '/brand/logo-primary.svg', // public navbar
-  logoStacked: '/brand/logo-stacked.svg', // public footer and About
-  submarkSvg: '/brand/submark.svg', // admin sidebar, small placements
+  // Horizontal wordmark lockup: owner-chosen for the navbar and footer. The
+  // file is ivory-filled (for dark grounds); it renders as-is on the dark
+  // footer and is darkened with a CSS filter on the light navbar.
+  logoPrimary: '/logo-horizontal.svg', // public navbar
+  logoStacked: '/logo-horizontal.svg', // public footer
+  logoEmblem: '/logo-primary.svg', // large feature-graphic emblem (has rifle art)
+  logoStackedEmblem: '/logo-stacked.svg', // large stacked emblem (has rifle art)
+
+  submarkSvg: '/submark.svg', // weapon-free; admin sidebar and small placements
 
   // Existing raster brand art (feature graphics and fallback).
   wordmark: '/brand/wordmark.web.webp',
