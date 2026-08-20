@@ -28,7 +28,7 @@ const NAV_ITEMS = [
 // Never generated logo art.
 // Renders a logo SLOT by path (see LOGO_ASSETS). If the file is missing it
 // falls back to the raster submark rather than breaking, then to the name.
-function Wordmark({ className = '', src = LOGO_ASSETS.logoPrimary, height = '2.1rem' }) {
+function Wordmark({ className = '', src = LOGO_ASSETS.navbar, height = '2.1rem' }) {
   return (
     <img
       src={src}
@@ -382,7 +382,7 @@ function Footer() {
       <div className="wrap ft-grid">
         <div className="ft-brand">
           <span className="ft-wordmark">
-            <Wordmark src={LOGO_ASSETS.logoStacked} height="2.4rem" />
+            <Wordmark src={LOGO_ASSETS.footer} height="4.25rem" />
           </span>
           <p className="ft-tagline">
             Family-owned firearms and ammunition shop in Oxford, Pennsylvania.
@@ -465,9 +465,9 @@ function Footer() {
           color: var(--text-on-dark);
           margin-bottom: 0.75rem;
         }
-        /* The horizontal logo art is already ivory, so it reads on the dark
-           footer ground with no filter. */
-        .ft-wordmark img { filter: none; }
+        /* The footer emblem is near-black ink; invert it to read on the dark
+           footer ground. */
+        .ft-wordmark img { filter: invert(1) brightness(0.97); }
         .ft-tagline { max-width: 20rem; }
         .ft-address {
           font-style: normal;

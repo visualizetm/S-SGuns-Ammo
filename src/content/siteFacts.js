@@ -66,32 +66,35 @@ export const SOCIAL_LINKS = [];
 
 // ---------- Brand assets (Rob-supplied; see public/brand/) ----------
 
-// Logo/icon assets. Real owner-supplied vector logos live at /public/*.svg;
-// components reference them by path and fall back to the raster submark on
-// load error rather than break.
+// Logo/icon assets: the owner's real vector logos live at /public/*.svg,
+// wired by role. Components reference them by path (swap the file to
+// rebrand, no code change) and fall back to the raster submark on load
+// error rather than break.
 //
-// Weapon-free marks (confirmed by the owner): submark.svg and favicon.svg.
-// The horizontal wordmark lockup and the large emblems (logo-primary,
-// logo-stacked) include the rifle art, so those stay at wordmark/feature
-// scale, never as a tiny weapon-free icon.
+// The four marks (see NEEDS-CONFIRMATION.md):
+//   navbar       logo-horizontal.svg  horizontal wordmark lockup (ivory fill,
+//                                     darkened by CSS on the light navbar)
+//   footer       logo-primary.svg     primary emblem (has rifle art), inverted
+//                                     to read on the dark footer
+//   featureHome  logo-stacked.svg     crossed-rifles crest (has rifle art)
+//   featureAbout logo-primary.svg     primary emblem (has rifle art)
+//   submarkSvg   submark.svg          scope-reticle "S&S" submark, WEAPON-FREE:
+//                                     the only mark used at icon scale (admin,
+//                                     favicon, app icons)
 export const LOGO_ASSETS = {
-  // Horizontal wordmark lockup: owner-chosen for the navbar and footer. The
-  // file is ivory-filled (for dark grounds); it renders as-is on the dark
-  // footer and is darkened with a CSS filter on the light navbar.
-  logoPrimary: '/logo-horizontal.svg', // public navbar
-  logoStacked: '/logo-horizontal.svg', // public footer
-  logoEmblem: '/logo-primary.svg', // large feature-graphic emblem (has rifle art)
-  logoStackedEmblem: '/logo-stacked.svg', // large stacked emblem (has rifle art)
+  navbar: '/logo-horizontal.svg',
+  footer: '/logo-primary.svg',
+  featureHome: '/logo-stacked.svg',
+  featureAbout: '/logo-primary.svg',
+  submarkSvg: '/submark.svg',
 
-  submarkSvg: '/submark.svg', // weapon-free; admin sidebar and small placements
-
-  // Existing raster brand art (feature graphics and fallback).
+  // Raster fallbacks and small weapon-free placeholders (empty photo states,
+  // onError fallback for the vector logos).
+  submark: '/brand/submark.web.webp',
   wordmark: '/brand/wordmark.web.webp',
-  wordmarkWithSubmark: '/brand/wordmark-with-submark.web.webp',
-  submark: '/brand/submark.web.webp', // weapon-free; raster fallback mark
-  seal: '/brand/seal-crossed-rifles.web.webp', // large feature graphic only
-  sealAlt: '/brand/seal-rifle-badge.web.webp', // large feature graphic only
-  pattern: '/brand/pattern-rifles.web.webp', // large backgrounds only
+  seal: '/brand/seal-crossed-rifles.web.webp',
+  sealAlt: '/brand/seal-rifle-badge.web.webp',
+  pattern: '/brand/pattern-rifles.web.webp',
 };
 
 // ---------- Store photography (Rob-supplied; see public/photos/) ----------

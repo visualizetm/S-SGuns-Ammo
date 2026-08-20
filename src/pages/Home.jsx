@@ -135,8 +135,9 @@ export function Home() {
                 detailed rifle-seal art may appear. Never at icon scale. */}
             <div className="hero-art-frame">
               <Slot
-                src={LOGO_ASSETS.seal}
-                alt={`${BUSINESS.name} crossed-rifles seal, Oxford, PA`}
+                src={LOGO_ASSETS.featureHome}
+                alt={BUSINESS.name}
+                label={BUSINESS.name}
                 ratio="1 / 1"
                 fit="contain"
                 eager

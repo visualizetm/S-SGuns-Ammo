@@ -172,8 +172,9 @@ export function About() {
                 detailed rifle-seal art may appear. Never at icon scale. */}
             <div className="ab-town-frame">
               <Slot
-                src={LOGO_ASSETS.sealAlt}
-                alt={`${BUSINESS.name} rifle badge seal, Oxford, PA`}
+                src={LOGO_ASSETS.featureAbout}
+                alt={BUSINESS.name}
+                label={BUSINESS.name}
                 ratio="1 / 1"
                 fit="contain"
               />
