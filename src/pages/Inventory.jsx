@@ -4,7 +4,7 @@
 // exist. Display catalog for a licensed dealer: customers transact in the
 // store; the only next step anywhere is calling or asking.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import SearchLg from '@untitled-ui/icons-react/build/esm/SearchLg';
 import FilterFunnel01 from '@untitled-ui/icons-react/build/esm/FilterFunnel01';
@@ -75,19 +75,46 @@ export function Inventory() {
   const [condition, setCondition] = useState('');
   const [inStockOnly, setInStockOnly] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const { body } = await publicGetCatalog();
-      if (!alive) return;
-      setLoading(false);
-      if (body?.ok) setData(body);
-      else setFailed(true);
-    })();
-    return () => {
-      alive = false;
-    };
+  // Keep the published catalog live: fetch on mount, then refetch quietly
+  // when the tab regains focus/visibility so returning after a publish shows
+  // current data without a hard refresh. `alive` and `lastLoad` guard against
+  // setting state after unmount and against duplicate focus/visibility fires
+  // (no polling loop).
+  const aliveRef = useRef(true);
+  const lastLoadRef = useRef(0);
+
+  const load = useCallback(async ({ background = false } = {}) => {
+    lastLoadRef.current = Date.now();
+    if (!background) setLoading(true);
+    const { body } = await publicGetCatalog();
+    if (!aliveRef.current) return;
+    if (body?.ok) {
+      setData(body);
+      setFailed(false);
+    } else if (!background) {
+      setFailed(true);
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    load();
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      // Coalesce the visibilitychange + focus pair and skip rapid repeats.
+      if (Date.now() - lastLoadRef.current < 1500) return;
+      load({ background: true });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      aliveRef.current = false;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [load]);
 
   const items = data?.items || [];
   const collections = data?.collections || [];

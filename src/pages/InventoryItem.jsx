@@ -3,7 +3,7 @@
 // prefills the contact form). Display catalog for a licensed dealer:
 // customers transact in the store. No purchase language anywhere.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
@@ -365,19 +365,40 @@ function ItemView({ item }) {
 export function InventoryItem() {
   const { id } = useParams();
   const [state, setState] = useState({ loading: true, item: null });
+  const aliveRef = useRef(true);
+  const lastLoadRef = useRef(0);
 
-  useEffect(() => {
-    let alive = true;
-    setState({ loading: true, item: null });
-    (async () => {
+  const load = useCallback(
+    async ({ background = false } = {}) => {
+      lastLoadRef.current = Date.now();
+      if (!background) setState({ loading: true, item: null });
       const { body } = await publicGetItem(id);
-      if (!alive) return;
+      if (!aliveRef.current) return;
+      // On a quiet refetch, keep showing the item if the endpoint hiccups.
+      if (background && !body?.ok) return;
       setState({ loading: false, item: body?.ok ? body.item : null });
-    })();
-    return () => {
-      alive = false;
+    },
+    [id]
+  );
+
+  // Refetch on mount/id change, and quietly when the tab regains focus, so
+  // price/stock changes published in the admin appear without a hard refresh.
+  useEffect(() => {
+    aliveRef.current = true;
+    load();
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastLoadRef.current < 1500) return;
+      load({ background: true });
     };
-  }, [id]);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      aliveRef.current = false;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [load]);
 
   if (state.loading) {
     return (
