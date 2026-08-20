@@ -24,25 +24,41 @@ export const BUSINESS = {
   },
   phoneDisplay: '(610) 467-0284',
   phoneHref: 'tel:+16104670284',
+  emailDisplay: 'sandsammozone@gmail.com',
+  emailHref: 'mailto:sandsammozone@gmail.com',
   directionsUrl:
     'https://www.google.com/maps/search/?api=1&query=' +
     encodeURIComponent('10 S. 3rd Street, Unit 5, Oxford, PA 19363'),
 };
 
-// Confirmed owner email, kept on file for internal reference. The public
-// site takes calls, not messages: there are no contact forms and no email
-// is displayed unless the owner asks for one (see PLACEHOLDERS.email).
+// Confirmed public owner email (same as BUSINESS.emailDisplay). The shop is
+// phone-first; there are no contact forms, but the email is shown as a
+// secondary way to reach the shop.
 export const OWNER_EMAIL = 'sandsammozone@gmail.com';
+
+// ---------- Hours (confirmed) ----------
+// `label` is the display string; `opens`/`closes` are 24h times for the
+// LocalBusiness JSON-LD (null on closed days).
+export const HOURS = [
+  { day: 'Monday', label: 'Closed', opens: null, closes: null },
+  { day: 'Tuesday', label: 'Closed', opens: null, closes: null },
+  { day: 'Wednesday', label: '1:00 PM to 5:00 PM', opens: '13:00', closes: '17:00' },
+  { day: 'Thursday', label: '1:00 PM to 5:00 PM', opens: '13:00', closes: '17:00' },
+  { day: 'Friday', label: '1:00 PM to 5:00 PM', opens: '13:00', closes: '17:00' },
+  { day: 'Saturday', label: '9:00 AM to 3:00 PM', opens: '09:00', closes: '15:00' },
+  { day: 'Sunday', label: 'Closed', opens: null, closes: null },
+];
+
+// Compact one-line summary for tight spots (footer, hero, meta).
+export const HOURS_SUMMARY =
+  'Wed to Fri 1:00 to 5:00 PM, Sat 9:00 AM to 3:00 PM. Closed Sun, Mon, Tue.';
 
 // ---------- Unconfirmed facts: labeled placeholders only ----------
 
 export const PLACEHOLDERS = {
-  hours: '[[HOURS - confirm with owner]]',
-  email: '[[EMAIL ADDRESS - confirm with owner]]',
-  ownerNames: '[[OWNER NAMES - confirm with owner]]',
-  foundingYear: '[[FOUNDING YEAR - confirm with owner]]',
-  aboutStory: '[[FAMILY STORY - confirm with owner]]',
-  parking: '[[PARKING DETAILS - confirm with owner]]',
+  // The only owner-confirmation slot still rendered anywhere. Founding year
+  // is unconfirmed; do not invent one. Rendered only where clearly optional.
+  foundingYear: '[[FOUNDING YEAR - optional, confirm with owner]]',
 };
 
 // Social links are UNCONFIRMED. Empty means no social UI renders anywhere.
@@ -149,7 +165,7 @@ export const PAGE_META = {
   },
   contact: {
     title: 'Contact & Visit',
-    description: `Contact S&S Guns & Ammo: 10 S. 3rd Street, Unit 5, Oxford, PA 19363. ${CALL} or send a message.`,
+    description: `Contact S&S Guns & Ammo: 10 S. 3rd Street, Unit 5, Oxford, PA 19363. ${CALL} or stop in.`,
   },
 };
 
@@ -202,8 +218,11 @@ export const TRUST_POINTS = [
 // ---------- About copy ----------
 
 export const ABOUT_COPY = {
-  lede: 'A family-owned shop on S. 3rd Street in Oxford, Pennsylvania, serving local firearm owners, transfer customers and sporting enthusiasts.',
-  community: `The shop sits at ${BUSINESS.address.line1} in Oxford, Pennsylvania. If you live or hunt in the area, you are the customer this place was built for. Stop in, call, or send a message and talk to the people who run it.`,
+  lede: 'A local, family-run gun shop on S. 3rd Street in Oxford, Pennsylvania, run by Steve. A wide variety of firearms, straightforward help, and no pressure.',
+  runBy: 'Steve',
+  story:
+    'S&S Guns & Ammo is a local, family-run shop in Oxford, run by Steve. Folks come here for competitive, hard-to-beat pricing and for special orders, getting what they need on time or often early. First-time buyers and seasoned owners get the same treatment: straightforward, knowledgeable help with no pressure, and a wide variety of firearms to choose from.',
+  community: `The shop sits at ${BUSINESS.address.line1} in Oxford, Pennsylvania. Whether you are buying your first firearm or adding to a collection, stop in or call and talk to Steve. Local, family-run, and here to help.`,
 };
 
 // Shop values: brand copy, not factual claims.
@@ -225,29 +244,23 @@ export const SHOP_VALUES = [
   },
 ];
 
-// ---------- Services copy ----------
-
-// The exact service list is UNCONFIRMED; each entry is neutral and the
-// whole list is flagged in NEEDS-CONFIRMATION.md. `confirmed` gates
-// rendering: false stays hidden everywhere. Informational only.
-
-export const SERVICES_CONFIRMATION_NOTE =
-  '[[SERVICE LIST - confirm each service with owner before publish]]';
+// ---------- Services copy (confirmed) ----------
+// `confirmed` gates rendering: false stays hidden everywhere.
 
 export const SERVICES = [
   {
     id: 'firearms',
-    title: 'Firearms',
+    title: 'Firearms, New and Used',
     confirmed: true,
     description:
-      'In-store selection of firearms for hunting and sport shooting. Visit the shop or call for current availability.',
+      'A wide variety of new and used firearms for hunting, sport, and home defense. Visit the shop or call for current availability.',
   },
   {
-    id: 'ammunition',
-    title: 'Ammunition',
+    id: 'buying',
+    title: 'We Buy Firearms',
     confirmed: true,
     description:
-      'Ammunition for common calibers and gauges. Call ahead to check stock.',
+      'Looking to sell? We buy firearms. Call or stop in for a quote. You can also sell or trade in a gun toward something else, handled in person at the counter.',
   },
   {
     id: 'transfers',
@@ -262,14 +275,21 @@ export const SERVICES = [
     title: 'Special Orders',
     confirmed: true,
     description:
-      'Ask about ordering an item the shop does not have on the shelf.',
+      'Strong on special orders: tell us what you are after and we will work to get it, often on time or early. Ask about ordering anything not on the shelf.',
   },
   {
-    id: 'gunsmithing',
-    title: 'Gunsmithing',
-    confirmed: false, // UNCONFIRMED: hidden until the owner confirms it
+    id: 'ammunition',
+    title: 'Ammunition',
+    confirmed: true,
     description:
-      'Repair and maintenance work. Call the shop to ask what is offered.',
+      'Ammunition for common calibers and gauges. Call ahead to check stock.',
+  },
+  {
+    id: 'accessories',
+    title: 'Accessories and Optics',
+    confirmed: true,
+    description:
+      'Optics, sights, and accessories to go with your firearm. Ask what we have in stock.',
   },
 ];
 

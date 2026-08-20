@@ -7,7 +7,6 @@ import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import {
   BUSINESS,
-  PLACEHOLDERS,
   SHOP_VALUES,
   LOGO_ASSETS,
   ABOUT_COPY,
@@ -56,23 +55,15 @@ export function About() {
             <h2 id="ab-story-heading" className="display section-title">
               The family behind the counter
             </h2>
-            {/* UNCONFIRMED: real family story replaces this placeholder.
-                Do not fabricate history or a founding year. */}
-            <p className="ab-story-ph">
-              <span className="ph">{PLACEHOLDERS.aboutStory}</span>
-            </p>
+            <p className="ab-story-body">{ABOUT_COPY.story}</p>
             <dl className="ab-facts">
               <div className="ab-fact">
-                <dt>Owners</dt>
-                <dd>
-                  <span className="ph">{PLACEHOLDERS.ownerNames}</span>
-                </dd>
+                <dt>Run by</dt>
+                <dd>{ABOUT_COPY.runBy}</dd>
               </div>
               <div className="ab-fact">
-                <dt>Serving Oxford since</dt>
-                <dd>
-                  <span className="ph">{PLACEHOLDERS.foundingYear}</span>
-                </dd>
+                <dt>Local and family-run</dt>
+                <dd>Oxford, PA</dd>
               </div>
             </dl>
           </div>
@@ -90,7 +81,7 @@ export function About() {
             gap: 3rem;
             align-items: start;
           }
-          .ab-story-ph {
+          .ab-story-body {
             max-width: 34rem;
             line-height: 1.8;
           }

@@ -20,7 +20,7 @@ import { Slot } from '../components/Slot.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 import {
   BUSINESS,
-  PLACEHOLDERS,
+  HOURS_SUMMARY,
   TRUST_POINTS,
   LOGO_ASSETS,
   CONFIRMED_SERVICES,
@@ -378,9 +378,7 @@ export function Home() {
             </address>
             <p className="hm-visit-hours">
               <Clock aria-hidden="true" width={18} height={18} />
-              <span>
-                Hours: <span className="ph">{PLACEHOLDERS.hours}</span>
-              </span>
+              <span>{HOURS_SUMMARY}</span>
             </p>
             <div className="hm-visit-ctas">
               <a

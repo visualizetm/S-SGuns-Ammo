@@ -1,16 +1,15 @@
 // Contact & Visit: phone-first. The shop takes calls, not web messages, so
-// the primary action everywhere is Call the Shop. Address, hours, parking,
-// directions, and a map slot. Click-to-call and directions are real anchors
-// that work on mobile. Social slots render only if confirmed accounts exist
-// (none yet).
+// the primary action everywhere is Call the Shop. Address, confirmed weekly
+// hours, email, directions, and a map slot. Click-to-call, email, and
+// directions are real anchors that work on mobile. Social slots render only
+// if confirmed accounts exist (none yet).
 
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
-import Clock from '@untitled-ui/icons-react/build/esm/Clock';
-import Building02 from '@untitled-ui/icons-react/build/esm/Building02';
+import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import {
   BUSINESS,
-  PLACEHOLDERS,
+  HOURS,
   SOCIAL_LINKS,
   PAGE_META,
 } from '../content/siteFacts.js';
@@ -108,20 +107,26 @@ export function Contact() {
               {BUSINESS.address.zip}
             </address>
 
-            <ul className="ct-lines">
-              <li className="ct-line">
-                <Clock aria-hidden="true" width={18} height={18} />
-                <span>
-                  Hours: <span className="ph">{PLACEHOLDERS.hours}</span>
-                </span>
-              </li>
-              <li className="ct-line">
-                <Building02 aria-hidden="true" width={18} height={18} />
-                <span>
-                  Parking: <span className="ph">{PLACEHOLDERS.parking}</span>
-                </span>
-              </li>
-            </ul>
+            <p className="ct-line">
+              <Mail01 aria-hidden="true" width={18} height={18} />
+              <a href={BUSINESS.emailHref}>{BUSINESS.emailDisplay}</a>
+            </p>
+
+            <div className="ct-hours">
+              <h3 className="ct-hours-title">Hours</h3>
+              <dl className="ct-hours-list">
+                {HOURS.map((row) => (
+                  <div
+                    key={row.day}
+                    className="ct-hours-row"
+                    data-closed={row.opens ? undefined : 'true'}
+                  >
+                    <dt>{row.day}</dt>
+                    <dd>{row.label}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
 
             <div className="ct-map">
               <Slot
@@ -161,25 +166,42 @@ export function Contact() {
             line-height: 1.7;
             margin: 0 0 1.25rem;
           }
-          .ct-lines {
-            list-style: none;
-            margin: 0 0 1.5rem;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-          }
           .ct-line {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 0.6rem;
             color: var(--text-secondary);
+            margin: 0 0 1.25rem;
           }
           .ct-line svg {
             flex-shrink: 0;
             color: var(--brand);
-            margin-top: 0.2rem;
           }
+          .ct-hours { margin: 0 0 1.5rem; }
+          .ct-hours-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: var(--track-label);
+            color: var(--text-muted);
+            margin: 0 0 0.5rem;
+          }
+          .ct-hours-list {
+            margin: 0;
+            max-width: 20rem;
+            border-top: 1px solid var(--border);
+          }
+          .ct-hours-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.35rem 0;
+            border-bottom: 1px solid var(--border);
+          }
+          .ct-hours-row dt { font-weight: 600; color: var(--text); }
+          .ct-hours-row dd { margin: 0; color: var(--text-secondary); }
+          .ct-hours-row[data-closed] dt,
+          .ct-hours-row[data-closed] dd { color: var(--text-muted); }
           .ct-ctas {
             display: flex;
             gap: 0.85rem;

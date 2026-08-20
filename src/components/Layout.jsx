@@ -7,10 +7,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
+import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import Menu02 from '@untitled-ui/icons-react/build/esm/Menu02';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Clock from '@untitled-ui/icons-react/build/esm/Clock';
-import { BUSINESS, PLACEHOLDERS, LOGO_ASSETS } from '../content/siteFacts.js';
+import { BUSINESS, HOURS_SUMMARY, LOGO_ASSETS } from '../content/siteFacts.js';
 import { useReveal } from '../lib/useReveal.js';
 
 const NAV_ITEMS = [
@@ -423,11 +424,13 @@ function Footer() {
               Get Directions
             </a>
           </p>
+          <p className="ft-line">
+            <Mail01 aria-hidden="true" width={16} height={16} />
+            <a href={BUSINESS.emailHref}>{BUSINESS.emailDisplay}</a>
+          </p>
           <p className="ft-line ft-hours">
             <Clock aria-hidden="true" width={16} height={16} />
-            <span>
-              Hours: <span className="ph">{PLACEHOLDERS.hours}</span>
-            </span>
+            <span>{HOURS_SUMMARY}</span>
           </p>
         </div>
       </div>

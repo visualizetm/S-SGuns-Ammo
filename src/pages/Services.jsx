@@ -9,7 +9,6 @@ import { usePageMeta } from '../lib/usePageMeta.js';
 import {
   BUSINESS,
   CONFIRMED_SERVICES,
-  SERVICES_CONFIRMATION_NOTE,
   PAGE_META,
 } from '../content/siteFacts.js';
 
@@ -28,9 +27,6 @@ export function Services() {
             What we do at the counter, in plain terms. Call the shop for
             current stock and details on any of it.
           </p>
-          {/* Whole list pending owner confirmation; visible flag on the
-              draft build so nothing unconfirmed slips into a publish. */}
-          <p className="flag-note">{SERVICES_CONFIRMATION_NOTE}</p>
         </div>
         <style>{`
           .svc-head {
@@ -96,8 +92,8 @@ export function Services() {
               Not sure? Just ask.
             </h2>
             <p className="svc-cta-body">
-              If you do not see what you need, call the shop or send a message
-              and we will point you in the right direction.
+              If you do not see what you need, call the shop or stop in and we
+              will point you in the right direction.
             </p>
           </div>
           <div className="svc-cta-btns">

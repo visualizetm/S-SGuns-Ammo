@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import {
   BASE_URL,
   BUSINESS,
+  HOURS,
   LOGO_ASSETS,
   PUBLIC_ROUTES,
 } from '../src/content/siteFacts.js';
@@ -52,12 +53,20 @@ function withMeta(html, { title, description }) {
     );
 }
 
-// LocalBusiness JSON-LD: confirmed fields only.
+// LocalBusiness JSON-LD: confirmed fields only. Hours are confirmed, so
+// emit openingHoursSpecification for each open day (closed days omitted).
+const openingHours = HOURS.filter((h) => h.opens).map((h) => ({
+  '@type': 'OpeningHoursSpecification',
+  dayOfWeek: `https://schema.org/${h.day}`,
+  opens: h.opens,
+  closes: h.closes,
+}));
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'LocalBusiness',
   name: BUSINESS.name,
   telephone: '+16104670284',
+  email: BUSINESS.emailDisplay,
   address: {
     '@type': 'PostalAddress',
     streetAddress: BUSINESS.address.line1,
@@ -66,6 +75,7 @@ const jsonLd = {
     postalCode: BUSINESS.address.zip,
     addressCountry: 'US',
   },
+  openingHoursSpecification: openingHours,
   url: BASE_URL,
   image: `${BASE_URL}/og-image.png`,
   logo: `${BASE_URL}${LOGO_ASSETS.submark}`,
