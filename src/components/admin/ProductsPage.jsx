@@ -18,14 +18,39 @@ import { BundlesPanel } from './BundlesPanel.jsx';
 import { BulkEditor } from './BulkEditor.jsx';
 
 export const PRODUCTS_SECTIONS = [
-  { id: 'items', label: 'Products', icon: Package, hint: 'Individual listings' },
-  { id: 'collections', label: 'Collections', icon: Grid01, hint: 'Category groupings' },
-  { id: 'bundles', label: 'Bundles', icon: LayersThree01, hint: 'Package deals' },
-  { id: 'bulk', label: 'Bulk Editor', icon: Rows01, hint: 'CSV import / export' },
+  {
+    id: 'items',
+    label: 'Products',
+    icon: Package,
+    hint: 'Individual listings',
+    desc: 'Add, edit, price, and set the stock status of individual items.',
+  },
+  {
+    id: 'collections',
+    label: 'Collections',
+    icon: Grid01,
+    hint: 'Category groupings',
+    desc: 'Group products into the categories shoppers browse by.',
+  },
+  {
+    id: 'bundles',
+    label: 'Bundles',
+    icon: LayersThree01,
+    hint: 'Package deals',
+    desc: 'Combine products into package deals shown on the site.',
+  },
+  {
+    id: 'bulk',
+    label: 'Bulk Editor',
+    icon: Rows01,
+    hint: 'CSV import / export',
+    desc: 'Export the whole catalog to a spreadsheet, or import changes back.',
+  },
 ];
 
 export function ProductsPage({ section, onSelectSection, panelProps }) {
   const active = PRODUCTS_SECTIONS.some((s) => s.id === section) ? section : 'items';
+  const current = PRODUCTS_SECTIONS.find((s) => s.id === active) || PRODUCTS_SECTIONS[0];
 
   return (
     <div className="products-page">
@@ -47,6 +72,8 @@ export function ProductsPage({ section, onSelectSection, panelProps }) {
         ))}
       </nav>
 
+      <p className="products-section-desc">{current.desc}</p>
+
       <div className="products-panel">
         {active === 'items' ? <ProductsPanel {...panelProps} /> : null}
         {active === 'collections' ? <CollectionsPanel {...panelProps} /> : null}
@@ -55,7 +82,12 @@ export function ProductsPage({ section, onSelectSection, panelProps }) {
       </div>
 
       <style>{`
-        .products-page { display: flex; flex-direction: column; gap: 1.25rem; }
+        .products-page { display: flex; flex-direction: column; gap: 1rem; }
+        .products-section-desc {
+          margin: 0;
+          font-size: 0.9rem;
+          color: var(--text-muted);
+        }
         .products-subnav {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
