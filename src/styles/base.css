@@ -872,12 +872,6 @@ dl div + div dt {
   margin-top: 0.5rem;
 }
 
-.ssga-build-sha {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  color: var(--text-on-dark-muted);
-}
-
 /* Screen-reader-only text: visually hidden, still announced. */
 .sr-only {
   position: absolute;

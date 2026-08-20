@@ -449,7 +449,6 @@ function Footer() {
         <p className="ft-copyright">
           {new Date().getFullYear()} {BUSINESS.name}. All rights reserved.
         </p>
-        <p className="ssga-build-sha">Build {__COMMIT_SHA__}</p>
       </div>
 
       <style>{`
