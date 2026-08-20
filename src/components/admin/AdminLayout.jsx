@@ -130,7 +130,16 @@ export function AdminLayout({
       {/* Sidebar (desktop) */}
       <aside className="admin-side" aria-label="Admin navigation">
         <div className="admin-brand">
-          <img src={LOGO_ASSETS.submark} alt={BUSINESS.name} width={40} height={40} />
+          <img
+            src={LOGO_ASSETS.submarkSvg}
+            alt={BUSINESS.name}
+            width={40}
+            height={40}
+            onError={(e) => {
+              if (!e.currentTarget.src.endsWith(LOGO_ASSETS.submark))
+                e.currentTarget.src = LOGO_ASSETS.submark;
+            }}
+          />
           <span className="admin-brand-text">
             <span className="admin-brand-name">S&amp;S</span>
             <span className="admin-brand-sub">Product Manager</span>
@@ -467,7 +476,16 @@ export function AdminLogin({ onSubmit, error, submitting }) {
     <div className="admin-app admin-app--login">
       <div className="admin-login-card">
         <div className="admin-login-brand">
-          <img src={LOGO_ASSETS.submark} alt={BUSINESS.name} width={52} height={52} />
+          <img
+            src={LOGO_ASSETS.submarkSvg}
+            alt={BUSINESS.name}
+            width={52}
+            height={52}
+            onError={(e) => {
+              if (!e.currentTarget.src.endsWith(LOGO_ASSETS.submark))
+                e.currentTarget.src = LOGO_ASSETS.submark;
+            }}
+          />
           <span className="admin-brand-name">S&amp;S Product Manager</span>
           <span className="admin-brand-sub">Staff sign in</span>
         </div>

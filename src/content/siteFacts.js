@@ -50,10 +50,22 @@ export const SOCIAL_LINKS = [];
 
 // ---------- Brand assets (Rob-supplied; see public/brand/) ----------
 
+// Logo/icon SLOTS: fixed paths the owner can replace with real files (no
+// code change). The site references these by path; if a real file is ever
+// missing, the components fall back to the raster submark rather than break.
+// Lightweight on-brand placeholders ship at each path today. The .svg logos
+// are typographic placeholders (Rob has no vector art yet); the raster
+// icons are derived from the real submark by scripts/generate-icons.mjs.
 export const LOGO_ASSETS = {
+  // Primary logo lockups (SVG slots the owner replaces).
+  logoPrimary: '/brand/logo-primary.svg', // public navbar
+  logoStacked: '/brand/logo-stacked.svg', // public footer and About
+  submarkSvg: '/brand/submark.svg', // admin sidebar, small placements
+
+  // Existing raster brand art (feature graphics and fallback).
   wordmark: '/brand/wordmark.web.webp',
   wordmarkWithSubmark: '/brand/wordmark-with-submark.web.webp',
-  submark: '/brand/submark.web.webp', // weapon-free; the only icon-scale mark
+  submark: '/brand/submark.web.webp', // weapon-free; raster fallback mark
   seal: '/brand/seal-crossed-rifles.web.webp', // large feature graphic only
   sealAlt: '/brand/seal-rifle-badge.web.webp', // large feature graphic only
   pattern: '/brand/pattern-rifles.web.webp', // large backgrounds only

@@ -25,18 +25,21 @@ const NAV_ITEMS = [
 // Horizontal wordmark slot. Rob supplies the real file; until then the
 // business name renders as styled type in the same reserved footprint.
 // Never generated logo art.
-function Wordmark({ className = '' }) {
-  if (LOGO_ASSETS.wordmark) {
-    return (
-      <img
-        src={LOGO_ASSETS.wordmark}
-        alt={BUSINESS.name}
-        className={className}
-        style={{ height: '2.1rem', width: 'auto' }}
-      />
-    );
-  }
-  return <span className={className}>{BUSINESS.name}</span>;
+// Renders a logo SLOT by path (see LOGO_ASSETS). If the file is missing it
+// falls back to the raster submark rather than breaking, then to the name.
+function Wordmark({ className = '', src = LOGO_ASSETS.logoPrimary, height = '2.1rem' }) {
+  return (
+    <img
+      src={src}
+      alt={BUSINESS.name}
+      className={className}
+      style={{ height, width: 'auto' }}
+      onError={(e) => {
+        const fallback = LOGO_ASSETS.submark;
+        if (!e.currentTarget.src.endsWith(fallback)) e.currentTarget.src = fallback;
+      }}
+    />
+  );
 }
 
 function Navbar() {
@@ -375,7 +378,7 @@ function Footer() {
       <div className="wrap ft-grid">
         <div className="ft-brand">
           <span className="ft-wordmark">
-            <Wordmark />
+            <Wordmark src={LOGO_ASSETS.logoStacked} height="4.5rem" />
           </span>
           <p className="ft-tagline">
             Family-owned firearms and ammunition shop in Oxford, Pennsylvania.
