@@ -142,7 +142,7 @@ await (async () => {
   assert.equal(res.statusCode, 401);
   ok('admin login: wrong password returns 401', () => {});
 
-  res = await call(loginHandler, { body: { password: 'oxford-demo' } });
+  res = await call(loginHandler, { body: { password: 'oxford' } });
   assert.equal(res.statusCode, 200);
   const token = res.body.token;
   assert.equal(verifyToken(token), true);
@@ -541,7 +541,7 @@ await (async () => {
   assert.equal(res.body.bundles[0].members.length, 2);
   ok('public bundles: seed bundle serves with two live members', () => {});
 
-  const login = await call(loginHandler, { body: { password: 'oxford-demo' } });
+  const login = await call(loginHandler, { body: { password: 'oxford' } });
   const auth = { authorization: `Bearer ${login.body.token}` };
 
   // Hide one member and publish: the bundle must disappear entirely.

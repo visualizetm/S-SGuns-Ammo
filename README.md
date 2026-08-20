@@ -92,7 +92,7 @@ per-field errors. A hidden honeypot field silently drops bot submissions.
 
 ## Admin (demo)
 
-- Visit `/admin`, password: `oxford-demo`. Tabs: Products, Collections,
+- Visit `/admin`, password: `oxford`. Tabs: Products, Collections,
   Bundles, Bulk Editor, with the persistent Publish bar on top.
 - Auth is checked server-side only (`api/_lib/auth.js`); the password never
   appears in a `VITE_` variable or the client bundle. Set `ADMIN_PASSWORD`

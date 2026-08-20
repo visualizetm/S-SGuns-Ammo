@@ -14,7 +14,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-const DEMO_PASSWORD = 'oxford-demo';
+const DEMO_PASSWORD = 'oxford';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function adminPassword() {

@@ -13,7 +13,7 @@ click-to-call link, so there is nothing to set up for contact.
 
 | Variable | Purpose | Behavior when unset |
 | --- | --- | --- |
-| `ADMIN_PASSWORD` | Real admin password for `/admin` | Documented demo password `oxford-demo` |
+| `ADMIN_PASSWORD` | Real admin password for `/admin` | Documented demo password `oxford` |
 | `ADMIN_SESSION_SECRET` | Random secret that signs admin session tokens | Secret derived from the admin password (demo grade) |
 | `DATABASE_URL` | Postgres connection string for the catalog store | Dev JSON file store (`.data/catalog-dev.json`), in-memory on read-only filesystems |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for photo storage | Photos stored as small data URLs inside the records |

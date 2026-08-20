@@ -35,7 +35,7 @@ import {
 } from '../../shared/catalogValidation.js';
 
 const CATALOG_KEY = 'ssga-demo-catalog';
-const DEMO_PASSWORD = 'oxford-demo';
+const DEMO_PASSWORD = 'oxford';
 const DEMO_TOKEN = 'demo-local-token';
 
 function loadCatalog() {
