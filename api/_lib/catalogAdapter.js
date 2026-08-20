@@ -135,16 +135,68 @@ const TABLES = {
   bundles: 'catalog_bundles',
 };
 
-function createPostgresAdapter(databaseUrl) {
-  let clientPromise = null;
+// One diff of two stores into the minimal set of write statements
+// (parameterized text + params), shared by mutate and the atomic publish.
+function diffStatements(before, after) {
+  const statements = [];
+  for (const kind of KINDS) {
+    const beforeById = new Map(before[kind].map((r) => [r.id, r]));
+    const afterIds = new Set(after[kind].map((r) => r.id));
+    for (const record of after[kind]) {
+      const prev = beforeById.get(record.id);
+      if (prev && JSON.stringify(prev) === JSON.stringify(record)) continue;
+      statements.push({
+        text: `INSERT INTO ${TABLES[kind]} (id, created_at, updated_at, draft, published)
+               VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
+               ON CONFLICT (id) DO UPDATE SET
+                 updated_at = EXCLUDED.updated_at,
+                 draft = EXCLUDED.draft,
+                 published = EXCLUDED.published`,
+        // Pass the objects directly: the postgres driver serializes them to
+        // jsonb once. Pre-stringifying would double-encode into a JSON string.
+        params: [
+          record.id,
+          record.createdAt,
+          record.updatedAt,
+          record.draft,
+          record.published,
+        ],
+      });
+    }
+    for (const prev of before[kind]) {
+      if (!afterIds.has(prev.id)) {
+        statements.push({
+          text: `DELETE FROM ${TABLES[kind]} WHERE id = $1`,
+          params: [prev.id],
+        });
+      }
+    }
+  }
+  return statements;
+}
 
-  async function sql() {
-    if (!clientPromise) {
-      clientPromise = (async () => {
-        const { neon } = await import('@neondatabase/serverless');
-        const client = neon(databaseUrl);
+// Production store: any standard Postgres reached over the wire, using the
+// `postgres` driver. Works with Supabase (via the Vercel integration's
+// pooled POSTGRES_URL), Neon, Vercel Postgres, or a self-hosted database.
+// prepare:false is required for Supabase's transaction-mode pooler
+// (pgBouncer), which does not support prepared statements.
+function createPostgresAdapter(connectionString) {
+  let sqlPromise = null;
+
+  async function getSql() {
+    if (!sqlPromise) {
+      sqlPromise = (async () => {
+        const { default: postgres } = await import('postgres');
+        const local = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString);
+        const sql = postgres(connectionString, {
+          prepare: false,
+          ssl: local ? false : 'require',
+          max: 3,
+          idle_timeout: 20,
+          connect_timeout: 15,
+        });
         for (const table of Object.values(TABLES)) {
-          await client(`CREATE TABLE IF NOT EXISTS ${table} (
+          await sql.unsafe(`CREATE TABLE IF NOT EXISTS ${table} (
             id TEXT PRIMARY KEY,
             created_at TIMESTAMPTZ NOT NULL,
             updated_at TIMESTAMPTZ NOT NULL,
@@ -152,20 +204,19 @@ function createPostgresAdapter(databaseUrl) {
             published JSONB
           )`);
         }
-        return client;
+        return sql;
       })();
     }
-    return clientPromise;
+    return sqlPromise;
   }
 
-  // The Postgres implementation loads the catalog, applies the same pure
-  // operations as the dev store, then writes back only changed rows. The
-  // catalog is shop-scale (hundreds of rows), so this stays fast, and
-  // publish/discard persist through a single transaction for atomicity.
-  async function loadStore(client) {
+  // Load the catalog, apply the same pure operations as the dev store, then
+  // write back only changed rows. The catalog is shop-scale (hundreds of
+  // rows), so this stays fast; publish/discard persist in one transaction.
+  async function loadStore(sql) {
     const store = { products: [], collections: [], bundles: [] };
     for (const kind of KINDS) {
-      const rows = await client(
+      const rows = await sql.unsafe(
         `SELECT id, created_at, updated_at, draft, published FROM ${TABLES[kind]}`
       );
       store[kind] = rows.map((row) => ({
@@ -179,110 +230,34 @@ function createPostgresAdapter(databaseUrl) {
     return store;
   }
 
-  function diffQueries(client, before, after) {
-    const queries = [];
-    for (const kind of KINDS) {
-      const beforeById = new Map(before[kind].map((r) => [r.id, r]));
-      const afterIds = new Set(after[kind].map((r) => r.id));
-      for (const record of after[kind]) {
-        const prev = beforeById.get(record.id);
-        if (prev && JSON.stringify(prev) === JSON.stringify(record)) continue;
-        queries.push(
-          client(
-            `INSERT INTO ${TABLES[kind]} (id, created_at, updated_at, draft, published)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (id) DO UPDATE SET
-               updated_at = EXCLUDED.updated_at,
-               draft = EXCLUDED.draft,
-               published = EXCLUDED.published`,
-            [
-              record.id,
-              record.createdAt,
-              record.updatedAt,
-              record.draft === null ? null : JSON.stringify(record.draft),
-              record.published === null ? null : JSON.stringify(record.published),
-            ]
-          )
-        );
-      }
-      for (const prev of before[kind]) {
-        if (!afterIds.has(prev.id)) {
-          queries.push(
-            client(`DELETE FROM ${TABLES[kind]} WHERE id = $1`, [prev.id])
-          );
-        }
-      }
-    }
-    return queries;
-  }
-
   async function mutate(fn) {
-    const client = await sql();
-    const before = await loadStore(client);
+    const sql = await getSql();
+    const before = await loadStore(sql);
     const after = JSON.parse(JSON.stringify(before));
     const result = fn(after);
-    const queries = diffQueries(client, before, after);
-    // neon's http driver runs each query independently; sequential await
-    // keeps ordering. Publish/discard route through mutateAtomic below.
-    for (const query of queries) await query;
+    for (const { text, params } of diffStatements(before, after)) {
+      await sql.unsafe(text, params);
+    }
     return result;
   }
 
   async function mutateAtomic(fn) {
-    const { neon } = await import('@neondatabase/serverless');
-    const client = await sql();
-    const before = await loadStore(client);
+    const sql = await getSql();
+    const before = await loadStore(sql);
     const after = JSON.parse(JSON.stringify(before));
     const result = fn(after);
-    const tx = neon(databaseUrl);
-    const statements = diffQueriesAsText(before, after);
+    const statements = diffStatements(before, after);
     if (statements.length > 0) {
-      await tx.transaction((txn) =>
-        statements.map(({ text, params }) => txn(text, params))
-      );
+      await sql.begin(async (tx) => {
+        for (const { text, params } of statements) await tx.unsafe(text, params);
+      });
     }
     return result;
   }
 
-  function diffQueriesAsText(before, after) {
-    const statements = [];
-    for (const kind of KINDS) {
-      const beforeById = new Map(before[kind].map((r) => [r.id, r]));
-      const afterIds = new Set(after[kind].map((r) => r.id));
-      for (const record of after[kind]) {
-        const prev = beforeById.get(record.id);
-        if (prev && JSON.stringify(prev) === JSON.stringify(record)) continue;
-        statements.push({
-          text: `INSERT INTO ${TABLES[kind]} (id, created_at, updated_at, draft, published)
-                 VALUES ($1, $2, $3, $4, $5)
-                 ON CONFLICT (id) DO UPDATE SET
-                   updated_at = EXCLUDED.updated_at,
-                   draft = EXCLUDED.draft,
-                   published = EXCLUDED.published`,
-          params: [
-            record.id,
-            record.createdAt,
-            record.updatedAt,
-            record.draft === null ? null : JSON.stringify(record.draft),
-            record.published === null ? null : JSON.stringify(record.published),
-          ],
-        });
-      }
-      for (const prev of before[kind]) {
-        if (!afterIds.has(prev.id)) {
-          statements.push({
-            text: `DELETE FROM ${TABLES[kind]} WHERE id = $1`,
-            params: [prev.id],
-          });
-        }
-      }
-    }
-    return statements;
-  }
-
   async function withStore(fn) {
-    const client = await sql();
-    const store = await loadStore(client);
+    const sql = await getSql();
+    const store = await loadStore(sql);
     return fn(store);
   }
 
@@ -339,9 +314,12 @@ let adapter = null;
 
 export function getCatalogAdapter() {
   if (!adapter) {
-    adapter = process.env.DATABASE_URL
-      ? createPostgresAdapter(process.env.DATABASE_URL)
-      : createDevAdapter();
+    // Vercel's Supabase/Postgres integrations set POSTGRES_URL (the pooled,
+    // transaction-mode connection string, ideal for serverless). DATABASE_URL
+    // is also honored for other providers. With neither set, the dev store
+    // (DEMO seeds) is used.
+    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+    adapter = url ? createPostgresAdapter(url) : createDevAdapter();
   }
   return adapter;
 }

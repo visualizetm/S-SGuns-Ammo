@@ -15,7 +15,7 @@ click-to-call link, so there is nothing to set up for contact.
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Real admin password for `/admin` | Documented demo password `oxford` |
 | `ADMIN_SESSION_SECRET` | Random secret that signs admin session tokens | Secret derived from the admin password (demo grade) |
-| `DATABASE_URL` | Postgres connection string for the catalog store | Dev JSON file store (`.data/catalog-dev.json`), in-memory on read-only filesystems |
+| `POSTGRES_URL` (or `DATABASE_URL`) | Pooled Postgres connection string for the catalog store. Vercel's Supabase integration sets `POSTGRES_URL` automatically | Dev JSON file store (`.data/catalog-dev.json`), in-memory on read-only filesystems |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for photo storage | Photos stored as small data URLs inside the records |
 
 Set all four for a real deployment. Redeploy after changing any of them.
@@ -30,7 +30,7 @@ openssl rand -hex 32      # -> ADMIN_SESSION_SECRET
 
 vercel env add ADMIN_PASSWORD production
 vercel env add ADMIN_SESSION_SECRET production
-vercel env add DATABASE_URL production
+vercel env add POSTGRES_URL production
 vercel env add BLOB_READ_WRITE_TOKEN production
 vercel --prod   # redeploy so the new env takes effect
 ```
@@ -64,22 +64,30 @@ placeholder still in `src/content/siteFacts.js`.
 - Not yet implemented (fine for a single-owner admin): login rate
   limiting, multiple users, per-token revocation.
 
-## Catalog database (Neon or Vercel Postgres)
+## Catalog database (Supabase, or any Postgres)
 
-1. Create a database (Neon free tier or Vercel Postgres, Storage tab).
-2. Set the pooled connection string as `DATABASE_URL`.
-3. No migration step: the adapter creates its three tables on first use
+The catalog store uses the `postgres` driver, which works with Supabase,
+Neon, Vercel Postgres, or a self-hosted database.
+
+1. Supabase via Vercel: add the Supabase integration to the project; it
+   sets `POSTGRES_URL` (the pooled, transaction-mode connection) and other
+   vars automatically. The adapter reads `POSTGRES_URL` first, then
+   `DATABASE_URL`. Use the POOLED connection string for serverless (the
+   driver sets `prepare:false` and TLS, which the Supabase pooler needs).
+2. No migration step: the adapter creates its three tables on first use
    (`catalog_products`, `catalog_collections`, `catalog_bundles`), each
    `id TEXT PRIMARY KEY, created_at, updated_at, draft JSONB, published
    JSONB`.
-4. Draft/publish semantics are identical to the dev store because both
+3. Draft/publish semantics are identical to the dev store because both
    run the same operations (shared/catalogStore.js). Publish and Discard
    write through a single transaction, so the promotion is atomic.
-5. Production starts EMPTY on purpose. The owner adds real products
+4. Production starts EMPTY on purpose. The owner adds real products
    through the admin; DEMO seeds never promote to production.
-6. Single-editor assumption: writes are read-modify-write without row
+5. Single-editor assumption: writes are read-modify-write without row
    locking. Fine for one owner on one phone; revisit before adding a
    second concurrent editor.
+6. Verify locally against any Postgres: `POSTGRES_URL=... node
+   scripts/test-postgres.mjs` exercises create, publish, edit, and delete.
 
 ## Photo storage (Vercel Blob)
 
