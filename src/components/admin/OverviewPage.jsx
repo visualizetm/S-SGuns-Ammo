@@ -341,7 +341,7 @@ function OverviewStyles() {
         flex-wrap: wrap;
       }
       .ov-range {
-        min-height: 40px;
+        min-height: 44px;
         padding: 0 0.9rem;
         border: none;
         border-radius: calc(var(--radius) - 2px);

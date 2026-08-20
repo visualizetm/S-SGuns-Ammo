@@ -540,7 +540,7 @@ function QuickSaleStyles() {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        min-height: 40px;
+        min-height: 44px;
         padding: 0 0.75rem;
         border: 1px solid var(--border-strong);
         border-radius: var(--radius);
