@@ -14,6 +14,9 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Admin is its own application: no public navbar or footer. */}
+        <Route path="admin" element={<Admin />} />
+        {/* Public marketing site. */}
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="about" element={<About />} />
@@ -22,7 +25,6 @@ export function App() {
           <Route path="inventory/:id" element={<InventoryItem />} />
           <Route path="transfers" element={<TransfersFaq />} />
           <Route path="contact" element={<Contact />} />
-          <Route path="admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
