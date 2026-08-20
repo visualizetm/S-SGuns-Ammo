@@ -457,8 +457,18 @@ export function AdminLayout({
           .admin-side-foot { margin-top: 0; flex-direction: column; gap: 0.5rem; }
           .admin-pub-actions { flex-direction: row; }
           .admin-pub-actions .admin-pub-btn { flex: 1; }
-          .admin-top { position: static; padding: 0.75rem 1rem; }
-          .admin-top-title { font-size: 1.25rem; }
+          .admin-top {
+            position: static;
+            padding: 0.75rem 1rem;
+            gap: 0.75rem;
+          }
+          .admin-top-title { font-size: 1.25rem; min-width: 0; }
+          /* The Publish control in the top strip already shows the
+             unpublished count on mobile, so the top-bar draft pill is
+             redundant and only crowds the row. Hide it here; the top bar
+             keeps just the section title and View live site. */
+          .admin-draft { display: none; }
+          .admin-viewlive { flex-shrink: 0; }
           .admin-main { padding: 1rem 1rem 2.5rem; max-width: none; }
         }
 
