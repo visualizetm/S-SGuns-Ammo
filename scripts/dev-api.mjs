@@ -12,6 +12,7 @@ import adminBundlesHandler from '../api/admin/bundles.js';
 import adminPublishHandler from '../api/admin/publish.js';
 import adminProductsCsvHandler from '../api/admin/products-csv.js';
 import adminInventoryImageHandler from '../api/admin/inventory-image.js';
+import adminSalesHandler from '../api/admin/sales.js';
 
 const ROUTES = {
   '/api/admin/login': loginHandler,
@@ -22,6 +23,7 @@ const ROUTES = {
   '/api/admin/publish': adminPublishHandler,
   '/api/admin/products-csv': adminProductsCsvHandler,
   '/api/admin/inventory-image': adminInventoryImageHandler,
+  '/api/admin/sales': adminSalesHandler,
 };
 
 const PORT = Number(process.env.PORT || 3999);

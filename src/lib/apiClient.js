@@ -162,6 +162,46 @@ export async function adminPublishAction(token, action) {
   }
 }
 
+// ---- Quick Sale: sales log ----
+
+export async function adminListSales(token, { from, to } = {}) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  try {
+    return await callApi(`/api/admin/sales${query}`, {
+      method: 'GET',
+      headers: authHeaders(token, false),
+    });
+  } catch {
+    return demoAdapter.listSales(token, { from, to });
+  }
+}
+
+export async function adminLogSale(token, input) {
+  try {
+    return await callApi('/api/admin/sales', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(input),
+    });
+  } catch {
+    return demoAdapter.logSale(token, input);
+  }
+}
+
+export async function adminDeleteSale(token, id) {
+  try {
+    return await callApi(`/api/admin/sales?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: authHeaders(token, false),
+    });
+  } catch {
+    return demoAdapter.deleteSale(token, id);
+  }
+}
+
 // ---- Bulk CSV ----
 
 export async function adminExportCsv(token) {

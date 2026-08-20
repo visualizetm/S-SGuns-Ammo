@@ -35,6 +35,7 @@ import {
   deleteDraft,
   restoreDraft,
   reorderCollections,
+  markStockImmediate,
   changesSummary,
   publishAll,
   discardAll,
@@ -108,6 +109,9 @@ function createDevAdapter() {
     },
     async reorderCollections(orderedIds) {
       return mutate((s) => reorderCollections(s, orderedIds));
+    },
+    async markStockImmediate(productId, stockStatus) {
+      return mutate((s) => markStockImmediate(s, productId, stockStatus));
     },
     async changesSummary() {
       return changesSummary(load());
@@ -291,6 +295,9 @@ function createPostgresAdapter(connectionString) {
     },
     async reorderCollections(orderedIds) {
       return mutate((s) => reorderCollections(s, orderedIds));
+    },
+    async markStockImmediate(productId, stockStatus) {
+      return mutate((s) => markStockImmediate(s, productId, stockStatus));
     },
     async changesSummary() {
       return withStore((s) => changesSummary(s));

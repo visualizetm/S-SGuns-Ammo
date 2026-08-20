@@ -20,6 +20,7 @@ import {
   deleteDraft,
   restoreDraft,
   reorderCollections,
+  markStockImmediate,
   changesSummary,
   publishAll,
   discardAll,
@@ -33,8 +34,11 @@ import {
   validateBundle,
   withComputedSale,
 } from '../../shared/catalogValidation.js';
+import { seedSalesStore } from '../../shared/salesSeeds.js';
+import { validateSale } from '../../shared/salesValidation.js';
 
 const CATALOG_KEY = 'ssga-demo-catalog';
+const SALES_KEY = 'ssga-demo-sales';
 const DEMO_PASSWORD = 'oxford';
 const DEMO_TOKEN = 'demo-local-token';
 
@@ -53,6 +57,26 @@ function loadCatalog() {
 function saveCatalog(store) {
   try {
     localStorage.setItem(CATALOG_KEY, JSON.stringify(store));
+  } catch {
+    // storage unavailable; demo continues in-memory for this page load
+  }
+}
+
+function loadSales() {
+  try {
+    const raw = localStorage.getItem(SALES_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // fall through to reseed
+  }
+  const seeded = seedSalesStore();
+  saveSales(seeded);
+  return seeded;
+}
+
+function saveSales(list) {
+  try {
+    localStorage.setItem(SALES_KEY, JSON.stringify(list));
   } catch {
     // storage unavailable; demo continues in-memory for this page load
   }
@@ -229,6 +253,80 @@ export const demoAdapter = {
     else discardAll(store);
     saveCatalog(store);
     return { status: 200, body: { ok: true, summary: changesSummary(store) } };
+  },
+
+  // ---- Quick Sale: sales log (mirrors api/admin/sales.js) ----
+
+  async listSales(token, { from, to } = {}) {
+    await delay(120);
+    if (token !== DEMO_TOKEN) return denied();
+    const list = loadSales()
+      .filter((e) => (!from || e.soldAt >= from) && (!to || e.soldAt <= to))
+      .sort((a, b) => b.soldAt.localeCompare(a.soldAt));
+    return { status: 200, body: { ok: true, items: list } };
+  },
+
+  async logSale(token, input) {
+    await delay(180);
+    if (token !== DEMO_TOKEN) return denied();
+    const result = validateSale(input);
+    if (!result.ok) return invalid(result.errors);
+    const data = result.data;
+
+    const catalog = loadCatalog();
+    const record = getRecord(catalog, 'products', data.productId);
+    if (!record) {
+      return invalid({ productId: 'That product no longer exists.' });
+    }
+    const productNameSnapshot = (displayOf(record) || {}).name || 'Unknown item';
+
+    // Immediate stock write-through (Quick Sale only): both draft + published.
+    let markedSold = false;
+    let prevStockStatus = null;
+    if (data.markSold) {
+      const outcome = markStockImmediate(catalog, data.productId, 'Sold');
+      if (outcome) {
+        markedSold = true;
+        prevStockStatus = outcome.previous;
+        saveCatalog(catalog);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const sale = {
+      id: makeId(),
+      createdAt: now,
+      productId: data.productId,
+      productNameSnapshot,
+      priceAtSale: data.priceAtSale,
+      quantity: data.quantity,
+      soldAt: data.soldAt,
+      note: data.note || '',
+      markedSold,
+      prevStockStatus,
+    };
+    const sales = loadSales();
+    sales.unshift(sale);
+    saveSales(sales);
+    return { status: 201, body: { ok: true, sale } };
+  },
+
+  async deleteSale(token, id) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
+    const sales = loadSales();
+    const index = sales.findIndex((e) => e.id === id);
+    if (index === -1) return { status: 404, body: { ok: false, error: 'Sale not found.' } };
+    const [removed] = sales.splice(index, 1);
+    saveSales(sales);
+    let restored = null;
+    if (removed.markedSold && removed.prevStockStatus) {
+      const catalog = loadCatalog();
+      markStockImmediate(catalog, removed.productId, removed.prevStockStatus);
+      saveCatalog(catalog);
+      restored = { productId: removed.productId, stockStatus: removed.prevStockStatus };
+    }
+    return { status: 200, body: { ok: true, restored } };
   },
 
   // ---- CSV: needs the real API (server-side row validation) ----

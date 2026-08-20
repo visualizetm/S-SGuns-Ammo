@@ -188,6 +188,25 @@ export function restoreDraft(store, kind, id) {
   return record;
 }
 
+// Quick Sale ONLY: an operational stock-status change that goes live
+// immediately. Every OTHER edit is a draft that waits for Publish; this one
+// writes through to BOTH the draft and the published copy at once, so a
+// counter sale shows on the public catalog without a publish step. Returns
+// { previous } (the status the public saw, for undo), or null if the product
+// is missing.
+export function markStockImmediate(store, productId, stockStatus) {
+  const record = findRecord(store, 'products', productId);
+  if (!record) return null;
+  const previous =
+    (record.published && record.published.stockStatus) ||
+    (record.draft && record.draft.stockStatus) ||
+    null;
+  if (record.draft) record.draft.stockStatus = stockStatus;
+  if (record.published) record.published.stockStatus = stockStatus;
+  record.updatedAt = new Date().toISOString();
+  return { previous };
+}
+
 export function reorderCollections(store, orderedIds) {
   let position = 0;
   for (const id of orderedIds) {
