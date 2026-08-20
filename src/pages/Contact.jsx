@@ -135,6 +135,7 @@ export function Contact() {
                   </div>
                 ))}
               </dl>
+              <p className="ct-hours-note">Holiday hours: to be determined.</p>
             </div>
 
             <div className="ct-map">
@@ -208,6 +209,12 @@ export function Contact() {
           .ct-hours-row dd { margin: 0; color: var(--text-secondary); }
           .ct-hours-row[data-closed] dt,
           .ct-hours-row[data-closed] dd { color: var(--text-muted); }
+          .ct-hours-note {
+            max-width: 20rem;
+            margin: 0.6rem 0 0;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+          }
           .ct-ctas {
             display: flex;
             gap: 0.85rem;
