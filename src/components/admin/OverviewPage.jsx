@@ -1,5 +1,5 @@
 // Overview: the admin landing page. One screen that answers "how is the shop
-// doing?" from two sources — the catalog (products/collections/bundles, stock
+// doing?" from two sources: the catalog (products/collections/bundles, stock
 // mix, listed value) and the Quick Sale log (sales count and revenue over a
 // selectable window, a trailing daily chart, and a recently-sold list). A Low
 // Stock list links straight into the Products manager.
@@ -16,6 +16,13 @@ import CurrencyDollarCircle from '@untitled-ui/icons-react/build/esm/CurrencyDol
 import TrendUp02 from '@untitled-ui/icons-react/build/esm/TrendUp02';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import { adminListCatalog, adminListSales } from '../../lib/apiClient.js';
+import {
+  saleTotal,
+  salesInWindow,
+  sumRevenue,
+  stockSummary,
+  dailyBuckets,
+} from '../../lib/salesStats.js';
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const USD0 = new Intl.NumberFormat('en-US', {
@@ -31,23 +38,6 @@ const RANGES = [
   { id: 'all', label: 'All' },
 ];
 
-function rangeStart(id) {
-  const now = new Date();
-  if (id === 'today') {
-    const d = new Date(now);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-  if (id === '7d') return new Date(now.getTime() - 7 * 86400000);
-  if (id === '30d') return new Date(now.getTime() - 30 * 86400000);
-  return new Date(0);
-}
-
-function dayKey(date) {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 function formatWhen(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -59,29 +49,9 @@ function formatWhen(iso) {
   });
 }
 
-function saleTotal(sale) {
-  return (Number(sale.priceAtSale) || 0) * (Number(sale.quantity) || 0);
-}
-
 // A trailing daily-revenue bar chart, drawn as plain inline SVG (no chart lib).
 function SalesChart({ sales, days = 14 }) {
-  const buckets = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const list = [];
-    for (let i = days - 1; i >= 0; i -= 1) {
-      const d = new Date(today.getTime() - i * 86400000);
-      list.push({ key: dayKey(d), date: d, total: 0 });
-    }
-    const index = new Map(list.map((b) => [b.key, b]));
-    for (const sale of sales) {
-      const d = new Date(sale.soldAt);
-      if (Number.isNaN(d.getTime())) continue;
-      const bucket = index.get(dayKey(d));
-      if (bucket) bucket.total += saleTotal(sale);
-    }
-    return list;
-  }, [sales, days]);
+  const buckets = useMemo(() => dailyBuckets(sales, days), [sales, days]);
 
   const max = Math.max(1, ...buckets.map((b) => b.total));
   const anyValue = buckets.some((b) => b.total > 0);
@@ -192,41 +162,22 @@ export function OverviewPage({ token, version, onAuthFail }) {
     };
   }, [refresh]);
 
-  const stock = useMemo(() => {
-    const counts = { 'In Stock': 0, 'Low Stock': 0, Sold: 0, Hidden: 0 };
-    let listedValue = 0;
-    for (const p of products) {
-      if (counts[p.stockStatus] !== undefined) counts[p.stockStatus] += 1;
-      if (p.stockStatus === 'In Stock' || p.stockStatus === 'Low Stock') {
-        listedValue += Number(p.price) || 0;
-      }
-    }
-    return { counts, listedValue };
-  }, [products]);
+  const stock = useMemo(() => stockSummary(products), [products]);
 
   const lowStock = useMemo(
     () => products.filter((p) => p.stockStatus === 'Low Stock'),
     [products]
   );
 
-  const windowSales = useMemo(() => {
-    const start = rangeStart(range).getTime();
-    return sales.filter((s) => {
-      const t = new Date(s.soldAt).getTime();
-      return !Number.isNaN(t) && t >= start;
-    });
-  }, [sales, range]);
+  const windowSales = useMemo(() => salesInWindow(sales, range), [sales, range]);
 
-  const windowRevenue = useMemo(
-    () => windowSales.reduce((sum, s) => sum + saleTotal(s), 0),
-    [windowSales]
-  );
+  const windowRevenue = useMemo(() => sumRevenue(windowSales), [windowSales]);
 
   const rangeLabel = RANGES.find((r) => r.id === range)?.label || '';
   const recentSold = sales.slice(0, 6);
 
   if (loading) {
-    return <p role="status" className="ov-loading">Loading overview…</p>;
+    return <p role="status" className="ov-loading">Loading overview...</p>;
   }
 
   return (

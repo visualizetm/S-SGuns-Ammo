@@ -26,6 +26,16 @@ import adminBundlesHandler from '../api/admin/bundles.js';
 import adminPublishHandler from '../api/admin/publish.js';
 import adminProductsCsvHandler from '../api/admin/products-csv.js';
 import adminImageHandler from '../api/admin/inventory-image.js';
+import adminSalesHandler from '../api/admin/sales.js';
+import { validateSale } from '../shared/salesValidation.js';
+import { seedSalesStore } from '../shared/salesSeeds.js';
+import {
+  saleTotal,
+  salesInWindow,
+  sumRevenue,
+  stockSummary,
+  dailyBuckets,
+} from '../src/lib/salesStats.js';
 
 // Fresh dev store every run.
 rmSync('.data', { recursive: true, force: true });
@@ -567,6 +577,220 @@ await (async () => {
   });
   assert.equal(res.statusCode, 404);
   ok('public item: newly hidden item stops being served', () => {});
+})();
+
+// ---- Quick Sale: validation, seeds, and Overview statistics math ----
+
+ok('sale validation: negative price and zero quantity are rejected', () => {
+  const r = validateSale({ productId: 'p1', priceAtSale: -5, quantity: 0 });
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.priceAtSale);
+  assert.ok(r.errors.quantity);
+});
+
+ok('sale validation: defaults quantity to 1, now for soldAt, empty note', () => {
+  const r = validateSale({ productId: 'p1', priceAtSale: '19.999' });
+  assert.equal(r.ok, true);
+  assert.equal(r.data.quantity, 1);
+  assert.equal(r.data.priceAtSale, 20); // rounded to cents
+  assert.equal(r.data.note, '');
+  assert.ok(!Number.isNaN(new Date(r.data.soldAt).getTime()));
+  assert.equal(r.data.markSold, false);
+});
+
+ok('sale validation: missing product id is rejected', () => {
+  const r = validateSale({ priceAtSale: 10 });
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.productId);
+});
+
+ok('sales seeds: every DEMO sale is DEMO-labeled and non-personal', () => {
+  const seeds = seedSalesStore();
+  assert.ok(seeds.length >= 5);
+  assert.ok(seeds.every((s) => /^DEMO:/.test(s.productNameSnapshot)));
+  assert.ok(seeds.every((s) => s.note === '' && s.markedSold === false));
+});
+
+ok('overview stats: stock summary counts and listed value', () => {
+  const products = [
+    { stockStatus: 'In Stock', price: 100 },
+    { stockStatus: 'In Stock', price: 200 },
+    { stockStatus: 'Low Stock', price: 50 },
+    { stockStatus: 'Sold', price: 999 },
+    { stockStatus: 'Hidden', price: 999 },
+  ];
+  const { counts, listedValue } = stockSummary(products);
+  assert.equal(counts['In Stock'], 2);
+  assert.equal(counts['Low Stock'], 1);
+  assert.equal(counts.Sold, 1);
+  assert.equal(counts.Hidden, 1);
+  // Only In Stock + Low Stock count toward listed value: 100 + 200 + 50.
+  assert.equal(listedValue, 350);
+});
+
+ok('overview stats: sale total, window filter, revenue, daily buckets', () => {
+  const now = new Date('2026-08-20T12:00:00Z');
+  const iso = (d, h = 12) =>
+    new Date(now.getTime() - d * 86400000 + (h - 12) * 3600000).toISOString();
+  const sales = [
+    { soldAt: iso(0), priceAtSale: 100, quantity: 1 }, // today
+    { soldAt: iso(0), priceAtSale: 10, quantity: 2 }, // today, qty 2 -> 20
+    { soldAt: iso(3), priceAtSale: 50, quantity: 1 }, // within 7d
+    { soldAt: iso(20), priceAtSale: 400, quantity: 1 }, // within 30d only
+  ];
+  assert.equal(saleTotal(sales[1]), 20);
+
+  const today = salesInWindow(sales, 'today', now);
+  assert.equal(today.length, 2);
+  assert.equal(sumRevenue(today), 120);
+
+  const week = salesInWindow(sales, '7d', now);
+  assert.equal(week.length, 3);
+  assert.equal(sumRevenue(week), 170);
+
+  const month = salesInWindow(sales, '30d', now);
+  assert.equal(month.length, 4);
+  assert.equal(sumRevenue(month), 570);
+
+  const all = salesInWindow(sales, 'all', now);
+  assert.equal(sumRevenue(all), 570);
+
+  const buckets = dailyBuckets(sales, 14, now);
+  assert.equal(buckets.length, 14);
+  // The last bucket is today and should hold both of today's sales.
+  assert.equal(buckets[buckets.length - 1].total, 120);
+  // The 20-day-old sale falls outside a 14-day window: total excluded.
+  const summed = buckets.reduce((s, b) => s + b.total, 0);
+  assert.equal(summed, 170);
+});
+
+// ---- Quick Sale: sales-log endpoint (live stock write-through, undo) ----
+
+await (async () => {
+  // Fresh catalog and sales stores so the seed states are known.
+  rmSync('.data', { recursive: true, force: true });
+  delete globalThis.__ssgaCatalogStore;
+  delete globalThis.__ssgaSalesStore;
+
+  const login = await call(loginHandler, { body: { password: 'oxford' } });
+  const auth = { authorization: `Bearer ${login.body.token}` };
+
+  // Auth gate.
+  let res = await call(adminSalesHandler, { method: 'GET', url: '/api/admin/sales' });
+  assert.equal(res.statusCode, 401);
+  ok('quick sale endpoint: no token returns 401', () => {});
+
+  // Seeded list, newest first, all DEMO-labeled.
+  res = await call(adminSalesHandler, { method: 'GET', url: '/api/admin/sales', headers: auth });
+  assert.equal(res.statusCode, 200);
+  const seeded = res.body.items;
+  assert.ok(seeded.length >= 5);
+  assert.ok(seeded.every((s) => /^DEMO:/.test(s.productNameSnapshot)), 'seed sales stay DEMO-labeled');
+  for (let i = 1; i < seeded.length; i += 1) {
+    assert.ok(seeded[i - 1].soldAt >= seeded[i].soldAt, 'sales are newest-first');
+  }
+  ok('quick sale endpoint: seeded sales list newest-first and DEMO-labeled', () => {});
+
+  // Validation and unknown-product guards.
+  res = await call(adminSalesHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { productId: 'demo-rifle-lever', priceAtSale: -5, quantity: 0 },
+  });
+  assert.equal(res.statusCode, 422);
+  assert.ok(res.body.errors.priceAtSale && res.body.errors.quantity);
+  ok('quick sale endpoint: invalid price/quantity rejected with field errors', () => {});
+
+  res = await call(adminSalesHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { productId: 'no-such-product', priceAtSale: 10 },
+  });
+  assert.equal(res.statusCode, 422);
+  assert.ok(res.body.errors.productId);
+  ok('quick sale endpoint: unknown product rejected', () => {});
+
+  // Snapshot the lever's starting published status via the public read.
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  const leverBefore = res.body.items.find((i) => i.id === 'demo-rifle-lever');
+  assert.equal(leverBefore.stockStatus, 'Low Stock');
+  const summaryBefore = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
+  const dirtyBefore = summaryBefore.body.summary.total;
+
+  // Log a sale with markSold: the item goes Sold live on both draft + published.
+  res = await call(adminSalesHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { productId: 'demo-rifle-lever', priceAtSale: '400', quantity: 1, markSold: true },
+  });
+  assert.equal(res.statusCode, 201);
+  const sale = res.body.sale;
+  assert.equal(sale.markedSold, true);
+  assert.equal(sale.prevStockStatus, 'Low Stock');
+  assert.equal(sale.productNameSnapshot, 'DEMO: Example Lever-Action Rifle');
+  ok('quick sale endpoint: markSold logs sale and captures previous status', () => {});
+
+  // Public catalog reflects Sold immediately, no publish step.
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  const leverSold = res.body.items.find((i) => i.id === 'demo-rifle-lever');
+  assert.equal(leverSold.stockStatus, 'Sold');
+  ok('quick sale endpoint: markSold shows on the public site with no publish', () => {});
+
+  // The write-through touches draft AND published equally, so it introduces no
+  // new unpublished diff.
+  res = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.summary.total, dirtyBefore);
+  ok('quick sale endpoint: live sold status adds no unpublished changes', () => {});
+
+  // Date filter: from just after the sale excludes it.
+  const from = new Date(new Date(sale.soldAt).getTime() + 1000).toISOString();
+  res = await call(adminSalesHandler, {
+    method: 'GET',
+    url: `/api/admin/sales?from=${encodeURIComponent(from)}`,
+    headers: auth,
+  });
+  assert.ok(!res.body.items.some((s) => s.id === sale.id), 'from filter excludes the earlier sale');
+  ok('quick sale endpoint: date-range filter narrows the list', () => {});
+
+  // Undo: delete the sale and the item returns to its prior status live.
+  res = await call(adminSalesHandler, {
+    method: 'DELETE',
+    url: `/api/admin/sales?id=${sale.id}`,
+    headers: auth,
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.restored.stockStatus, 'Low Stock');
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.equal(
+    res.body.items.find((i) => i.id === 'demo-rifle-lever').stockStatus,
+    'Low Stock'
+  );
+  ok('quick sale endpoint: undo removes the sale and restores prior status live', () => {});
+
+  // Deleting an unknown sale is a clean 404.
+  res = await call(adminSalesHandler, {
+    method: 'DELETE',
+    url: '/api/admin/sales?id=no-such-sale',
+    headers: auth,
+  });
+  assert.equal(res.statusCode, 404);
+  ok('quick sale endpoint: deleting an unknown sale returns 404', () => {});
+
+  // A sale WITHOUT markSold leaves stock untouched and stores no personal data.
+  res = await call(adminSalesHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { productId: 'demo-rifle-bolt', priceAtSale: 649.99, quantity: 1, markSold: false, note: 'counter sale' },
+  });
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.sale.markedSold, false);
+  assert.equal(res.body.sale.note, 'counter sale');
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.equal(
+    res.body.items.find((i) => i.id === 'demo-rifle-bolt').stockStatus,
+    'In Stock'
+  );
+  ok('quick sale endpoint: logging without markSold leaves stock unchanged', () => {});
 })();
 
 console.log(`\n${passed} checks passed.`);

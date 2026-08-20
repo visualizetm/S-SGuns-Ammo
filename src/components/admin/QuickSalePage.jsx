@@ -157,7 +157,7 @@ function LogSaleForm({ token, product, onLogged, onCancel, onError }) {
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Reminder only — no customer information"
+          placeholder="Reminder only, no customer information"
           maxLength={200}
           disabled={saving}
         />
@@ -254,7 +254,7 @@ export function QuickSalePage({ token, version, onAuthFail, notifyChange }) {
     setSales((prev) => [sale, ...prev]);
     flashFor(
       sale.markedSold
-        ? `Logged ${sale.productNameSnapshot} — marked Sold on the site.`
+        ? `Logged ${sale.productNameSnapshot} - marked Sold on the site.`
         : `Logged ${sale.productNameSnapshot}.`
     );
     notifyChange();
