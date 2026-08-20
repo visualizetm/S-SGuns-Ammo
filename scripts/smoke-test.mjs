@@ -167,6 +167,28 @@ await (async () => {
   assert.equal(saleItem.compareAtPrice, 449.5);
   ok('public inventory: published only, no drafts, no hidden, sale flags', () => {});
 
+  // Task 3 guard: the public /inventory page is populated for review from the
+  // DEMO seed catalog. It must return a non-empty published set spread across
+  // collections, at least one sale item and one valid bundle, and every item
+  // must stay clearly DEMO-labeled. (Production still starts empty; that is
+  // asserted by the empty-store publish flow below and by npm run preflight.)
+  assert.ok(publicItems.length >= 6, 'demo catalog should populate the page');
+  assert.ok(
+    publicItems.every((i) => /^DEMO:/.test(i.name)),
+    'every public seed item stays DEMO-labeled'
+  );
+  assert.ok(
+    publicItems.some((i) => i.onSale),
+    'at least one demo item is on sale'
+  );
+  const demoBundles = res.body.bundles;
+  assert.ok(demoBundles.length >= 1, 'at least one demo bundle shows');
+  assert.ok(
+    demoBundles.every((b) => b.members.length >= 2 && /^DEMO:/.test(b.name)),
+    'demo bundles are valid and DEMO-labeled'
+  );
+  ok('public inventory: DEMO catalog populates the page (items, sale, bundle)', () => {});
+
   res = await call(inventoryHandler, {
     method: 'GET',
     url: '/api/inventory?collection=col-rifles&q=lever',
