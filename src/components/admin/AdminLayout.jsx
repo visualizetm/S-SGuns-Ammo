@@ -16,10 +16,9 @@
 // their existing behavior.
 
 import { useCallback, useEffect, useState } from 'react';
+import BarChartSquare02 from '@untitled-ui/icons-react/build/esm/BarChartSquare02';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
-import Grid01 from '@untitled-ui/icons-react/build/esm/Grid01';
-import LayersThree01 from '@untitled-ui/icons-react/build/esm/LayersThree01';
-import Rows01 from '@untitled-ui/icons-react/build/esm/Rows01';
+import Tag01 from '@untitled-ui/icons-react/build/esm/Tag01';
 import UploadCloud01 from '@untitled-ui/icons-react/build/esm/UploadCloud01';
 import LinkExternal01 from '@untitled-ui/icons-react/build/esm/LinkExternal01';
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
@@ -28,11 +27,13 @@ import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
 import { adminPublishSummary, adminPublishAction } from '../../lib/apiClient.js';
 import { LOGO_ASSETS, BUSINESS } from '../../content/siteFacts.js';
 
+// The admin has exactly three top-level pages. Overview is the landing page
+// (statistics), Products is the full catalog manager (its own sub-sections),
+// and Quick Sale is the counter sales-logging tool.
 export const ADMIN_SECTIONS = [
+  { id: 'overview', label: 'Overview', icon: BarChartSquare02 },
   { id: 'products', label: 'Products', icon: Package },
-  { id: 'collections', label: 'Collections', icon: Grid01 },
-  { id: 'bundles', label: 'Bundles', icon: LayersThree01 },
-  { id: 'bulk', label: 'Bulk Editor', icon: Rows01 },
+  { id: 'sales', label: 'Quick Sale', icon: Tag01 },
 ];
 
 export function AdminLayout({
@@ -470,6 +471,15 @@ export function AdminLayout({
           .admin-draft { display: none; }
           .admin-viewlive { flex-shrink: 0; }
           .admin-main { padding: 1rem 1rem 2.5rem; max-width: none; }
+        }
+
+        .admin-placeholder {
+          padding: 2.5rem 1.5rem;
+          text-align: center;
+          color: var(--text-muted);
+          border: 1px dashed var(--border-strong);
+          border-radius: var(--radius);
+          background: var(--bg-card);
         }
 
         .admin-side :focus-visible { outline-color: var(--brand); }

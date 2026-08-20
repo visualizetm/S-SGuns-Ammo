@@ -10,10 +10,9 @@ import { useSearchParams } from 'react-router-dom';
 import { adminLogin } from '../lib/apiClient.js';
 import { usePageMeta } from '../lib/usePageMeta.js';
 import { AdminLayout, AdminLogin, ADMIN_SECTIONS } from '../components/admin/AdminLayout.jsx';
-import { ProductsPanel } from '../components/admin/ProductsPanel.jsx';
-import { CollectionsPanel } from '../components/admin/CollectionsPanel.jsx';
-import { BundlesPanel } from '../components/admin/BundlesPanel.jsx';
-import { BulkEditor } from '../components/admin/BulkEditor.jsx';
+import { OverviewPage } from '../components/admin/OverviewPage.jsx';
+import { ProductsPage } from '../components/admin/ProductsPage.jsx';
+import { QuickSalePage } from '../components/admin/QuickSalePage.jsx';
 
 const TOKEN_KEY = 'ssga-admin-token';
 
@@ -27,7 +26,8 @@ export function Admin() {
   const requested = searchParams.get('tab');
   const activeTab = ADMIN_SECTIONS.some((s) => s.id === requested)
     ? requested
-    : 'products';
+    : 'overview';
+  const productsSection = searchParams.get('section') || 'items';
 
   // Bumped after every draft write so the Publish control and the open panel
   // stay in sync; bumped again after publish/discard so lists refresh.
@@ -53,7 +53,12 @@ export function Admin() {
   }, []);
 
   const selectTab = useCallback(
-    (id) => setSearchParams(id === 'products' ? {} : { tab: id }),
+    (id) => setSearchParams(id === 'overview' ? {} : { tab: id }),
+    [setSearchParams]
+  );
+
+  const selectProductsSection = useCallback(
+    (id) => setSearchParams(id === 'items' ? { tab: 'products' } : { tab: 'products', section: id }),
     [setSearchParams]
   );
 
@@ -74,10 +79,15 @@ export function Admin() {
       notifyChange={notifyChange}
       onLogout={handleLogout}
     >
-      {activeTab === 'products' ? <ProductsPanel {...panelProps} /> : null}
-      {activeTab === 'collections' ? <CollectionsPanel {...panelProps} /> : null}
-      {activeTab === 'bundles' ? <BundlesPanel {...panelProps} /> : null}
-      {activeTab === 'bulk' ? <BulkEditor {...panelProps} /> : null}
+      {activeTab === 'overview' ? <OverviewPage {...panelProps} /> : null}
+      {activeTab === 'products' ? (
+        <ProductsPage
+          section={productsSection}
+          onSelectSection={selectProductsSection}
+          panelProps={panelProps}
+        />
+      ) : null}
+      {activeTab === 'sales' ? <QuickSalePage {...panelProps} /> : null}
     </AdminLayout>
   );
 }
