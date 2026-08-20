@@ -208,10 +208,65 @@ function createPostgresAdapter(connectionString) {
             published JSONB
           )`);
         }
+        await sql.unsafe(`CREATE TABLE IF NOT EXISTS catalog_meta (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )`);
+        await seedIfEmpty(sql);
         return sql;
       })();
     }
     return sqlPromise;
+  }
+
+  // First-run seed. If this catalog has never been seeded AND is completely
+  // empty, load the DEMO example listings so the public inventory page is not
+  // blank before the owner adds real products. Two guards make this safe on a
+  // live database:
+  //   - a one-time marker row ('demo_seeded') means it runs at most once, so
+  //     when the owner deletes the demos to enter real stock, they stay gone;
+  //   - the empty-store check means it can never overwrite real inventory.
+  // Every demo record stays clearly "DEMO:" labeled (see shared/catalogSeeds).
+  async function seedIfEmpty(sql) {
+    const marked = await sql.unsafe(
+      `SELECT 1 FROM catalog_meta WHERE key = 'demo_seeded' LIMIT 1`
+    );
+    if (marked.length > 0) return;
+
+    let existing = 0;
+    for (const kind of KINDS) {
+      const rows = await sql.unsafe(`SELECT 1 FROM ${TABLES[kind]} LIMIT 1`);
+      existing += rows.length;
+    }
+
+    if (existing === 0) {
+      const store = seedCatalogStore();
+      await sql.begin(async (tx) => {
+        for (const kind of KINDS) {
+          for (const record of store[kind]) {
+            await tx.unsafe(
+              `INSERT INTO ${TABLES[kind]} (id, created_at, updated_at, draft, published)
+               VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
+               ON CONFLICT (id) DO NOTHING`,
+              [record.id, record.createdAt, record.updatedAt, record.draft, record.published]
+            );
+          }
+        }
+        await tx.unsafe(
+          `INSERT INTO catalog_meta (key, value) VALUES ('demo_seeded', $1)
+           ON CONFLICT (key) DO NOTHING`,
+          [new Date().toISOString()]
+        );
+      });
+    } else {
+      // Real data is already present: never seed. Record that so cold starts
+      // stop re-checking.
+      await sql.unsafe(
+        `INSERT INTO catalog_meta (key, value)
+         VALUES ('demo_seeded', 'skipped-preexisting')
+         ON CONFLICT (key) DO NOTHING`
+      );
+    }
   }
 
   // Load the catalog, apply the same pure operations as the dev store, then

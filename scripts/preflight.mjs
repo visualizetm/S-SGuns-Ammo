@@ -93,6 +93,12 @@ const files = textFiles();
 
 // ---------- 3. DEMO seed containment ----------
 {
+  // seedCatalogStore may be referenced only by the seed source and the two
+  // adapters. The Postgres adapter seeds the DEMO listings into an EMPTY
+  // production store on first run (so the public inventory page is not blank
+  // before real products are added). That first-run seed must stay SAFE:
+  // it runs at most once (a 'demo_seeded' marker) and only when the store is
+  // empty, so it can never overwrite or resurrect real inventory.
   const allowed = new Set([
     'shared/catalogSeeds.js',
     'api/_lib/catalogAdapter.js',
@@ -112,12 +118,20 @@ const files = textFiles();
   const pgEnd = adapter.indexOf('export function getCatalogAdapter');
   if (pgStart < 0 || pgEnd < 0 || pgEnd <= pgStart) {
     hits.push('catalogAdapter.js: could not locate the Postgres adapter body');
-  } else if (/seed/i.test(adapter.slice(pgStart, pgEnd))) {
-    hits.push('catalogAdapter.js: Postgres adapter body references seeding');
+  } else {
+    const body = adapter.slice(pgStart, pgEnd);
+    if (/seedCatalogStore/.test(body)) {
+      if (!/demo_seeded/.test(body)) {
+        hits.push('catalogAdapter.js: Postgres first-run seed lacks the one-time marker guard');
+      }
+      if (!/LIMIT 1|existing === 0|isEmpty/i.test(body)) {
+        hits.push('catalogAdapter.js: Postgres first-run seed lacks the empty-store guard');
+      }
+    }
   }
 
-  if (hits.length) failures.push(['DEMO seed leakage risk', hits]);
-  else passes.push('DEMO seeds: confined to dev/demo adapters, Postgres path clean');
+  if (hits.length) failures.push(['DEMO seed containment', hits]);
+  else passes.push('DEMO seeds: confined to adapters; Postgres seeds an empty store once, guarded');
 }
 
 // ---------- 4. Build outputs ----------

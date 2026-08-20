@@ -29,11 +29,13 @@ function mockRes() {
 }
 async function call(handler, opts) { const res = mockRes(); await handler(mockReq(opts), res); return res; }
 
-// clean slate
+// clean slate (drop the one-time seed marker too, so first-run seeding runs)
 {
   const postgres = (await import('postgres')).default;
   const sql = postgres(process.env.POSTGRES_URL, { prepare: false, ssl: false });
-  await sql.unsafe('DROP TABLE IF EXISTS catalog_products, catalog_collections, catalog_bundles');
+  await sql.unsafe(
+    'DROP TABLE IF EXISTS catalog_products, catalog_collections, catalog_bundles, catalog_meta, sales'
+  );
   await sql.end();
 }
 
@@ -44,12 +46,32 @@ const token = res.body.token;
 const auth = { authorization: `Bearer ${token}` };
 ok('login returns a token');
 
-// empty start
+// first-run seed: an empty production store loads the DEMO example listings
+// so the public inventory page is not blank before real products are added.
 res = await call(handlers.inventory, { method: 'GET', url: '/api/inventory' });
 assert.equal(res.statusCode, 200);
-assert.equal(res.body.items.length, 0, 'production Postgres starts empty');
+assert.ok(res.body.items.length > 0, 'first read seeds the DEMO catalog');
+assert.ok(
+  res.body.items.every((i) => /^DEMO:/.test(i.name)),
+  'every seeded item stays DEMO-labeled'
+);
+assert.ok(res.body.collections.length > 0, 'seeded collections are present');
+ok('first read seeds the DEMO catalog onto an empty production store');
+
+// The seed is a one-time, empty-only operation: clear it to a controlled empty
+// store (the marker stays, so nothing reseeds) and exercise real CRUD on top.
+{
+  const postgres = (await import('postgres')).default;
+  const sql = postgres(process.env.POSTGRES_URL, { prepare: false, ssl: false });
+  await sql.unsafe('DELETE FROM catalog_products');
+  await sql.unsafe('DELETE FROM catalog_collections');
+  await sql.unsafe('DELETE FROM catalog_bundles');
+  await sql.end();
+}
+res = await call(handlers.inventory, { method: 'GET', url: '/api/inventory' });
+assert.equal(res.body.items.length, 0, 'store is empty after clearing demos');
 assert.equal(res.body.collections.length, 0);
-ok('empty catalog on first read (no DEMO leakage)');
+ok('demos cleared; store stays empty (one-time marker prevents reseeding)');
 
 // create a collection
 res = await call(handlers.collections, { headers: auth, body: { name: 'Rifles' } });
