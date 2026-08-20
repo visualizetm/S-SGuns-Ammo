@@ -13,7 +13,7 @@ import {
   SOCIAL_LINKS,
   PAGE_META,
 } from '../content/siteFacts.js';
-import { Slot } from '../components/Slot.jsx';
+import { MapEmbed } from '../components/MapEmbed.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 
 export function Contact() {
@@ -77,6 +77,15 @@ export function Contact() {
                 Get Directions
               </a>
             </div>
+            <p className="ct-google">
+              <a
+                href={BUSINESS.googleBusinessUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                See S&amp;S Guns &amp; Ammo on Google
+              </a>
+            </p>
 
             {SOCIAL_LINKS.length > 0 ? (
               <ul className="ct-social">
@@ -129,10 +138,7 @@ export function Contact() {
             </div>
 
             <div className="ct-map">
-              <Slot
-                label="Map slot. Static map image or embed to be added."
-                ratio="4 / 3"
-              />
+              <MapEmbed />
             </div>
           </div>
         </div>
@@ -206,8 +212,9 @@ export function Contact() {
             display: flex;
             gap: 0.85rem;
             flex-wrap: wrap;
-            margin-bottom: 1.75rem;
+            margin-bottom: 0.85rem;
           }
+          .ct-google { margin: 0 0 1.75rem; font-size: 0.9rem; }
           .ct-social {
             list-style: none;
             margin: 0;

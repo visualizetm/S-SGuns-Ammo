@@ -432,6 +432,16 @@ function Footer() {
             <Clock aria-hidden="true" width={16} height={16} />
             <span>{HOURS_SUMMARY}</span>
           </p>
+          <p className="ft-line">
+            <MarkerPin01 aria-hidden="true" width={16} height={16} />
+            <a
+              href={BUSINESS.googleBusinessUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Find us on Google
+            </a>
+          </p>
         </div>
       </div>
 

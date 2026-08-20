@@ -29,7 +29,14 @@ export const BUSINESS = {
   directionsUrl:
     'https://www.google.com/maps/search/?api=1&query=' +
     encodeURIComponent('10 S. 3rd Street, Unit 5, Oxford, PA 19363'),
+  // Google Business Profile (listing, hours, reviews).
+  googleBusinessUrl: 'https://share.google/rdJz8WlUmcp89EZse',
 };
+
+// Google Maps embed for the storefront (place: S & S Guns & Ammo). Used by
+// the responsive MapEmbed component on Contact and Home.
+export const MAP_EMBED_URL =
+  'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3065.988360006351!2d-75.97922799999999!3d39.7848166!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c64d442bdb6bd5%3A0xa563e553ee922767!2sS%20%26%20S%20GUNS%20%26%20AMMO!5e0!3m2!1sen!2sus!4v1787226233604!5m2!1sen!2sus';
 
 // Confirmed public owner email (same as BUSINESS.emailDisplay). The shop is
 // phone-first; there are no contact forms, but the email is shown as a

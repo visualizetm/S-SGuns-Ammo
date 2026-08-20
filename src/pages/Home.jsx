@@ -17,6 +17,7 @@ import { HOME_COPY, PAGE_META } from '../content/siteFacts.js';
 import { featuredItems } from '../lib/catalogView.js';
 import { ProductCard, ProductCardStyles } from '../components/ProductCard.jsx';
 import { Slot } from '../components/Slot.jsx';
+import { MapEmbed } from '../components/MapEmbed.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 import {
   BUSINESS,
@@ -398,10 +399,7 @@ export function Home() {
             </div>
           </div>
           <div className="reveal-right">
-            <Slot
-              label="Map slot. Static map image or embed to be added."
-              ratio="4 / 3"
-            />
+            <MapEmbed />
           </div>
         </div>
         <style>{`
