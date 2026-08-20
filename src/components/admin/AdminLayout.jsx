@@ -3,22 +3,39 @@
 // render here. The surface is a neutral application dashboard, visibly
 // distinct from the ivory storefront: a scoped set of CSS-token overrides on
 // .admin-app swaps the storefront palette for clean light neutrals, while the
-// brand accent (Field Olive) stays reserved for primary actions and the
-// active nav state. The locked brand has no red, so the brand accent plays
-// the "primary" role the app palette calls for.
+// brand accent stays reserved for primary actions and the active nav state.
+// (The locked brand has no red, so the brand accent plays the "primary" role
+// the app palette calls for.)
 //
-// Desktop: a fixed left sidebar (submark, section nav, a persistent Publish
-// control, log out). Mobile: a bottom tab bar for sections and a sticky
-// Publish bar, both reachable without scrolling. A top bar shows the current
-// section title, a Draft indicator, and a View live site link.
+// Navigation, by viewport:
+//   Desktop / wide tablet (>= 1024px): a fixed left sidebar with the submark,
+//   the three page items (icon + label, active highlighted), the persistent
+//   Publish control, and log out. The top bar shows the page title, a Draft
+//   indicator, and View live site.
 //
-// This is a UI restructure only. Auth, drafts/publish, and every panel keep
-// their existing behavior.
+//   Phone / narrow tablet (< 1024px): a persistent bottom tab bar with the
+//   three pages (Overview, Products, Quick Sale) is the PRIMARY navigation,
+//   one-thumb reachable. A sticky top app bar shows the submark, the current
+//   page title, a compact Publish button with the unpublished count (so
+//   Publish is never buried), and a menu button that opens a slide-in drawer
+//   carrying the SECONDARY items only: the full Publish/Discard control, View
+//   live site, and Log out. The drawer closes on action, backdrop tap, and
+//   Escape; it traps focus while open and returns focus to the menu button.
+//   The two menus never compete: pages live in the tab bar, chrome actions in
+//   the drawer.
+//
+// The bottom tab bar is deliberate fixed chrome; it is marked data-fixed-nav
+// and the content region reserves matching bottom padding (data-fixed-nav-pad)
+// so it never covers the last row of a list or a form's submit button. The
+// responsive audit understands this pair and still fails if the padding is
+// missing. Drawer/scrim animations respect prefers-reduced-motion.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import BarChartSquare02 from '@untitled-ui/icons-react/build/esm/BarChartSquare02';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Tag01 from '@untitled-ui/icons-react/build/esm/Tag01';
+import Menu01 from '@untitled-ui/icons-react/build/esm/Menu01';
+import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import UploadCloud01 from '@untitled-ui/icons-react/build/esm/UploadCloud01';
 import LinkExternal01 from '@untitled-ui/icons-react/build/esm/LinkExternal01';
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
@@ -50,6 +67,9 @@ export function AdminLayout({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [flash, setFlash] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuBtnRef = useRef(null);
+  const drawerRef = useRef(null);
 
   const refresh = useCallback(async () => {
     const { status, body } = await adminPublishSummary(token);
@@ -63,6 +83,40 @@ export function AdminLayout({
   useEffect(() => {
     refresh();
   }, [refresh, version]);
+
+  // Drawer behavior: focus the first control on open, trap Tab inside, close
+  // on Escape, and hand focus back to the menu button on close.
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const drawer = drawerRef.current;
+    const focusables = () =>
+      drawer ? [...drawer.querySelectorAll('a[href], button:not([disabled])')] : [];
+    focusables()[0]?.focus();
+
+    function onKeyDown(event) {
+      if (event.key === 'Escape') {
+        setDrawerOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      menuBtnRef.current?.focus();
+    };
+  }, [drawerOpen]);
 
   async function run(action) {
     setBusy(true);
@@ -91,7 +145,15 @@ export function AdminLayout({
   const section = ADMIN_SECTIONS.find((s) => s.id === activeTab) || ADMIN_SECTIONS[0];
   const count = summary?.total ?? 0;
 
+  // The confirm banner renders under the top bar, so a drawer-launched action
+  // closes the drawer first to leave the banner visible.
+  function startConfirm(action, fromDrawer) {
+    setConfirming(action);
+    if (fromDrawer) setDrawerOpen(false);
+  }
+
   function publishControl(variant) {
+    const fromDrawer = variant === 'drawer';
     return (
       <div className={`admin-pub admin-pub--${variant}`}>
         <p className="admin-pub-count">
@@ -107,7 +169,7 @@ export function AdminLayout({
           <button
             type="button"
             className="btn btn-primary admin-pub-btn"
-            onClick={() => setConfirming('publish')}
+            onClick={() => startConfirm('publish', fromDrawer)}
             disabled={busy || count === 0}
           >
             <UploadCloud01 aria-hidden="true" width={18} height={18} />
@@ -116,7 +178,7 @@ export function AdminLayout({
           <button
             type="button"
             className="btn btn-secondary admin-pub-btn"
-            onClick={() => setConfirming('discard')}
+            onClick={() => startConfirm('discard', fromDrawer)}
             disabled={busy || count === 0}
           >
             Discard
@@ -128,7 +190,7 @@ export function AdminLayout({
 
   return (
     <div className="admin-app">
-      {/* Sidebar (desktop) */}
+      {/* Sidebar (desktop and wide tablet only) */}
       <aside className="admin-side" aria-label="Admin navigation">
         <div className="admin-brand">
           <img
@@ -174,6 +236,18 @@ export function AdminLayout({
       {/* Body: top bar + content */}
       <div className="admin-body">
         <header className="admin-top">
+          <img
+            className="admin-top-mark"
+            src={LOGO_ASSETS.submarkSvg}
+            alt=""
+            aria-hidden="true"
+            width={30}
+            height={30}
+            onError={(e) => {
+              if (!e.currentTarget.src.endsWith(LOGO_ASSETS.submark))
+                e.currentTarget.src = LOGO_ASSETS.submark;
+            }}
+          />
           <h1 className="admin-top-title">{section.label}</h1>
           <div className="admin-top-right">
             <span className="admin-draft" data-dirty={count > 0 ? 'true' : undefined}>
@@ -198,6 +272,39 @@ export function AdminLayout({
               <LinkExternal01 aria-hidden="true" width={16} height={16} />
               <span>View live site</span>
             </a>
+            {/* Mobile: Publish is always one tap away in the app bar. */}
+            <button
+              type="button"
+              className="admin-top-pub"
+              data-dirty={count > 0 ? 'true' : undefined}
+              onClick={() => startConfirm('publish', false)}
+              disabled={busy || count === 0}
+              aria-label={
+                count > 0
+                  ? `Publish ${count} unpublished change${count === 1 ? '' : 's'}`
+                  : 'Everything is published'
+              }
+            >
+              {count > 0 ? (
+                <>
+                  <UploadCloud01 aria-hidden="true" width={17} height={17} />
+                  <span className="admin-top-pub-count">{count}</span>
+                </>
+              ) : (
+                <CheckCircle aria-hidden="true" width={17} height={17} />
+              )}
+            </button>
+            <button
+              type="button"
+              ref={menuBtnRef}
+              className="admin-menu-btn"
+              aria-label="Open admin menu"
+              aria-haspopup="dialog"
+              aria-expanded={drawerOpen}
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Menu01 aria-hidden="true" width={22} height={22} />
+            </button>
           </div>
         </header>
 
@@ -239,8 +346,78 @@ export function AdminLayout({
           </div>
         ) : null}
 
-        <main className="admin-main">{children}</main>
+        <main className="admin-main" data-fixed-nav-pad>{children}</main>
       </div>
+
+      {/* Mobile drawer: secondary chrome actions only (never the three pages;
+          those live in the bottom tab bar so the two menus never compete). */}
+      {drawerOpen ? (
+        <div className="admin-drawer-root">
+          <div
+            className="admin-scrim"
+            aria-hidden="true"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div
+            className="admin-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Admin menu"
+            id="admin-drawer"
+            ref={drawerRef}
+          >
+            <div className="admin-drawer-head">
+              <span className="admin-drawer-title">Menu</span>
+              <button
+                type="button"
+                className="admin-drawer-close"
+                aria-label="Close menu"
+                onClick={() => setDrawerOpen(false)}
+              >
+                <XClose aria-hidden="true" width={20} height={20} />
+              </button>
+            </div>
+            {publishControl('drawer')}
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="admin-drawer-link"
+              onClick={() => setDrawerOpen(false)}
+            >
+              <LinkExternal01 aria-hidden="true" width={18} height={18} />
+              View live site
+            </a>
+            <button
+              type="button"
+              className="admin-drawer-link"
+              onClick={() => {
+                setDrawerOpen(false);
+                onLogout();
+              }}
+            >
+              <LogOut01 aria-hidden="true" width={18} height={18} />
+              Log out
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Mobile bottom tab bar: the primary one-thumb page switcher. */}
+      <nav className="admin-tabbar" aria-label="Admin pages" data-fixed-nav>
+        {ADMIN_SECTIONS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className="admin-tab"
+            aria-current={activeTab === id ? 'page' : undefined}
+            onClick={() => onSelectTab(id)}
+          >
+            <Icon aria-hidden="true" width={22} height={22} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
 
       <style>{`
         .admin-app {
@@ -363,6 +540,7 @@ export function AdminLayout({
           background: var(--bg-card);
           border-bottom: 1px solid var(--border);
         }
+        .admin-top-mark { display: none; }
         .admin-top-title {
           margin: 0;
           font-family: var(--font-display);
@@ -405,6 +583,8 @@ export function AdminLayout({
           white-space: nowrap;
         }
         .admin-viewlive:hover { border-color: var(--brand); color: var(--brand-dark); }
+        /* Mobile-only chrome, hidden on desktop. */
+        .admin-top-pub, .admin-menu-btn { display: none; }
 
         .admin-banner {
           position: sticky;
@@ -432,47 +612,6 @@ export function AdminLayout({
           padding: 1.5rem;
         }
 
-        /* Mobile: the sidebar becomes a normal-flow top strip (nothing is
-           position:fixed, so nothing overlays the panels). Brand, a
-           horizontally scrollable section nav, and the Publish control all
-           sit above the content and are reachable without scrolling. */
-        @media (max-width: 899.98px) {
-          .admin-app { display: block; }
-          .admin-side {
-            position: static;
-            height: auto;
-            flex-direction: column;
-            gap: 0.6rem;
-            padding: 0.85rem 1rem;
-            border-right: none;
-            border-bottom: 1px solid var(--border);
-          }
-          .admin-brand { margin-bottom: 0; padding-bottom: 0.6rem; }
-          .admin-nav {
-            flex-direction: row;
-            gap: 0.4rem;
-            overflow-x: auto;
-            padding-bottom: 0.15rem;
-          }
-          .admin-nav-item { flex: 0 0 auto; white-space: nowrap; }
-          .admin-side-foot { margin-top: 0; flex-direction: column; gap: 0.5rem; }
-          .admin-pub-actions { flex-direction: row; }
-          .admin-pub-actions .admin-pub-btn { flex: 1; }
-          .admin-top {
-            position: static;
-            padding: 0.75rem 1rem;
-            gap: 0.75rem;
-          }
-          .admin-top-title { font-size: 1.25rem; min-width: 0; }
-          /* The Publish control in the top strip already shows the
-             unpublished count on mobile, so the top-bar draft pill is
-             redundant and only crowds the row. Hide it here; the top bar
-             keeps just the section title and View live site. */
-          .admin-draft { display: none; }
-          .admin-viewlive { flex-shrink: 0; }
-          .admin-main { padding: 1rem 1rem 2.5rem; max-width: none; }
-        }
-
         .admin-placeholder {
           padding: 2.5rem 1.5rem;
           text-align: center;
@@ -482,7 +621,200 @@ export function AdminLayout({
           background: var(--bg-card);
         }
 
-        .admin-side :focus-visible { outline-color: var(--brand); }
+        /* Drawer + scrim (rendered only while open, mobile-only styling but
+           harmless if opened on desktop resize edge cases). */
+        .admin-drawer-root { position: fixed; inset: 0; z-index: 60; }
+        .admin-scrim {
+          position: absolute;
+          inset: 0;
+          background: color-mix(in srgb, #10110f 45%, transparent);
+          animation: admin-fade-in 160ms ease-out;
+        }
+        .admin-drawer {
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          width: min(20rem, 86vw);
+          background: var(--bg-card, #ffffff);
+          border-left: 1px solid var(--border, #dbe0e5);
+          box-shadow: -12px 0 32px color-mix(in srgb, #10110f 18%, transparent);
+          padding: 0.9rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          overflow-y: auto;
+          animation: admin-slide-in 200ms ease-out;
+        }
+        @keyframes admin-fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes admin-slide-in {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .admin-scrim, .admin-drawer { animation: none; }
+        }
+        .admin-drawer-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding-bottom: 0.6rem;
+          border-bottom: 1px solid var(--border, #dbe0e5);
+        }
+        .admin-drawer-title {
+          font-family: var(--font-display);
+          font-size: 1.15rem;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          font-weight: 700;
+        }
+        .admin-drawer-close {
+          width: 44px;
+          height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--border-strong, #c4cbd3);
+          border-radius: var(--radius);
+          background: transparent;
+          color: var(--text-secondary, #454b52);
+          cursor: pointer;
+        }
+        .admin-drawer-link {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          min-height: 48px;
+          padding: 0 0.75rem;
+          border: 1px solid var(--border-strong, #c4cbd3);
+          border-radius: var(--radius);
+          background: var(--bg-card, #ffffff);
+          color: var(--text-secondary, #454b52);
+          font-weight: 600;
+          font-size: 0.95rem;
+          text-decoration: none;
+          cursor: pointer;
+          width: 100%;
+          text-align: left;
+        }
+        .admin-drawer-link:hover { border-color: var(--brand); color: var(--brand-dark); }
+        .admin-drawer-link svg { flex-shrink: 0; }
+
+        /* Bottom tab bar: hidden on desktop, fixed on mobile. */
+        .admin-tabbar { display: none; }
+
+        /* ---- Phone and narrow tablet (< 1024px) ---- */
+        @media (max-width: 1023.98px) {
+          .admin-app {
+            display: block;
+            /* Reserve space so the fixed tab bar never covers page content
+               even if a child skips its own padding. */
+          }
+          .admin-side { display: none; }
+          .admin-top {
+            padding: 0.6rem 0.9rem;
+            gap: 0.6rem;
+          }
+          .admin-top-mark {
+            display: block;
+            flex-shrink: 0;
+            border-radius: var(--radius-sm);
+          }
+          .admin-top-title {
+            font-size: 1.2rem;
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .admin-top-right { gap: 0.5rem; flex-shrink: 0; }
+          .admin-draft, .admin-viewlive { display: none; }
+          .admin-top-pub {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0 0.6rem;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+          }
+          .admin-top-pub[data-dirty='true'] {
+            border-color: var(--brand);
+            background: color-mix(in srgb, var(--brand) 12%, transparent);
+            color: var(--brand-dark);
+          }
+          .admin-top-pub:disabled { cursor: default; }
+          .admin-menu-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            cursor: pointer;
+          }
+          /* The top app bar is sticky here; a sticky banner at top: 0 would
+             slide beneath it. Keep the banner in normal flow right under the
+             bar instead; it appears where the tap just happened. */
+          .admin-banner { position: static; padding: 0.6rem 0.9rem; }
+          .admin-main {
+            max-width: none;
+            /* Bottom padding reserves the fixed tab bar's height plus
+               breathing room (audited via data-fixed-nav-pad). */
+            padding: 1rem 1rem calc(5.5rem + env(safe-area-inset-bottom, 0px));
+          }
+
+          .admin-tabbar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 50;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            background: var(--bg-card, #ffffff);
+            border-top: 1px solid var(--border, #dbe0e5);
+            box-shadow: 0 -4px 16px color-mix(in srgb, #10110f 8%, transparent);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+          }
+          .admin-tab {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.15rem;
+            min-height: 58px;
+            padding: 0.4rem 0.25rem;
+            border: none;
+            background: transparent;
+            color: var(--text-muted, #6a7178);
+            font-family: var(--font-body);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+          }
+          .admin-tab svg { flex-shrink: 0; }
+          .admin-tab[aria-current='page'] {
+            color: var(--brand-dark);
+          }
+          .admin-tab[aria-current='page'] svg { color: var(--brand); }
+        }
+
+        .admin-side :focus-visible, .admin-tabbar :focus-visible,
+        .admin-drawer :focus-visible { outline-color: var(--brand); }
       `}</style>
     </div>
   );

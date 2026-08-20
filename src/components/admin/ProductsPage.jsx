@@ -125,8 +125,26 @@ export function ProductsPage({ section, onSelectSection, panelProps }) {
           color: color-mix(in srgb, var(--brand-dark) 75%, var(--text-muted));
         }
 
-        @media (max-width: 720px) {
-          .products-subnav { grid-template-columns: repeat(2, 1fr); }
+        /* Mobile: a horizontally scrollable segmented control. The four
+           sections never wrap or overflow the page; only this row scrolls.
+           Hints hide so each segment stays a compact, single-line target. */
+        @media (max-width: 767.98px) {
+          .products-subnav {
+            display: flex;
+            gap: 0.4rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 0.25rem;
+            scrollbar-width: thin;
+          }
+          .products-subnav-item {
+            flex: 0 0 auto;
+            min-height: 44px;
+            padding: 0.4rem 0.85rem;
+            white-space: nowrap;
+          }
+          .products-subnav-hint { display: none; }
+          .products-subnav-label { font-size: 0.92rem; }
         }
       `}</style>
     </div>

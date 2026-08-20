@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "smoke": "node scripts/smoke-test.mjs",
     "responsive-check": "node scripts/responsive-check.mjs",
+    "admin-mobile-check": "node scripts/admin-mobile-check.mjs",
     "preflight": "node scripts/preflight.mjs"
   },
   "dependencies": {

@@ -89,6 +89,26 @@ function auditPage(isMobile) {
     }
   }
 
+  // Deliberate fixed chrome (e.g. the admin bottom tab bar) is marked
+  // data-fixed-nav. It floats above scrollable content by design, so
+  // content passing under it is not an overlap defect. The contract is
+  // enforced instead: a visible data-fixed-nav element REQUIRES a visible
+  // data-fixed-nav-pad content region whose bottom padding reserves at
+  // least the chrome's height, so the end of the content is never hidden.
+  const inFixedNav = (el) => Boolean(el.closest('[data-fixed-nav]'));
+  for (const nav of document.querySelectorAll('[data-fixed-nav]')) {
+    const navStyle = getComputedStyle(nav);
+    if (navStyle.display === 'none' || navStyle.visibility === 'hidden') continue;
+    const navHeight = nav.getBoundingClientRect().height;
+    const pads = [...document.querySelectorAll('[data-fixed-nav-pad]')].filter((p) => {
+      const s = getComputedStyle(p);
+      return s.display !== 'none' && parseFloat(s.paddingBottom) >= navHeight;
+    });
+    if (pads.length === 0) {
+      problems.push(`fixed nav ${describe(nav)} (${Math.round(navHeight)}px) has no content region reserving matching bottom padding`);
+    }
+  }
+
   // Overlap between sibling leaf elements (visible text/interactive nodes).
   const leaves = els.filter(
     (el) =>
@@ -100,6 +120,9 @@ function auditPage(isMobile) {
       const a = leaves[i];
       const b = leaves[j];
       if (a.contains(b) || b.contains(a)) continue;
+      // Fixed chrome layers over content by design (see above); only
+      // pairs on the same layer count as defects.
+      if (inFixedNav(a) !== inFixedNav(b)) continue;
       const ra = a.getBoundingClientRect();
       const rb = b.getBoundingClientRect();
       const xOverlap = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
