@@ -1,7 +1,7 @@
-// About: family story slot, owner intro slot, shop values, Oxford community
-// connection. Family story, owner names, and founding year are UNCONFIRMED;
-// labeled placeholders render until the owner confirms them. No invented
-// history, no EST. year.
+// About: family story, shop values, Oxford community connection. Family
+// story, owner names, and founding year are UNCONFIRMED; labeled placeholders
+// render until the owner confirms them. No invented history, no EST. year.
+// (A storefront/owner photo will be added later; no photo placeholder for now.)
 
 import Phone01 from '@untitled-ui/icons-react/build/esm/Phone01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
@@ -67,22 +67,16 @@ export function About() {
               </div>
             </dl>
           </div>
-          <div className="ab-story-media reveal-right">
-            <Slot
-              label="Owner or storefront photo slot. Rob supplies photography."
-              ratio="4 / 5"
-            />
-          </div>
         </div>
         <style>{`
           .ab-story-grid {
             display: grid;
-            grid-template-columns: 1.3fr 1fr;
+            grid-template-columns: 1fr;
             gap: 3rem;
             align-items: start;
           }
           .ab-story-body {
-            max-width: 34rem;
+            max-width: 40rem;
             line-height: 1.8;
           }
           .ab-facts {
@@ -100,10 +94,8 @@ export function About() {
             margin-bottom: 0.3rem;
           }
           .ab-fact dd { margin: 0; }
-          .ab-story-media { max-width: 24rem; }
           @media (max-width: 899.98px) {
-            .ab-story-grid { grid-template-columns: 1fr; gap: 2rem; }
-            .ab-story-media { max-width: 20rem; }
+            .ab-story-grid { gap: 2rem; }
           }
         `}</style>
       </section>
