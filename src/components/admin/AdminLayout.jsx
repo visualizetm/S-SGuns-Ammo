@@ -191,7 +191,7 @@ export function AdminLayout({
   return (
     <div className="admin-app">
       {/* Sidebar (desktop and wide tablet only) */}
-      <aside className="admin-side" aria-label="Admin navigation">
+      <aside className="admin-side" aria-label="Owner's Dashboard navigation">
         <div className="admin-brand">
           <img
             src={LOGO_ASSETS.submarkSvg}
@@ -205,7 +205,7 @@ export function AdminLayout({
           />
           <span className="admin-brand-text">
             <span className="admin-brand-name">S&amp;S</span>
-            <span className="admin-brand-sub">Product Manager</span>
+            <span className="admin-brand-sub">Owner's Dashboard</span>
           </span>
         </div>
 
@@ -298,7 +298,7 @@ export function AdminLayout({
               type="button"
               ref={menuBtnRef}
               className="admin-menu-btn"
-              aria-label="Open admin menu"
+              aria-label="Open Owner's Dashboard menu"
               aria-haspopup="dialog"
               aria-expanded={drawerOpen}
               onClick={() => setDrawerOpen(true)}
@@ -362,7 +362,7 @@ export function AdminLayout({
             className="admin-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label="Admin menu"
+            aria-label="Owner's Dashboard menu"
             id="admin-drawer"
             ref={drawerRef}
           >
@@ -404,7 +404,7 @@ export function AdminLayout({
       ) : null}
 
       {/* Mobile bottom tab bar: the primary one-thumb page switcher. */}
-      <nav className="admin-tabbar" aria-label="Admin pages" data-fixed-nav>
+      <nav className="admin-tabbar" aria-label="Owner's Dashboard pages" data-fixed-nav>
         {ADMIN_SECTIONS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -838,8 +838,8 @@ export function AdminLogin({ onSubmit, error, submitting }) {
                 e.currentTarget.src = LOGO_ASSETS.submark;
             }}
           />
-          <span className="admin-brand-name">S&amp;S Product Manager</span>
-          <span className="admin-brand-sub">Staff sign in</span>
+          <span className="admin-brand-name">Owner's Dashboard</span>
+          <span className="admin-brand-sub">Owner sign in</span>
         </div>
         <form
           onSubmit={(e) => {
@@ -847,7 +847,7 @@ export function AdminLogin({ onSubmit, error, submitting }) {
             if (!submitting) onSubmit(password);
           }}
           noValidate
-          aria-label="Admin login form"
+          aria-label="Owner's Dashboard login form"
         >
           <p className="admin-login-field">
             <label htmlFor="admin-password">Password</label>

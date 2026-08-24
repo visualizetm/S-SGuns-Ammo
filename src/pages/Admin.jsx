@@ -17,7 +17,7 @@ import { QuickSalePage } from '../components/admin/QuickSalePage.jsx';
 const TOKEN_KEY = 'ssga-admin-token';
 
 export function Admin() {
-  usePageMeta('Product Manager');
+  usePageMeta("Owner's Dashboard");
   const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) || '');
   const [loginError, setLoginError] = useState('');
   const [submitting, setSubmitting] = useState(false);
