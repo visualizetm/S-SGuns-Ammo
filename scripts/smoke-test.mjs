@@ -36,6 +36,8 @@ import {
   stockSummary,
   dailyBuckets,
 } from '../src/lib/salesStats.js';
+import { REVIEWS, REVIEWS_SUMMARY, GOOGLE_REVIEW_URL } from '../src/content/siteFacts.js';
+import { hasReviewLink, starCount } from '../src/lib/reviewsView.js';
 
 // Fresh dev store every run.
 rmSync('.data', { recursive: true, force: true });
@@ -792,5 +794,45 @@ await (async () => {
   );
   ok('quick sale endpoint: logging without markSold leaves stock unchanged', () => {});
 })();
+
+// ---- Reviews section: content and the review-button gate ----
+
+ok('reviews: the section renders every review from siteFacts', () => {
+  // The component maps directly over REVIEWS, so a non-empty, well-formed
+  // list is exactly what the section renders.
+  assert.ok(Array.isArray(REVIEWS) && REVIEWS.length >= 6);
+  for (const review of REVIEWS) {
+    assert.equal(typeof review.quote, 'string');
+    assert.ok(review.quote.trim().length > 0);
+    assert.equal(typeof review.author, 'string');
+    assert.ok(review.author.trim().length > 0);
+    assert.ok(Number.isInteger(review.rating) && review.rating >= 1 && review.rating <= 5);
+  }
+});
+
+ok('reviews: aggregate summary strings are present for the section heading', () => {
+  assert.equal(typeof REVIEWS_SUMMARY.ratingText, 'string');
+  assert.equal(typeof REVIEWS_SUMMARY.countText, 'string');
+  assert.ok(REVIEWS_SUMMARY.ratingText && REVIEWS_SUMMARY.countText);
+});
+
+ok('reviews: the review button is hidden while googleReviewUrl is a placeholder', () => {
+  // Shipped state: GOOGLE_REVIEW_URL is the owner-pending [[...]] placeholder,
+  // so hasReviewLink is false and the "Leave us a review" button never renders
+  // (no broken link). It becomes true only for a real http(s) URL.
+  assert.equal(hasReviewLink(GOOGLE_REVIEW_URL), false);
+  assert.equal(hasReviewLink('[[GOOGLE REVIEW LINK - owner to provide]]'), false);
+  assert.equal(hasReviewLink(''), false);
+  assert.equal(hasReviewLink(undefined), false);
+  assert.equal(hasReviewLink('https://g.page/r/example/review'), true);
+});
+
+ok('reviews: star count clamps to whole stars in 0..5', () => {
+  assert.equal(starCount(5), 5);
+  assert.equal(starCount(4.9), 5);
+  assert.equal(starCount(0), 0);
+  assert.equal(starCount(9), 5);
+  assert.equal(starCount(-2), 0);
+});
 
 console.log(`\n${passed} checks passed.`);

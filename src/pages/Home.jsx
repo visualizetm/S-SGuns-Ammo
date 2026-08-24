@@ -16,6 +16,7 @@ import { publicGetCatalog } from '../lib/apiClient.js';
 import { HOME_COPY, PAGE_META } from '../content/siteFacts.js';
 import { featuredItems } from '../lib/catalogView.js';
 import { ProductCard, ProductCardStyles } from '../components/ProductCard.jsx';
+import { Reviews } from '../components/Reviews.jsx';
 import { Slot } from '../components/Slot.jsx';
 import { MapEmbed } from '../components/MapEmbed.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
@@ -305,6 +306,9 @@ export function Home() {
       </section>
 
       <FeaturedStrip />
+
+      {/* Reviews: real, owner-approved testimonials */}
+      <Reviews />
 
       {/* Transfers teaser */}
       <section

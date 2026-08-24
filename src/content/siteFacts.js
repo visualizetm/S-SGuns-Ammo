@@ -254,6 +254,62 @@ export const SHOP_VALUES = [
   },
 ];
 
+// ---------- Reviews (real, owner-approved) ----------
+
+// Real, owner-approved Google reviews for S&S Guns & Ammo. Paste more here anytime.
+export const REVIEWS = [
+  {
+    quote:
+      "This little shop is perfect for modern day gun owners. Very respectful, helpful and friendly. Buying a firearm can be a little awkward for some, but you can't help but feel comfortable here.",
+    author: 'Isaiah C.',
+    rating: 5,
+  },
+  {
+    quote:
+      "Bought my first firearm here earlier today. He was really nice and really helpful. I'll for sure be coming here again.",
+    author: 'UndoingRuin420',
+    rating: 5,
+  },
+  {
+    quote:
+      "My dad would have loved your shop. These dudes are the best. Anything I've ever needed, they will get me.",
+    author: 'William C.',
+    rating: 5,
+  },
+  {
+    quote:
+      'Amazing shop! Definitely worth the trip. The owner is very knowledgeable and answered any question I had, plus prices like those and the owner being such a great guy.',
+    author: 'Daria C.',
+    rating: 5,
+  },
+  {
+    quote:
+      "I've been going to S&S just about since they opened. I forget how many guns I've bought from them now, and I'm about to buy another for hunting season. The service is top notch.",
+    author: 'Joe K.',
+    rating: 5,
+  },
+  {
+    quote:
+      'These guys are great to work with. My sons and I have been going since they opened. They are very knowledgeable and have always been able to answer my questions.',
+    author: 'Heather P.',
+    rating: 5,
+  },
+];
+
+// Aggregate line for the section. These are plain strings the owner sets by
+// hand from the live Google profile (rating and total review count).
+export const REVIEWS_SUMMARY = {
+  ratingText: '4.9',
+  countText: '29',
+};
+
+// Owner-pending: the shop's Google review link. Powers the "Leave us a review"
+// button and the NFC review plate. Kept as a [[...]] placeholder until Rob
+// provides it, so preflight lists it and the review button stays hidden until
+// a real link exists (never a broken link).
+export const GOOGLE_REVIEW_URL =
+  '[[GOOGLE REVIEW LINK - owner to provide; powers the review button and NFC plate]]';
+
 // ---------- Services copy (confirmed) ----------
 // `confirmed` gates rendering: false stays hidden everywhere.
 
