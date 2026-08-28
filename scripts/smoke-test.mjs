@@ -38,6 +38,11 @@ import {
 } from '../src/lib/salesStats.js';
 import { REVIEWS, REVIEWS_SUMMARY, GOOGLE_REVIEW_URL } from '../src/content/siteFacts.js';
 import { hasReviewLink, starCount } from '../src/lib/reviewsView.js';
+import {
+  isMaintenanceEnabled,
+  isPublicPath,
+  RETRY_AFTER_SECONDS,
+} from '../shared/maintenance.js';
 
 // Fresh dev store every run.
 rmSync('.data', { recursive: true, force: true });
@@ -833,6 +838,55 @@ ok('reviews: star count clamps to whole stars in 0..5', () => {
   assert.equal(starCount(0), 0);
   assert.equal(starCount(9), 5);
   assert.equal(starCount(-2), 0);
+});
+
+// ---- Maintenance mode: the switch and what it is allowed to cover ----
+
+ok('maintenance: only the exact word "true" takes the site down', () => {
+  assert.equal(isMaintenanceEnabled('true'), true);
+  assert.equal(isMaintenanceEnabled('TRUE'), true);
+  assert.equal(isMaintenanceEnabled(' true '), true);
+  // Everything else fails SAFE: the site stays up.
+  assert.equal(isMaintenanceEnabled('false'), false);
+  assert.equal(isMaintenanceEnabled(''), false);
+  assert.equal(isMaintenanceEnabled(undefined), false);
+  assert.equal(isMaintenanceEnabled(null), false);
+  assert.equal(isMaintenanceEnabled('yes'), false);
+  assert.equal(isMaintenanceEnabled('1'), false);
+  assert.equal(isMaintenanceEnabled('ture'), false); // typo stays up
+});
+
+ok("maintenance: the Owner's Dashboard and the API are never covered", () => {
+  assert.equal(isPublicPath('/admin'), false);
+  assert.equal(isPublicPath('/admin/'), false);
+  assert.equal(isPublicPath('/admin/anything'), false);
+  assert.equal(isPublicPath('/api'), false);
+  assert.equal(isPublicPath('/api/inventory'), false);
+  assert.equal(isPublicPath('/api/admin/products'), false);
+  assert.equal(isPublicPath('/api/admin/sales'), false);
+});
+
+ok('maintenance: every public route is covered, static files are not', () => {
+  for (const path of [
+    '/',
+    '/about',
+    '/services',
+    '/inventory',
+    '/inventory/demo-rifle-bolt',
+    '/transfers',
+    '/contact',
+    '/no-such-page',
+  ]) {
+    assert.equal(isPublicPath(path), true, `${path} should be covered`);
+  }
+  // Build assets and static files keep serving so the page can render.
+  for (const path of ['/assets/index-abc123.js', '/favicon.svg', '/og-image.png', '/robots.txt']) {
+    assert.equal(isPublicPath(path), false, `${path} should keep serving`);
+  }
+});
+
+ok('maintenance: Retry-After is a sane positive number of seconds', () => {
+  assert.ok(Number.isInteger(RETRY_AFTER_SECONDS) && RETRY_AFTER_SECONDS > 0);
 });
 
 console.log(`\n${passed} checks passed.`);

@@ -8,6 +8,13 @@
 
 // ---------- Deployment ----------
 
+// MAINTENANCE MODE (taking the public site down) is a single switch and it
+// lives in src/config/maintenance.js: set VITE_MAINTENANCE_MODE to "true" to
+// show the down page, "false" (or unset) for the normal site. Step-by-step
+// instructions are in MAINTENANCE.md. The Owner's Dashboard stays up either
+// way. It is kept out of this file so node scripts can import siteFacts
+// without touching build-time env values.
+
 // Swapped to the custom domain at launch. Used by the sitemap, robots,
 // and JSON-LD generation.
 export const BASE_URL = 'https://ssgunsammo.visualizeclients.com';
