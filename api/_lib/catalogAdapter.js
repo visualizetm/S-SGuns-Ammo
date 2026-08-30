@@ -212,61 +212,51 @@ function createPostgresAdapter(connectionString) {
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
         )`);
-        await seedIfEmpty(sql);
+        await clearDemoIfPresent(sql);
         return sql;
       })();
     }
     return sqlPromise;
   }
 
-  // First-run seed. If this catalog has never been seeded AND is completely
-  // empty, load the DEMO example listings so the public inventory page is not
-  // blank before the owner adds real products. Two guards make this safe on a
-  // live database:
-  //   - a one-time marker row ('demo_seeded') means it runs at most once, so
-  //     when the owner deletes the demos to enter real stock, they stay gone;
-  //   - the empty-store check means it can never overwrite real inventory.
-  // Every demo record stays clearly "DEMO:" labeled (see shared/catalogSeeds).
-  async function seedIfEmpty(sql) {
+  // One-time DEMO cleanup. Earlier deployments seeded DEMO example listings
+  // into an empty live store; the demos were removed before launch, so this
+  // deletes exactly those known seed rows (and the six starter collections)
+  // if they are still present, then marks itself done. Two guards keep it
+  // safe on a live database:
+  //   - a one-time marker row ('demo_cleared') means it runs at most once;
+  //   - it deletes ONLY the fixed, known seed ids, so the owner's real
+  //     records (random UUIDs) can never be touched.
+  // Nothing DEMO can seed into this store anymore: production starts and
+  // stays empty until the owner adds real inventory.
+  async function clearDemoIfPresent(sql) {
     const marked = await sql.unsafe(
-      `SELECT 1 FROM catalog_meta WHERE key = 'demo_seeded' LIMIT 1`
+      `SELECT 1 FROM catalog_meta WHERE key = 'demo_cleared' LIMIT 1`
     );
     if (marked.length > 0) return;
 
-    let existing = 0;
-    for (const kind of KINDS) {
-      const rows = await sql.unsafe(`SELECT 1 FROM ${TABLES[kind]} LIMIT 1`);
-      existing += rows.length;
-    }
-
-    if (existing === 0) {
-      const store = seedCatalogStore();
-      await sql.begin(async (tx) => {
-        for (const kind of KINDS) {
-          for (const record of store[kind]) {
-            await tx.unsafe(
-              `INSERT INTO ${TABLES[kind]} (id, created_at, updated_at, draft, published)
-               VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
-               ON CONFLICT (id) DO NOTHING`,
-              [record.id, record.createdAt, record.updatedAt, record.draft, record.published]
-            );
-          }
-        }
-        await tx.unsafe(
-          `INSERT INTO catalog_meta (key, value) VALUES ('demo_seeded', $1)
-           ON CONFLICT (key) DO NOTHING`,
-          [new Date().toISOString()]
-        );
-      });
-    } else {
-      // Real data is already present: never seed. Record that so cold starts
-      // stop re-checking.
-      await sql.unsafe(
-        `INSERT INTO catalog_meta (key, value)
-         VALUES ('demo_seeded', 'skipped-preexisting')
-         ON CONFLICT (key) DO NOTHING`
+    const STARTER_COLLECTION_IDS = [
+      'col-handguns',
+      'col-rifles',
+      'col-shotguns',
+      'col-ammunition',
+      'col-optics',
+      'col-other',
+    ];
+    await sql.begin(async (tx) => {
+      await tx.unsafe(`DELETE FROM ${TABLES.products} WHERE id LIKE 'demo-%'`);
+      await tx.unsafe(`DELETE FROM ${TABLES.bundles} WHERE id LIKE 'demo-%'`);
+      await tx.unsafe(
+        `DELETE FROM ${TABLES.collections} WHERE id = ANY($1)`,
+        [STARTER_COLLECTION_IDS]
       );
-    }
+      await tx.unsafe(`DELETE FROM catalog_meta WHERE key = 'demo_seeded'`);
+      await tx.unsafe(
+        `INSERT INTO catalog_meta (key, value) VALUES ('demo_cleared', $1)
+         ON CONFLICT (key) DO NOTHING`,
+        [new Date().toISOString()]
+      );
+    });
   }
 
   // Load the catalog, apply the same pure operations as the dev store, then

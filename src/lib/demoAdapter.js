@@ -37,8 +37,10 @@ import {
 import { seedSalesStore } from '../../shared/salesSeeds.js';
 import { validateSale } from '../../shared/salesValidation.js';
 
-const CATALOG_KEY = 'ssga-demo-catalog';
-const SALES_KEY = 'ssga-demo-sales';
+// v2: bumped when the DEMO seed data was removed, so a browser still holding
+// the old seeded catalog under the v1 keys starts clean instead.
+const CATALOG_KEY = 'ssga-demo-catalog-v2';
+const SALES_KEY = 'ssga-demo-sales-v2';
 const DEMO_PASSWORD = 'oxford';
 const DEMO_TOKEN = 'demo-local-token';
 

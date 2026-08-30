@@ -91,26 +91,31 @@ const files = textFiles();
   else passes.push('em/en dashes: none in any source or copy file');
 }
 
-// ---------- 3. DEMO seed containment ----------
+// ---------- 3. Zero DEMO data anywhere ----------
 {
-  // seedCatalogStore may be referenced only by the seed source and the two
-  // adapters. The Postgres adapter seeds the DEMO listings into an EMPTY
-  // production store on first run (so the public inventory page is not blank
-  // before real products are added). That first-run seed must stay SAFE:
-  // it runs at most once (a 'demo_seeded' marker) and only when the store is
-  // empty, so it can never overwrite or resurrect real inventory.
-  const allowed = new Set([
-    'shared/catalogSeeds.js',
-    'api/_lib/catalogAdapter.js',
-    'src/lib/demoAdapter.js',
-  ]);
+  // The DEMO example data was removed before launch. Three hard guarantees:
+  //   - every seed export is EMPTY, so no path (dev store, in-browser demo,
+  //     production) can ever render a DEMO product, collection, bundle or sale;
+  //   - the Postgres adapter contains NO seeding call at all (its only demo
+  //     code is the one-time cleanup that deletes previously seeded rows);
+  //   - no "DEMO:" labeled content remains in shipped source.
   const hits = [];
-  for (const file of files) {
-    const rel = relative(ROOT, file);
-    if (rel === SELF || allowed.has(rel)) continue;
-    if (readFileSync(file, 'utf8').includes('seedCatalogStore')) {
-      hits.push(`${rel}: unexpected seedCatalogStore reference`);
-    }
+
+  const { SEED_PRODUCTS, SEED_COLLECTIONS, SEED_BUNDLES, seedCatalogStore } =
+    await import('../shared/catalogSeeds.js');
+  const { seedSalesStore } = await import('../shared/salesSeeds.js');
+  const emptyStore = seedCatalogStore();
+  const counts = {
+    'seed products': SEED_PRODUCTS.length,
+    'seed collections': SEED_COLLECTIONS.length,
+    'seed bundles': SEED_BUNDLES.length,
+    'seeded store products': emptyStore.products.length,
+    'seeded store collections': emptyStore.collections.length,
+    'seeded store bundles': emptyStore.bundles.length,
+    'seed sales': seedSalesStore().length,
+  };
+  for (const [label, count] of Object.entries(counts)) {
+    if (count !== 0) hits.push(`${label}: expected 0, found ${count}`);
   }
 
   const adapter = readFileSync(join(ROOT, 'api/_lib/catalogAdapter.js'), 'utf8');
@@ -118,20 +123,20 @@ const files = textFiles();
   const pgEnd = adapter.indexOf('export function getCatalogAdapter');
   if (pgStart < 0 || pgEnd < 0 || pgEnd <= pgStart) {
     hits.push('catalogAdapter.js: could not locate the Postgres adapter body');
-  } else {
-    const body = adapter.slice(pgStart, pgEnd);
-    if (/seedCatalogStore/.test(body)) {
-      if (!/demo_seeded/.test(body)) {
-        hits.push('catalogAdapter.js: Postgres first-run seed lacks the one-time marker guard');
-      }
-      if (!/LIMIT 1|existing === 0|isEmpty/i.test(body)) {
-        hits.push('catalogAdapter.js: Postgres first-run seed lacks the empty-store guard');
-      }
+  } else if (/seedCatalogStore/.test(adapter.slice(pgStart, pgEnd))) {
+    hits.push('catalogAdapter.js: the Postgres adapter must never seed DEMO data');
+  }
+
+  for (const file of files) {
+    const rel = relative(ROOT, file);
+    if (rel === SELF || !/^(src|shared|api)\//.test(rel)) continue;
+    if (readFileSync(file, 'utf8').includes('DEMO:')) {
+      hits.push(`${rel}: contains "DEMO:" labeled content`);
     }
   }
 
-  if (hits.length) failures.push(['DEMO seed containment', hits]);
-  else passes.push('DEMO seeds: confined to adapters; Postgres seeds an empty store once, guarded');
+  if (hits.length) failures.push(['DEMO data removal', hits]);
+  else passes.push('DEMO data: all seeds empty, no Postgres seeding, no DEMO content in src/shared/api');
 }
 
 // ---------- 4. Build outputs ----------

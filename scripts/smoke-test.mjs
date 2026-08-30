@@ -1,5 +1,9 @@
 // Smoke test: shared validation, the draft/publish catalog store, and every
 // serverless endpoint invoked directly with mock req/res objects.
+//
+// The catalog ships EMPTY (no DEMO data anywhere), so these tests create
+// their own fixtures through the same admin endpoints the dashboard uses,
+// then assert against them.
 // Run: npm run smoke
 
 import assert from 'node:assert/strict';
@@ -9,7 +13,12 @@ import {
   validateCollection,
   validateBundle,
 } from '../shared/catalogValidation.js';
-import { SEED_PRODUCTS } from '../shared/catalogSeeds.js';
+import {
+  SEED_PRODUCTS,
+  SEED_COLLECTIONS,
+  SEED_BUNDLES,
+  seedCatalogStore,
+} from '../shared/catalogSeeds.js';
 import {
   orderProducts,
   filterProducts,
@@ -45,7 +54,12 @@ import {
 } from '../shared/maintenance.js';
 
 // Fresh dev store every run.
-rmSync('.data', { recursive: true, force: true });
+function resetStores() {
+  rmSync('.data', { recursive: true, force: true });
+  delete globalThis.__ssgaCatalogStore;
+  delete globalThis.__ssgaSalesStore;
+}
+resetStores();
 
 let passed = 0;
 function ok(label, fn) {
@@ -84,13 +98,55 @@ async function call(handler, reqOptions) {
   return res;
 }
 
+async function login() {
+  const res = await call(loginHandler, { body: { password: 'oxford' } });
+  return { authorization: `Bearer ${res.body.token}` };
+}
+
+// Shorthand fixture builders used across the endpoint suites.
+async function makeCollection(auth, name) {
+  const res = await call(adminCollectionsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { name },
+  });
+  assert.equal(res.statusCode, 201, `collection "${name}" should create`);
+  return res.body.item;
+}
+
+async function makeProduct(auth, fields) {
+  const res = await call(adminProductsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: {
+      manufacturer: 'Smoke Arms Co.',
+      model: 'SM-1',
+      condition: 'New',
+      stockStatus: 'In Stock',
+      ...fields,
+    },
+  });
+  assert.equal(res.statusCode, 201, `product "${fields.name}" should create`);
+  return res.body.item;
+}
+
+async function publish(auth) {
+  const res = await call(adminPublishHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { action: 'publish' },
+  });
+  assert.equal(res.body.ok, true, 'publish should succeed');
+  return res.body.summary;
+}
+
 // ---- catalog validation ----
 
 ok('product: valid input passes, price normalized, onSale computed', () => {
   const r = validateProduct({
-    name: '  DEMO: Test Rifle  ',
+    name: '  Smoke Test Rifle  ',
     collectionIds: [],
-    manufacturer: 'Example Arms Co.',
+    manufacturer: 'Smoke Arms Co.',
     model: 'T-1',
     condition: 'New',
     price: '499.999',
@@ -98,7 +154,7 @@ ok('product: valid input passes, price normalized, onSale computed', () => {
     stockStatus: 'In Stock',
   });
   assert.equal(r.ok, true);
-  assert.equal(r.data.name, 'DEMO: Test Rifle');
+  assert.equal(r.data.name, 'Smoke Test Rifle');
   assert.equal(r.data.price, 500);
   assert.equal(r.data.onSale, true);
 });
@@ -145,13 +201,18 @@ ok('bundle: needs at least two distinct members', () => {
   assert.equal(validateBundle({ ...base, memberProductIds: ['a', 'b'] }).ok, true);
 });
 
-ok('catalog seeds: every fictional item is marked DEMO', () => {
-  assert.ok(
-    SEED_PRODUCTS.every((r) => (r.draft ?? r.published).name.startsWith('DEMO:'))
-  );
+ok('seeds: catalog and sales seed data are EMPTY (no DEMO anywhere)', () => {
+  assert.equal(SEED_PRODUCTS.length, 0);
+  assert.equal(SEED_COLLECTIONS.length, 0);
+  assert.equal(SEED_BUNDLES.length, 0);
+  const store = seedCatalogStore();
+  assert.equal(store.products.length, 0);
+  assert.equal(store.collections.length, 0);
+  assert.equal(store.bundles.length, 0);
+  assert.equal(seedSalesStore().length, 0);
 });
 
-// ---- endpoints ----
+// ---- endpoints: auth, empty start, fixtures, draft/publish ----
 
 await (async () => {
   // auth
@@ -168,79 +229,39 @@ await (async () => {
 
   const auth = { authorization: `Bearer ${token}` };
 
-  // ---- public catalog read: published snapshot only ----
+  // ---- the catalog starts EMPTY everywhere ----
 
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
   assert.equal(res.statusCode, 200);
-  let publicItems = res.body.items;
-  assert.ok(publicItems.length > 0);
-  assert.ok(!publicItems.some((i) => i.id === 'demo-other-case'), 'never-published leaks');
-  assert.ok(!publicItems.some((i) => i.stockStatus === 'Hidden'), 'hidden leaks');
-  const revolver = publicItems.find((i) => i.id === 'demo-handgun-revolver');
-  assert.equal(revolver.price, 299);
-  assert.ok(res.body.collections.length > 0);
-  const saleItem = publicItems.find((i) => i.id === 'demo-handgun-compact');
-  assert.equal(saleItem.onSale, true);
-  assert.equal(saleItem.compareAtPrice, 449.5);
-  ok('public inventory: published only, no drafts, no hidden, sale flags', () => {});
+  assert.equal(res.body.items.length, 0, 'public products start empty');
+  assert.equal(res.body.collections.length, 0, 'public collections start empty');
+  assert.equal(res.body.bundles.length, 0, 'public bundles start empty');
+  ok('public inventory: catalog starts completely empty (zero products)', () => {});
 
-  // Task 3 guard: the public /inventory page is populated for review from the
-  // DEMO seed catalog. It must return a non-empty published set spread across
-  // collections, at least one sale item and one valid bundle, and every item
-  // must stay clearly DEMO-labeled. (Production still starts empty; that is
-  // asserted by the empty-store publish flow below and by npm run preflight.)
-  assert.ok(publicItems.length >= 6, 'demo catalog should populate the page');
-  assert.ok(
-    publicItems.every((i) => /^DEMO:/.test(i.name)),
-    'every public seed item stays DEMO-labeled'
-  );
-  assert.ok(
-    publicItems.some((i) => i.onSale),
-    'at least one demo item is on sale'
-  );
-  const demoBundles = res.body.bundles;
-  assert.ok(demoBundles.length >= 1, 'at least one demo bundle shows');
-  assert.ok(
-    demoBundles.every((b) => b.members.length >= 2 && /^DEMO:/.test(b.name)),
-    'demo bundles are valid and DEMO-labeled'
-  );
-  ok('public inventory: DEMO catalog populates the page (items, sale, bundle)', () => {});
-
-  res = await call(inventoryHandler, {
-    method: 'GET',
-    url: '/api/inventory?collection=col-rifles&q=lever',
-  });
-  assert.equal(res.body.items.length, 1);
-  ok('public inventory: collection filter and search work', () => {});
-
-  // ---- admin catalog: drafts with statuses ----
+  res = await call(adminProductsHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.items.length, 0);
+  res = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.summary.total, 0);
+  ok('dashboard: empty catalog, nothing pending to publish', () => {});
 
   res = await call(adminProductsHandler, { method: 'GET', url: '/x' });
   assert.equal(res.statusCode, 401);
   ok('admin products: no token returns 401', () => {});
 
-  res = await call(adminProductsHandler, { method: 'GET', url: '/x', headers: auth });
-  assert.equal(res.statusCode, 200);
-  const adminItems = res.body.items;
-  assert.equal(adminItems.find((i) => i.id === 'demo-other-case').status, 'new');
-  assert.equal(adminItems.find((i) => i.id === 'demo-handgun-revolver').status, 'changed');
-  assert.equal(adminItems.find((i) => i.id === 'demo-handgun-revolver').price, 279);
-  assert.ok(adminItems.some((i) => i.stockStatus === 'Hidden'));
-  ok('admin products: draft view shows statuses, staged edits, hidden', () => {});
+  // ---- build fixtures through the same endpoints the dashboard uses ----
 
-  res = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
-  assert.equal(res.body.summary.total, 2);
-  ok('publish summary: seeds start with 2 unpublished changes', () => {});
+  const rifles = await makeCollection(auth, 'Rifles');
+  const handguns = await makeCollection(auth, 'Handguns');
 
-  // create product: validation catches sale pricing and ghost collections
+  // unknown collection id rejected
   res = await call(adminProductsHandler, {
     method: 'POST',
     headers: auth,
     body: {
-      name: 'DEMO: Smoke Pistol',
+      name: 'Smoke Ghost',
       collectionIds: ['no-such-collection'],
-      manufacturer: 'Sample Firearms',
-      model: 'SM-9',
+      manufacturer: 'Smoke Arms Co.',
+      model: 'SM-0',
       condition: 'New',
       price: 300,
       stockStatus: 'In Stock',
@@ -250,51 +271,75 @@ await (async () => {
   assert.ok(res.body.errors.collectionIds);
   ok('admin products: unknown collection id rejected', () => {});
 
-  res = await call(adminProductsHandler, {
-    method: 'POST',
-    headers: auth,
-    body: {
-      name: 'DEMO: Smoke Pistol',
-      collectionIds: ['col-handguns'],
-      manufacturer: 'Sample Firearms',
-      model: 'SM-9',
-      condition: 'New',
-      price: 300,
-      compareAtPrice: 350,
-      saleLabel: 'DEMO Sale',
-      stockStatus: 'In Stock',
-    },
+  const bolt = await makeProduct(auth, {
+    name: 'Smoke Bolt Rifle',
+    collectionIds: [rifles.id],
+    model: 'Model 100',
+    caliber: '.308 Win',
+    price: 649.99,
   });
-  assert.equal(res.statusCode, 201);
-  const created = res.body.item;
-  assert.equal(created.status, 'new');
-  assert.equal(created.onSale, true);
-  ok('admin products: create returns a new draft with onSale computed', () => {});
+  const lever = await makeProduct(auth, {
+    name: 'Smoke Lever Rifle',
+    collectionIds: [rifles.id],
+    model: 'Heritage 94',
+    caliber: '.30-30 Win',
+    condition: 'Used',
+    price: 425,
+    stockStatus: 'Low Stock',
+  });
+  const compact = await makeProduct(auth, {
+    name: 'Smoke Compact Pistol',
+    collectionIds: [handguns.id],
+    model: 'C-9',
+    caliber: '9mm',
+    price: 389.5,
+    compareAtPrice: 449.5,
+    saleLabel: 'Launch Sale',
+  });
+  const hidden = await makeProduct(auth, {
+    name: 'Smoke Hidden Shotgun',
+    collectionIds: [rifles.id],
+    model: 'Clays 20',
+    condition: 'Used',
+    price: 780,
+    stockStatus: 'Hidden',
+  });
+  assert.equal(bolt.status, 'new');
+  assert.equal(compact.onSale, true);
+  ok('admin products: creates return new drafts with onSale computed', () => {});
 
-  // drafts never leak to the public read
+  // drafts never leak to the public read before publish
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
-  assert.ok(!res.body.items.some((i) => i.id === created.id));
-  ok('public inventory: new draft does not leak before publish', () => {});
+  assert.equal(res.body.items.length, 0);
+  ok('public inventory: new drafts do not leak before publish', () => {});
 
   // publish promotes everything atomically
-  res = await call(adminPublishHandler, {
-    method: 'POST',
-    headers: auth,
-    body: { action: 'publish' },
-  });
-  assert.equal(res.body.summary.total, 0);
+  const summary = await publish(auth);
+  assert.equal(summary.total, 0);
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
-  publicItems = res.body.items;
-  assert.ok(publicItems.some((i) => i.id === created.id));
-  assert.ok(publicItems.some((i) => i.id === 'demo-other-case'));
-  assert.equal(publicItems.find((i) => i.id === 'demo-handgun-revolver').price, 279);
-  ok('publish: drafts promoted, new items live, staged price live', () => {});
+  let publicItems = res.body.items;
+  assert.equal(publicItems.length, 3, 'hidden item never serves publicly');
+  assert.ok(!publicItems.some((i) => i.id === hidden.id), 'hidden leaks');
+  assert.ok(!publicItems.some((i) => i.stockStatus === 'Hidden'));
+  const saleItem = publicItems.find((i) => i.id === compact.id);
+  assert.equal(saleItem.onSale, true);
+  assert.equal(saleItem.compareAtPrice, 449.5);
+  assert.equal(res.body.collections.length, 2);
+  ok('publish: drafts go live; published only, no hidden, sale flags', () => {});
 
-  // discard reverts a fresh draft edit
+  res = await call(inventoryHandler, {
+    method: 'GET',
+    url: `/api/inventory?collection=${rifles.id}&q=lever`,
+  });
+  assert.equal(res.body.items.length, 1);
+  assert.equal(res.body.items[0].id, lever.id);
+  ok('public inventory: collection filter and search work', () => {});
+
+  // draft edit shows in the dashboard, then discard reverts it
   res = await call(adminProductsHandler, {
     method: 'POST',
     headers: auth,
-    body: { id: created.id, price: 111 },
+    body: { id: compact.id, price: 111 },
   });
   assert.equal(res.statusCode, 200);
   res = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
@@ -306,50 +351,47 @@ await (async () => {
   });
   assert.equal(res.body.summary.total, 0);
   res = await call(adminProductsHandler, { method: 'GET', url: '/x', headers: auth });
-  assert.equal(res.body.items.find((i) => i.id === created.id).price, 300);
+  assert.equal(res.body.items.find((i) => i.id === compact.id).price, 389.5);
   ok('discard: draft edits revert to the published state', () => {});
 
   // delete: pending removal until published
+  const temp = await makeProduct(auth, {
+    name: 'Smoke Temp Pistol',
+    collectionIds: [handguns.id],
+    model: 'T-9',
+    price: 300,
+  });
+  await publish(auth);
   res = await call(adminProductsHandler, {
     method: 'DELETE',
     headers: auth,
-    body: { id: created.id },
+    body: { id: temp.id },
   });
   assert.equal(res.statusCode, 200);
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
-  assert.ok(res.body.items.some((i) => i.id === created.id), 'still live before publish');
-  res = await call(adminPublishHandler, {
-    method: 'POST',
-    headers: auth,
-    body: { action: 'publish' },
-  });
+  assert.ok(res.body.items.some((i) => i.id === temp.id), 'still live before publish');
+  await publish(auth);
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
-  assert.ok(!res.body.items.some((i) => i.id === created.id));
+  assert.ok(!res.body.items.some((i) => i.id === temp.id));
   ok('delete: removal is a draft until publish, then the item is gone', () => {});
 
   // ---- collections CRUD ----
 
-  res = await call(adminCollectionsHandler, {
-    method: 'POST',
-    headers: auth,
-    body: { name: 'DEMO: Rimfire' },
-  });
-  assert.equal(res.statusCode, 201);
-  const rimfire = res.body.item;
+  const rimfire = await makeCollection(auth, 'Rimfire');
   ok('collections: create returns a new draft collection', () => {});
 
   res = await call(adminCollectionsHandler, {
     method: 'POST',
     headers: auth,
-    body: { id: rimfire.id, name: 'DEMO: Rimfire Corner' },
+    body: { id: rimfire.id, name: 'Rimfire Corner' },
   });
-  assert.equal(res.body.item.name, 'DEMO: Rimfire Corner');
+  assert.equal(res.body.item.name, 'Rimfire Corner');
   ok('collections: rename updates the draft', () => {});
 
   res = await call(adminCollectionsHandler, {
     method: 'PATCH',
     headers: auth,
-    body: { order: [rimfire.id, 'col-rifles', 'col-handguns'] },
+    body: { order: [rimfire.id, rifles.id, handguns.id] },
   });
   assert.equal(res.statusCode, 200);
   res = await call(adminCollectionsHandler, { method: 'GET', url: '/x', headers: auth });
@@ -360,13 +402,13 @@ await (async () => {
   res = await call(adminCollectionsHandler, {
     method: 'DELETE',
     headers: auth,
-    body: { id: 'col-ammunition' },
+    body: { id: handguns.id },
   });
   assert.equal(res.statusCode, 200);
   res = await call(adminProductsHandler, { method: 'GET', url: '/x', headers: auth });
-  const ammo = res.body.items.find((i) => i.id === 'demo-ammo-9mm');
-  assert.ok(ammo, 'product survived collection delete');
-  assert.ok(!ammo.collectionIds.includes('col-ammunition'));
+  const compactAfter = res.body.items.find((i) => i.id === compact.id);
+  assert.ok(compactAfter, 'product survived collection delete');
+  assert.ok(!compactAfter.collectionIds.includes(handguns.id));
   ok('collections: delete keeps products, they just leave the collection', () => {});
 
   // ---- bundles CRUD ----
@@ -374,11 +416,7 @@ await (async () => {
   res = await call(adminBundlesHandler, {
     method: 'POST',
     headers: auth,
-    body: {
-      name: 'DEMO: Bad Bundle',
-      memberProductIds: ['demo-rifle-bolt'],
-      price: 700,
-    },
+    body: { name: 'Smoke Bad Bundle', memberProductIds: [bolt.id], price: 700 },
   });
   assert.equal(res.statusCode, 422);
   ok('bundles: fewer than two members rejected', () => {});
@@ -387,8 +425,8 @@ await (async () => {
     method: 'POST',
     headers: auth,
     body: {
-      name: 'DEMO: Ghost Bundle',
-      memberProductIds: ['demo-rifle-bolt', 'no-such-product'],
+      name: 'Smoke Ghost Bundle',
+      memberProductIds: [bolt.id, 'no-such-product'],
       price: 700,
     },
   });
@@ -400,10 +438,10 @@ await (async () => {
     method: 'POST',
     headers: auth,
     body: {
-      name: 'DEMO: Smoke Bundle',
-      memberProductIds: ['demo-rifle-bolt', 'demo-optic-scope'],
-      price: 760,
-      compareAtPrice: 808.99,
+      name: 'Smoke Range Bundle',
+      memberProductIds: [bolt.id, lever.id],
+      price: 999,
+      compareAtPrice: 1074.99,
     },
   });
   assert.equal(res.statusCode, 201);
@@ -424,14 +462,14 @@ await (async () => {
   res = await call(adminProductsCsvHandler, { method: 'GET', url: '/x', headers: auth });
   assert.equal(res.statusCode, 200);
   assert.ok(res.raw.startsWith('id,name,collections'));
-  assert.ok(res.raw.includes('DEMO: Example Bolt-Action Rifle'));
-  ok('csv export: returns a CSV with headers and rows', () => {});
+  assert.ok(res.raw.includes('Smoke Bolt Rifle'));
+  ok('csv export: returns a CSV with headers and the created rows', () => {});
 
   const csv = [
     'id,name,collections,manufacturer,model,caliber,condition,price,compareAtPrice,saleLabel,stockStatus,description',
-    ',DEMO: CSV Shotgun,Shotguns,Example Arms Co.,CSV-12,12 GA,New,399.99,,,In Stock,Imported by smoke test',
-    ',DEMO: Broken Row,Shotguns,Example Arms Co.,CSV-13,,Mint,399.99,,,In Stock,Bad condition value',
-    ',DEMO: Ghost Collection Row,No Such Collection,Example Arms Co.,CSV-14,,New,10,,,In Stock,Unknown collection',
+    ',Smoke CSV Shotgun,Rifles,Smoke Arms Co.,CSV-12,12 GA,New,399.99,,,In Stock,Imported by smoke test',
+    ',Smoke Broken Row,Rifles,Smoke Arms Co.,CSV-13,,Mint,399.99,,,In Stock,Bad condition value',
+    ',Smoke Ghost Collection Row,No Such Collection,Smoke Arms Co.,CSV-14,,New,10,,,In Stock,Unknown collection',
   ].join('\n');
   res = await call(adminProductsCsvHandler, {
     method: 'POST',
@@ -477,9 +515,8 @@ await (async () => {
   ok('image upload: auth enforced, images accepted, non-images rejected', () => {});
 })();
 
-// ---- Phase 3: public catalog view logic and endpoints ----
+// ---- public catalog view logic ----
 
-// Pure view helpers, exactly what the pages render with.
 ok('catalog view: featured items order first, then newest', () => {
   const ordered = orderProducts([
     { id: 'b', featured: false },
@@ -492,8 +529,8 @@ ok('catalog view: featured items order first, then newest', () => {
 
 ok('catalog view: search and filters match spec fields', () => {
   const items = [
-    { id: '1', name: 'DEMO: Lever Rifle', manufacturer: 'Example', model: 'H94', caliber: '.30-30 Win', condition: 'Used', stockStatus: 'In Stock', collectionIds: ['col-rifles'] },
-    { id: '2', name: 'DEMO: Pistol', manufacturer: 'Sample', model: 'C-9', caliber: '9mm', condition: 'New', stockStatus: 'Sold', collectionIds: ['col-handguns'] },
+    { id: '1', name: 'Smoke Lever Rifle', manufacturer: 'Example', model: 'H94', caliber: '.30-30 Win', condition: 'Used', stockStatus: 'In Stock', collectionIds: ['col-rifles'] },
+    { id: '2', name: 'Smoke Pistol', manufacturer: 'Sample', model: 'C-9', caliber: '9mm', condition: 'New', stockStatus: 'Sold', collectionIds: ['col-handguns'] },
   ];
   assert.equal(filterProducts(items, { q: '30-30' }).length, 1);
   assert.equal(filterProducts(items, { q: 'sample' })[0].id, '2');
@@ -504,8 +541,8 @@ ok('catalog view: search and filters match spec fields', () => {
 });
 
 ok('catalog view: badge logic for sale, low stock, sold', () => {
-  const sale = badgesFor({ onSale: true, saleLabel: 'DEMO Sale', stockStatus: 'In Stock' });
-  assert.equal(sale.sale, 'DEMO Sale');
+  const sale = badgesFor({ onSale: true, saleLabel: 'Launch Sale', stockStatus: 'In Stock' });
+  assert.equal(sale.sale, 'Launch Sale');
   assert.equal(sale.stock, null);
   const plainSale = badgesFor({ onSale: true, saleLabel: '', stockStatus: 'Low Stock' });
   assert.equal(plainSale.sale, 'Sale');
@@ -518,75 +555,105 @@ ok('catalog view: badge logic for sale, low stock, sold', () => {
 
 ok('catalog view: featured strip renders only when featured items exist', () => {
   assert.deepEqual(featuredItems([{ featured: false }, {}]), []);
-  const four = featuredItems(
-    [1, 2, 3, 4, 5].map((n) => ({ id: n, featured: true }))
-  );
+  const four = featuredItems([1, 2, 3, 4, 5].map((n) => ({ id: n, featured: true })));
   assert.equal(four.length, 4);
 });
 
 ok('catalog view: ask-about prefill carries the item name', () => {
-  assert.ok(askAboutMessage('DEMO: Example Revolver').includes('DEMO: Example Revolver'));
+  assert.ok(askAboutMessage('Smoke Revolver').includes('Smoke Revolver'));
   assert.equal(askAboutMessage(''), '');
 });
 
-await (async () => {
-  // Fresh seeded store for the public-read checks.
-  rmSync('.data', { recursive: true, force: true });
-  delete globalThis.__ssgaCatalogStore;
+// ---- public single item and bundle gating (own fixtures) ----
 
-  // Single item: published only, Hidden never served.
+await (async () => {
+  resetStores();
+  const auth = await login();
+
+  // Empty store: unknown id 404s cleanly.
   let res = await call(inventoryHandler, {
     method: 'GET',
-    url: '/api/inventory?id=demo-rifle-bolt',
+    url: '/api/inventory?id=no-such-id',
+  });
+  assert.equal(res.statusCode, 404);
+  ok('public item: unknown id 404s on an empty catalog', () => {});
+
+  const range = await makeCollection(auth, 'Range Gear');
+  const scope = await makeProduct(auth, {
+    name: 'Smoke Rifle Scope',
+    collectionIds: [range.id],
+    model: 'Clearview 3940',
+    price: 159,
+  });
+  const ammo = await makeProduct(auth, {
+    name: 'Smoke Range Ammo Pack',
+    collectionIds: [range.id],
+    model: 'Range Pack',
+    caliber: '9mm',
+    price: 17.99,
+  });
+  const caseHidden = await makeProduct(auth, {
+    name: 'Smoke Rifle Case',
+    collectionIds: [range.id],
+    model: 'Guard 48',
+    price: 54.99,
+    stockStatus: 'Hidden',
+  });
+  res = await call(adminBundlesHandler, {
+    method: 'POST',
+    headers: auth,
+    body: {
+      name: 'Smoke Starter Package',
+      memberProductIds: [scope.id, ammo.id],
+      price: 170,
+    },
+  });
+  assert.equal(res.statusCode, 201);
+  await publish(auth);
+
+  res = await call(inventoryHandler, {
+    method: 'GET',
+    url: `/api/inventory?id=${scope.id}`,
   });
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.item.name, 'DEMO: Example Bolt-Action Rifle');
+  assert.equal(res.body.item.name, 'Smoke Rifle Scope');
   ok('public item: published item served by id', () => {});
 
-  for (const id of ['demo-shotgun-ou', 'demo-other-case', 'no-such-id']) {
+  for (const id of [caseHidden.id, 'no-such-id']) {
     res = await call(inventoryHandler, {
       method: 'GET',
       url: `/api/inventory?id=${id}`,
     });
     assert.equal(res.statusCode, 404, `${id} should 404`);
   }
-  ok('public item: hidden, never-published, and unknown ids all 404', () => {});
+  ok('public item: hidden and unknown ids both 404', () => {});
 
-  // Bundles: gated on two or more live members.
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
   assert.equal(res.body.bundles.length, 1);
   assert.equal(res.body.bundles[0].members.length, 2);
-  ok('public bundles: seed bundle serves with two live members', () => {});
-
-  const login = await call(loginHandler, { body: { password: 'oxford' } });
-  const auth = { authorization: `Bearer ${login.body.token}` };
+  ok('public bundles: bundle serves with two live members', () => {});
 
   // Hide one member and publish: the bundle must disappear entirely.
   await call(adminProductsHandler, {
     method: 'POST',
     headers: auth,
-    body: { id: 'demo-ammo-9mm', stockStatus: 'Hidden' },
+    body: { id: ammo.id, stockStatus: 'Hidden' },
   });
-  await call(adminPublishHandler, {
-    method: 'POST',
-    headers: auth,
-    body: { action: 'publish' },
-  });
+  await publish(auth);
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
   assert.equal(res.body.bundles.length, 0);
-  assert.ok(!res.body.items.some((i) => i.id === 'demo-ammo-9mm'));
+  assert.ok(!res.body.items.some((i) => i.id === ammo.id));
   ok('public bundles: bundle drops when fewer than two members are live', () => {});
 
-  // The hidden member also 404s as a single read now.
   res = await call(inventoryHandler, {
     method: 'GET',
-    url: '/api/inventory?id=demo-ammo-9mm',
+    url: `/api/inventory?id=${ammo.id}`,
   });
   assert.equal(res.statusCode, 404);
   ok('public item: newly hidden item stops being served', () => {});
 })();
 
-// ---- Quick Sale: validation, seeds, and Overview statistics math ----
+// ---- Quick Sale: validation, stats math, endpoint flows ----
 
 ok('sale validation: negative price and zero quantity are rejected', () => {
   const r = validateSale({ productId: 'p1', priceAtSale: -5, quantity: 0 });
@@ -609,13 +676,6 @@ ok('sale validation: missing product id is rejected', () => {
   const r = validateSale({ priceAtSale: 10 });
   assert.equal(r.ok, false);
   assert.ok(r.errors.productId);
-});
-
-ok('sales seeds: every DEMO sale is DEMO-labeled and non-personal', () => {
-  const seeds = seedSalesStore();
-  assert.ok(seeds.length >= 5);
-  assert.ok(seeds.every((s) => /^DEMO:/.test(s.productNameSnapshot)));
-  assert.ok(seeds.every((s) => s.note === '' && s.markedSold === false));
 });
 
 ok('overview stats: stock summary counts and listed value', () => {
@@ -671,38 +731,26 @@ ok('overview stats: sale total, window filter, revenue, daily buckets', () => {
   assert.equal(summed, 170);
 });
 
-// ---- Quick Sale: sales-log endpoint (live stock write-through, undo) ----
-
 await (async () => {
-  // Fresh catalog and sales stores so the seed states are known.
-  rmSync('.data', { recursive: true, force: true });
-  delete globalThis.__ssgaCatalogStore;
-  delete globalThis.__ssgaSalesStore;
-
-  const login = await call(loginHandler, { body: { password: 'oxford' } });
-  const auth = { authorization: `Bearer ${login.body.token}` };
+  resetStores();
+  const auth = await login();
 
   // Auth gate.
   let res = await call(adminSalesHandler, { method: 'GET', url: '/api/admin/sales' });
   assert.equal(res.statusCode, 401);
   ok('quick sale endpoint: no token returns 401', () => {});
 
-  // Seeded list, newest first, all DEMO-labeled.
+  // The sales log starts EMPTY (no DEMO sales).
   res = await call(adminSalesHandler, { method: 'GET', url: '/api/admin/sales', headers: auth });
   assert.equal(res.statusCode, 200);
-  const seeded = res.body.items;
-  assert.ok(seeded.length >= 5);
-  assert.ok(seeded.every((s) => /^DEMO:/.test(s.productNameSnapshot)), 'seed sales stay DEMO-labeled');
-  for (let i = 1; i < seeded.length; i += 1) {
-    assert.ok(seeded[i - 1].soldAt >= seeded[i].soldAt, 'sales are newest-first');
-  }
-  ok('quick sale endpoint: seeded sales list newest-first and DEMO-labeled', () => {});
+  assert.equal(res.body.items.length, 0);
+  ok('quick sale endpoint: sales log starts empty', () => {});
 
   // Validation and unknown-product guards.
   res = await call(adminSalesHandler, {
     method: 'POST',
     headers: auth,
-    body: { productId: 'demo-rifle-lever', priceAtSale: -5, quantity: 0 },
+    body: { productId: 'anything', priceAtSale: -5, quantity: 0 },
   });
   assert.equal(res.statusCode, 422);
   assert.ok(res.body.errors.priceAtSale && res.body.errors.quantity);
@@ -717,10 +765,23 @@ await (async () => {
   assert.ok(res.body.errors.productId);
   ok('quick sale endpoint: unknown product rejected', () => {});
 
-  // Snapshot the lever's starting published status via the public read.
+  // Fixture: one published Low Stock product.
+  const used = await makeCollection(auth, 'Used Guns');
+  const leverGun = await makeProduct(auth, {
+    name: 'Smoke Lever Gun',
+    collectionIds: [used.id],
+    model: 'Heritage 94',
+    caliber: '.30-30 Win',
+    condition: 'Used',
+    price: 425,
+    stockStatus: 'Low Stock',
+  });
+  await publish(auth);
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
-  const leverBefore = res.body.items.find((i) => i.id === 'demo-rifle-lever');
-  assert.equal(leverBefore.stockStatus, 'Low Stock');
+  assert.equal(
+    res.body.items.find((i) => i.id === leverGun.id).stockStatus,
+    'Low Stock'
+  );
   const summaryBefore = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
   const dirtyBefore = summaryBefore.body.summary.total;
 
@@ -728,23 +789,24 @@ await (async () => {
   res = await call(adminSalesHandler, {
     method: 'POST',
     headers: auth,
-    body: { productId: 'demo-rifle-lever', priceAtSale: '400', quantity: 1, markSold: true },
+    body: { productId: leverGun.id, priceAtSale: '400', quantity: 1, markSold: true },
   });
   assert.equal(res.statusCode, 201);
   const sale = res.body.sale;
   assert.equal(sale.markedSold, true);
   assert.equal(sale.prevStockStatus, 'Low Stock');
-  assert.equal(sale.productNameSnapshot, 'DEMO: Example Lever-Action Rifle');
+  assert.equal(sale.productNameSnapshot, 'Smoke Lever Gun');
   ok('quick sale endpoint: markSold logs sale and captures previous status', () => {});
 
   // Public catalog reflects Sold immediately, no publish step.
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
-  const leverSold = res.body.items.find((i) => i.id === 'demo-rifle-lever');
-  assert.equal(leverSold.stockStatus, 'Sold');
+  assert.equal(
+    res.body.items.find((i) => i.id === leverGun.id).stockStatus,
+    'Sold'
+  );
   ok('quick sale endpoint: markSold shows on the public site with no publish', () => {});
 
-  // The write-through touches draft AND published equally, so it introduces no
-  // new unpublished diff.
+  // The write-through touches draft AND published equally: no new diff.
   res = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
   assert.equal(res.body.summary.total, dirtyBefore);
   ok('quick sale endpoint: live sold status adds no unpublished changes', () => {});
@@ -756,7 +818,7 @@ await (async () => {
     url: `/api/admin/sales?from=${encodeURIComponent(from)}`,
     headers: auth,
   });
-  assert.ok(!res.body.items.some((s) => s.id === sale.id), 'from filter excludes the earlier sale');
+  assert.ok(!res.body.items.some((s) => s.id === sale.id));
   ok('quick sale endpoint: date-range filter narrows the list', () => {});
 
   // Undo: delete the sale and the item returns to its prior status live.
@@ -769,12 +831,11 @@ await (async () => {
   assert.equal(res.body.restored.stockStatus, 'Low Stock');
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
   assert.equal(
-    res.body.items.find((i) => i.id === 'demo-rifle-lever').stockStatus,
+    res.body.items.find((i) => i.id === leverGun.id).stockStatus,
     'Low Stock'
   );
   ok('quick sale endpoint: undo removes the sale and restores prior status live', () => {});
 
-  // Deleting an unknown sale is a clean 404.
   res = await call(adminSalesHandler, {
     method: 'DELETE',
     url: '/api/admin/sales?id=no-such-sale',
@@ -783,19 +844,19 @@ await (async () => {
   assert.equal(res.statusCode, 404);
   ok('quick sale endpoint: deleting an unknown sale returns 404', () => {});
 
-  // A sale WITHOUT markSold leaves stock untouched and stores no personal data.
+  // A sale WITHOUT markSold leaves stock untouched.
   res = await call(adminSalesHandler, {
     method: 'POST',
     headers: auth,
-    body: { productId: 'demo-rifle-bolt', priceAtSale: 649.99, quantity: 1, markSold: false, note: 'counter sale' },
+    body: { productId: leverGun.id, priceAtSale: 425, quantity: 1, markSold: false, note: 'counter sale' },
   });
   assert.equal(res.statusCode, 201);
   assert.equal(res.body.sale.markedSold, false);
   assert.equal(res.body.sale.note, 'counter sale');
   res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
   assert.equal(
-    res.body.items.find((i) => i.id === 'demo-rifle-bolt').stockStatus,
-    'In Stock'
+    res.body.items.find((i) => i.id === leverGun.id).stockStatus,
+    'Low Stock'
   );
   ok('quick sale endpoint: logging without markSold leaves stock unchanged', () => {});
 })();
@@ -822,9 +883,6 @@ ok('reviews: aggregate summary strings are present for the section heading', () 
 });
 
 ok('reviews: the review button is hidden while googleReviewUrl is a placeholder', () => {
-  // Shipped state: GOOGLE_REVIEW_URL is the owner-pending [[...]] placeholder,
-  // so hasReviewLink is false and the "Leave us a review" button never renders
-  // (no broken link). It becomes true only for a real http(s) URL.
   assert.equal(hasReviewLink(GOOGLE_REVIEW_URL), false);
   assert.equal(hasReviewLink('[[GOOGLE REVIEW LINK - owner to provide]]'), false);
   assert.equal(hasReviewLink(''), false);
@@ -872,7 +930,7 @@ ok('maintenance: every public route is covered, static files are not', () => {
     '/about',
     '/services',
     '/inventory',
-    '/inventory/demo-rifle-bolt',
+    '/inventory/some-item',
     '/transfers',
     '/contact',
     '/no-such-page',

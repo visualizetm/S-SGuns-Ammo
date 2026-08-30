@@ -130,6 +130,11 @@ function createPostgresSalesAdapter(connectionString) {
           marked_sold BOOLEAN NOT NULL DEFAULT false,
           prev_stock_status TEXT
         )`);
+        // One-time DEMO cleanup: earlier deployments seeded example sales
+        // (fixed ids 'demo-sale-*'). The demos were removed before launch;
+        // delete any that remain. Idempotent and touches only those ids, so
+        // real sales (random UUIDs) can never match.
+        await sql.unsafe(`DELETE FROM ${TABLE} WHERE id LIKE 'demo-sale-%'`);
         return sql;
       })();
     }
