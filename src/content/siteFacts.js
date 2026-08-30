@@ -261,6 +261,16 @@ export const SHOP_VALUES = [
   },
 ];
 
+// ---------- Site-wide announcement bar ----------
+
+// The slim bar across the top of every public page. Edit the text here or
+// set enabled to false to remove the bar entirely; no other change needed.
+// Visitors can dismiss it for their visit; it returns on a fresh visit.
+export const ANNOUNCEMENT = {
+  enabled: true,
+  text: 'Our website is brand new and we are still adding our products. Please be patient while we get everything listed. Call the shop anytime.',
+};
+
 // ---------- Reviews (real, owner-approved) ----------
 
 // Real, owner-approved Google reviews for S&S Guns & Ammo. Paste more here anytime.

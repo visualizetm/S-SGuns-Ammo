@@ -12,6 +12,7 @@ import Menu02 from '@untitled-ui/icons-react/build/esm/Menu02';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Clock from '@untitled-ui/icons-react/build/esm/Clock';
 import { BUSINESS, HOURS_SUMMARY, LOGO_ASSETS } from '../content/siteFacts.js';
+import { AnnouncementBar } from './AnnouncementBar.jsx';
 import { useReveal } from '../lib/useReveal.js';
 
 const NAV_ITEMS = [
@@ -561,6 +562,9 @@ export function Layout() {
       <a href="#main" className="ssga-skip-link">
         Skip to content
       </a>
+      {/* New-site announcement: normal flow above the sticky navbar, so it
+          pushes the page down and can never overlap chrome or content. */}
+      <AnnouncementBar />
       <Navbar />
       <main id="main" className="ssga-main">
         <Outlet />

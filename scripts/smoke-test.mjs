@@ -45,7 +45,13 @@ import {
   stockSummary,
   dailyBuckets,
 } from '../src/lib/salesStats.js';
-import { REVIEWS, REVIEWS_SUMMARY, GOOGLE_REVIEW_URL } from '../src/content/siteFacts.js';
+import {
+  REVIEWS,
+  REVIEWS_SUMMARY,
+  GOOGLE_REVIEW_URL,
+  ANNOUNCEMENT,
+} from '../src/content/siteFacts.js';
+import { shouldShowAnnouncement } from '../src/lib/announcementView.js';
 import { hasReviewLink, starCount } from '../src/lib/reviewsView.js';
 import {
   isMaintenanceEnabled,
@@ -896,6 +902,28 @@ ok('reviews: star count clamps to whole stars in 0..5', () => {
   assert.equal(starCount(0), 0);
   assert.equal(starCount(9), 5);
   assert.equal(starCount(-2), 0);
+});
+
+// ---- Announcement bar: enabled by default, gated exactly as rendered ----
+
+ok('announcement: shipped config is enabled with real text, no em dashes', () => {
+  assert.equal(ANNOUNCEMENT.enabled, true);
+  assert.equal(typeof ANNOUNCEMENT.text, 'string');
+  assert.ok(ANNOUNCEMENT.text.trim().length > 0);
+  assert.ok(!/[\u2013\u2014]/.test(ANNOUNCEMENT.text), 'no em or en dashes');
+  assert.equal(shouldShowAnnouncement(ANNOUNCEMENT, false), true);
+});
+
+ok('announcement: bar renders when enabled, absent when disabled or dismissed', () => {
+  const base = { enabled: true, text: 'Hello' };
+  assert.equal(shouldShowAnnouncement(base, false), true);
+  // Dismissed this visit: hidden.
+  assert.equal(shouldShowAnnouncement(base, true), false);
+  // Switched off in siteFacts: hidden.
+  assert.equal(shouldShowAnnouncement({ ...base, enabled: false }, false), false);
+  // No usable text: hidden.
+  assert.equal(shouldShowAnnouncement({ enabled: true, text: '  ' }, false), false);
+  assert.equal(shouldShowAnnouncement(undefined, false), false);
 });
 
 // ---- Maintenance mode: the switch and what it is allowed to cover ----
