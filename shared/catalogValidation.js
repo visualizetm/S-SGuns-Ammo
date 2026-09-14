@@ -40,7 +40,10 @@ function validatePhotos(input, errors, field = 'photos') {
       errors[field] = 'Photos must be uploaded images or image links.';
       return [];
     }
-    photos.push({ url });
+    // Cloudinary reference: keep the public_id alongside the delivery URL
+    // (never image bytes). Optional; dev data-URL photos have no publicId.
+    const publicId = cleanString(photo?.publicId).slice(0, 200);
+    photos.push(publicId ? { url, publicId } : { url });
   }
   return photos;
 }

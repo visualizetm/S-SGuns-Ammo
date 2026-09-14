@@ -33,7 +33,7 @@ click-to-call link, so there is nothing to set up for contact.
 | `ADMIN_PASSWORD` | Real admin password for `/admin` | Documented demo password `oxford` |
 | `ADMIN_SESSION_SECRET` | Random secret that signs admin session tokens | Secret derived from the admin password (demo grade) |
 | `POSTGRES_URL` (or `DATABASE_URL`) | REQUIRED. Pooled Postgres connection string. Vercel's Supabase integration sets `POSTGRES_URL` automatically | PRODUCTION: loud 503 error + red dashboard banner. Local dev only: JSON file store |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for photo storage | Photos stored as small data URLs inside the records |
+| `CLOUDINARY_URL` (or `CLOUDINARY_CLOUD_NAME` + `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`) | Cloudinary account for permanent photo storage | PRODUCTION: uploads answer 503 with a clear error. Local dev only: data-URL photos |
 
 Set all four for a real deployment. Redeploy after changing any of them.
 
@@ -48,7 +48,7 @@ openssl rand -hex 32      # -> ADMIN_SESSION_SECRET
 vercel env add ADMIN_PASSWORD production
 vercel env add ADMIN_SESSION_SECRET production
 vercel env add POSTGRES_URL production
-vercel env add BLOB_READ_WRITE_TOKEN production
+vercel env add CLOUDINARY_URL production
 vercel --prod   # redeploy so the new env takes effect
 ```
 
@@ -106,15 +106,30 @@ Neon, Vercel Postgres, or a self-hosted database.
 6. Verify locally against any Postgres: `POSTGRES_URL=... node
    scripts/test-postgres.mjs` exercises create, publish, edit, and delete.
 
-## Photo storage (Vercel Blob)
+## Photo storage (Cloudinary)
 
-1. Storage tab, create a Blob store, connect it to the project (injects
-   `BLOB_READ_WRITE_TOKEN`).
-2. Uploads return public blob URLs stored on the records.
-3. The admin downscales photos in the browser (max edge 1200px, JPEG)
-   before upload; server caps ~1.5 MB, JPEG/PNG/WebP only.
-4. Deleting a product does not delete its blobs; prune from the Blob
-   dashboard if storage ever matters.
+1. Create a free Cloudinary account (cloudinary.com), open the dashboard,
+   and copy the "API environment variable" (it looks like
+   `cloudinary://KEY:SECRET@CLOUD_NAME`). Add it to Vercel as
+   `CLOUDINARY_URL` and redeploy. (The three discrete vars
+   `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+   work too.)
+2. Uploads go through the auth-gated `POST /api/admin/inventory-image`
+   endpoint, which signs the request SERVER-SIDE; the API secret never
+   reaches the browser. Records store only the secure delivery URL
+   (with `f_auto,q_auto` for fast automatic format/quality) and the
+   `public_id`, never image bytes.
+3. Photos land in the `ss-guns-ammo/products` folder. The admin still
+   downscales in the browser (max edge 1200px JPEG) before upload;
+   server caps ~1.5 MB, JPEG/PNG/WebP only.
+4. PERMANENCE: uploaded images STAY, by design. Nothing in the app ever
+   deletes a Cloudinary asset; deleting or replacing a product removes
+   only the reference. The smoke suite fails if a destroy call is added.
+5. Migrating legacy images (base64 or old Vercel Blob URLs) into
+   Cloudinary, one time:
+   `POSTGRES_URL=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs`
+   (add `--dry-run` to preview; safe to rerun, already-migrated images
+   are skipped).
 
 ## SEO output (automatic at build)
 

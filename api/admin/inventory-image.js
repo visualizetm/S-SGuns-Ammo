@@ -16,9 +16,16 @@ async function handler(req, res) {
   const body = await readJsonBody(req);
   const result = await storeImage(body || {});
   if (!result.ok) {
-    return sendJson(res, 422, { ok: false, error: result.error });
+    // A misconfigured storage backend is a service problem (503), not a
+    // problem with the owner's photo (422).
+    const status = result.code === 'IMAGE_STORAGE_NOT_CONFIGURED' ? 503 : 422;
+    return sendJson(res, status, { ok: false, error: result.error, code: result.code });
   }
-  return sendJson(res, 201, { ok: true, url: result.url });
+  return sendJson(res, 201, {
+    ok: true,
+    url: result.url,
+    ...(result.publicId ? { publicId: result.publicId } : {}),
+  });
 }
 
 export default guard(handler);

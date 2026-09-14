@@ -101,7 +101,10 @@ function ProductForm({ token, item, collections, onSaved, onCancel }) {
       const dataUrl = await downscaleImage(file);
       const { body } = await adminUploadImage(token, { filename: file.name, dataUrl });
       if (body?.ok && body.url) {
-        set('photos', [...values.photos, { url: body.url }]);
+        set('photos', [
+          ...values.photos,
+          { url: body.url, ...(body.publicId ? { publicId: body.publicId } : {}) },
+        ]);
       } else {
         setGeneralError(body?.error || 'That photo could not be uploaded.');
       }

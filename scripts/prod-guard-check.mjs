@@ -17,6 +17,7 @@ const { default: publishHandler } = await import('../api/admin/publish.js');
 const { default: productsHandler } = await import('../api/admin/products.js');
 const { default: salesHandler } = await import('../api/admin/sales.js');
 const { default: healthHandler } = await import('../api/admin/health.js');
+const { default: imageHandler } = await import('../api/admin/inventory-image.js');
 
 function mockRes() {
   return {
@@ -75,12 +76,24 @@ expect('publish 503', pub.statusCode === 503 && pub.body?.code === 'DB_NOT_CONFI
 const sales = await call(salesHandler, { url: '/api/admin/sales', headers: auth });
 expect('sales 503', sales.statusCode === 503 && sales.body?.code === 'DB_NOT_CONFIGURED', String(sales.statusCode));
 
+const img = await call(imageHandler, {
+  method: 'POST',
+  headers: auth,
+  body: { filename: 'x.jpg', dataUrl: 'data:image/jpeg;base64,AAAA' },
+});
+expect(
+  'image upload 503 without Cloudinary in production',
+  img.statusCode === 503 && img.body?.code === 'IMAGE_STORAGE_NOT_CONFIGURED',
+  JSON.stringify({ status: img.statusCode, body: img.body })
+);
+
 const health = await call(healthHandler, { url: '/api/admin/health', headers: auth });
 expect(
   'health reports unconfigured, ok false',
   health.statusCode === 200 &&
     health.body?.ok === false &&
     health.body?.adapter === 'unconfigured' &&
+    health.body?.imageStorage === 'unconfigured' &&
     health.body?.runtime === 'production',
   JSON.stringify(health.body)
 );

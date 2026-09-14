@@ -54,6 +54,8 @@ import {
   ANNOUNCEMENT,
 } from '../src/content/siteFacts.js';
 import { shouldShowAnnouncement } from '../src/lib/announcementView.js';
+import { readFileSync } from 'node:fs';
+import { imageStorageMode, cloudinaryConfigured } from '../api/_lib/imageStorage.js';
 import { hasReviewLink, starCount } from '../src/lib/reviewsView.js';
 import {
   isMaintenanceEnabled,
@@ -68,6 +70,18 @@ function resetStores() {
   delete globalThis.__ssgaSalesStore;
 }
 resetStores();
+
+// Tiny recursive lister for the permanence check (no deps).
+import { readdirSync, statSync } from 'node:fs';
+function globSync(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir)) {
+    const full = `${dir}/${entry}`;
+    if (statSync(full).isDirectory()) out.push(...globSync(full));
+    else if (/\.(js|jsx|mjs)$/.test(entry)) out.push(full);
+  }
+  return out;
+}
 
 let passed = 0;
 function ok(label, fn) {
@@ -940,6 +954,53 @@ await (async () => {
   assert.equal(report.failed, 0, JSON.stringify(report.results));
   ok('production guard: no DATABASE_URL means 503 everywhere, health warns', () => {});
 })();
+
+// ---- Cloudinary image storage ----
+
+ok('images: storage mode follows the environment', () => {
+  const before = process.env.CLOUDINARY_URL;
+  delete process.env.CLOUDINARY_URL;
+  assert.equal(cloudinaryConfigured(), false);
+  assert.equal(imageStorageMode(), 'dev-data-url'); // local dev fallback
+  process.env.CLOUDINARY_URL = 'cloudinary://key:secret@example-cloud';
+  assert.equal(cloudinaryConfigured(), true);
+  assert.equal(imageStorageMode(), 'cloudinary');
+  if (before === undefined) delete process.env.CLOUDINARY_URL;
+  else process.env.CLOUDINARY_URL = before;
+});
+
+ok('images: photo validation keeps the Cloudinary publicId, never bytes', () => {
+  const r = validateProduct({
+    name: 'Smoke Photo Rifle',
+    manufacturer: 'Smoke Arms Co.',
+    model: 'P-1',
+    condition: 'New',
+    price: 100,
+    stockStatus: 'In Stock',
+    photos: [
+      { url: 'https://res.cloudinary.com/demo/image/upload/f_auto,q_auto/v1/ss-guns-ammo/products/abc.jpg', publicId: 'ss-guns-ammo/products/abc' },
+      { url: 'https://example.com/plain.jpg' },
+    ],
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.data.photos[0].publicId, 'ss-guns-ammo/products/abc');
+  assert.equal(r.data.photos[1].publicId, undefined);
+});
+
+ok('images: PERMANENCE - no Cloudinary destroy/delete call exists anywhere', () => {
+  const files = [];
+  for (const dir of ['api', 'src', 'shared', 'scripts']) {
+    files.push(...globSync(dir));
+  }
+  const offenders = [];
+  for (const file of files) {
+    const content = readFileSync(file, 'utf8');
+    if (/uploader\s*\.\s*destroy|delete_resources|api\.delete|\bdestroy\s*\(/.test(content) && file !== 'scripts/smoke-test.mjs') {
+      offenders.push(file);
+    }
+  }
+  assert.deepEqual(offenders, [], `destroy-like calls found: ${offenders.join(', ')}`);
+});
 
 // ---- Announcement bar: enabled by default, gated exactly as rendered ----
 
