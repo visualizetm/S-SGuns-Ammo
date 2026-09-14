@@ -175,6 +175,19 @@ export async function adminPublishAction(token, action) {
   }
 }
 
+// ---- Publish history ----
+
+export async function adminPublishHistory(token) {
+  try {
+    return await callApi('/api/admin/publish-history', {
+      method: 'GET',
+      headers: authHeaders(token, false),
+    });
+  } catch {
+    return demoAdapter.publishHistory(token);
+  }
+}
+
 // ---- Quick Sale: sales log ----
 
 export async function adminListSales(token, { from, to } = {}) {

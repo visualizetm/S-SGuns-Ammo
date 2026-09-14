@@ -14,6 +14,7 @@ import {
   validateCollection,
   validateBundle,
 } from '../shared/catalogValidation.js';
+import { changesDetail } from '../shared/catalogStore.js';
 import {
   SEED_PRODUCTS,
   SEED_COLLECTIONS,
@@ -29,6 +30,7 @@ import {
 } from '../src/lib/catalogView.js';
 import { verifyToken } from '../api/_lib/auth.js';
 import loginHandler from '../api/admin/login.js';
+import adminPublishHistoryHandler from '../api/admin/publish-history.js';
 import adminHealthHandler from '../api/admin/health.js';
 import inventoryHandler from '../api/inventory/index.js';
 import adminProductsHandler from '../api/admin/products.js';
@@ -953,6 +955,85 @@ await (async () => {
   const report = JSON.parse(raw.trim().split('\n').pop());
   assert.equal(report.failed, 0, JSON.stringify(report.results));
   ok('production guard: no DATABASE_URL means 503 everywhere, health warns', () => {});
+})();
+
+// ---- Publish modal diff + publish history ----
+
+ok('publish diff: changesDetail groups added/updated/removed by name', () => {
+  const store = {
+    products: [
+      { id: 'p1', draft: { name: 'New Rifle' }, published: null },
+      { id: 'p2', draft: { name: 'Priced Pistol', price: 2 }, published: { name: 'Priced Pistol', price: 1 } },
+      { id: 'p3', draft: null, published: { name: 'Gone Shotgun' } },
+      { id: 'p4', draft: { name: 'Live Optic' }, published: { name: 'Live Optic' } },
+    ],
+    collections: [{ id: 'c1', draft: { name: 'New Shelf' }, published: null }],
+    bundles: [],
+  };
+  const detail = changesDetail(store);
+  assert.deepEqual(detail.products.added, ['New Rifle']);
+  assert.deepEqual(detail.products.updated, ['Priced Pistol']);
+  assert.deepEqual(detail.products.removed, ['Gone Shotgun']);
+  assert.deepEqual(detail.collections.added, ['New Shelf']);
+  assert.deepEqual(detail.bundles, { added: [], updated: [], removed: [] });
+});
+
+await (async () => {
+  resetStores();
+  delete globalThis.__ssgaHistoryStore;
+  const auth = await login();
+
+  // History is auth-gated and starts empty.
+  let res = await call(adminPublishHistoryHandler, { method: 'GET', url: '/x' });
+  assert.equal(res.statusCode, 401);
+  res = await call(adminPublishHistoryHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.items.length, 0);
+  ok('publish history: auth-gated and starts empty', () => {});
+
+  // Build a small change set; the GET publish detail itemizes it.
+  const shelf = await makeCollection(auth, 'History Shelf');
+  const rifle = await makeProduct(auth, {
+    name: 'History Rifle',
+    collectionIds: [shelf.id],
+    price: 500,
+  });
+  res = await call(adminPublishHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.summary.total, 2);
+  assert.deepEqual(res.body.detail.products.added, ['History Rifle']);
+  assert.deepEqual(res.body.detail.collections.added, ['History Shelf']);
+  ok('publish endpoint: GET returns the itemized modal diff', () => {});
+
+  // Publishing records a history entry with that exact itemized detail.
+  await publish(auth);
+  res = await call(adminPublishHistoryHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.items.length, 1);
+  const entry = res.body.items[0];
+  assert.equal(entry.total, 2);
+  assert.equal(entry.publishedBy, 'Owner');
+  assert.ok(!Number.isNaN(new Date(entry.publishedAt).getTime()));
+  assert.deepEqual(entry.detail.products.added, ['History Rifle']);
+  assert.deepEqual(entry.detail.collections.added, ['History Shelf']);
+  ok('publish history: publishing records the itemized entry', () => {});
+
+  // An edit + publish adds a second entry, newest first, grouped as updated.
+  await call(adminProductsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { id: rifle.id, price: 525 },
+  });
+  await publish(auth);
+  res = await call(adminPublishHistoryHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.items.length, 2);
+  assert.ok(res.body.items[0].publishedAt >= res.body.items[1].publishedAt);
+  assert.deepEqual(res.body.items[0].detail.products.updated, ['History Rifle']);
+  ok('publish history: newest first, edits itemized as updated', () => {});
+
+  // Publishing nothing records nothing.
+  await publish(auth);
+  res = await call(adminPublishHistoryHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.equal(res.body.items.length, 2);
+  ok('publish history: an empty publish records no entry', () => {});
 })();
 
 // ---- Cloudinary image storage ----

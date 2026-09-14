@@ -37,6 +37,7 @@ import {
   reorderCollections,
   markStockImmediate,
   changesSummary,
+  changesDetail,
   publishAll,
   discardAll,
 } from '../../shared/catalogStore.js';
@@ -121,6 +122,9 @@ function createDevAdapter() {
     },
     async changesSummary() {
       return changesSummary(load());
+    },
+    async changesDetail() {
+      return changesDetail(load());
     },
     async publishAll() {
       return mutate((s) => {
@@ -353,6 +357,9 @@ function createPostgresAdapter(connectionString) {
     },
     async changesSummary() {
       return withStore((s) => changesSummary(s));
+    },
+    async changesDetail() {
+      return withStore((s) => changesDetail(s));
     },
     async publishAll() {
       return mutateAtomic((s) => {

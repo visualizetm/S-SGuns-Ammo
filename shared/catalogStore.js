@@ -235,6 +235,28 @@ export function changesSummary(store) {
   return summary;
 }
 
+// Itemized picture of what Publish would put live (or Discard would throw
+// away): names grouped added/updated/removed per kind. This is exactly what
+// the publish modal lists and what a publish-history entry records.
+export function changesDetail(store) {
+  const detail = {};
+  for (const kind of KINDS) {
+    const added = [];
+    const updated = [];
+    const removed = [];
+    for (const record of store[kind]) {
+      const status = statusOf(record);
+      if (status === 'live') continue;
+      const name = (displayOf(record) || {}).name || record.id;
+      if (status === 'new') added.push(name);
+      else if (status === 'changed') updated.push(name);
+      else removed.push(name);
+    }
+    detail[kind] = { added, updated, removed };
+  }
+  return detail;
+}
+
 // Promotes every draft to published in one pass. Callers persist the
 // resulting store as a single write (file write or one DB transaction),
 // which is what makes the operation atomic.

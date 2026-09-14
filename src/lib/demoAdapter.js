@@ -35,12 +35,15 @@ import {
   withComputedSale,
 } from '../../shared/catalogValidation.js';
 import { seedSalesStore } from '../../shared/salesSeeds.js';
+import { changesDetail } from '../../shared/catalogStore.js';
 import { validateSale } from '../../shared/salesValidation.js';
 
 // v2: bumped when the DEMO seed data was removed, so a browser still holding
 // the old seeded catalog under the v1 keys starts clean instead.
 const CATALOG_KEY = 'ssga-demo-catalog-v2';
 const SALES_KEY = 'ssga-demo-sales-v2';
+const HISTORY_KEY = 'ssga-demo-publish-history-v1';
+const HISTORY_KEEP = 100;
 const DEMO_PASSWORD = 'oxford';
 const DEMO_TOKEN = 'demo-local-token';
 
@@ -81,6 +84,24 @@ function saveSales(list) {
     localStorage.setItem(SALES_KEY, JSON.stringify(list));
   } catch {
     // storage unavailable; demo continues in-memory for this page load
+  }
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // storage unavailable
+  }
+  return [];
+}
+
+function saveHistory(list) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_KEEP)));
+  } catch {
+    // storage unavailable; history is best-effort in the demo
   }
 }
 
@@ -252,7 +273,11 @@ export const demoAdapter = {
   async publishSummary(token) {
     await delay(120);
     if (token !== DEMO_TOKEN) return denied();
-    return { status: 200, body: { ok: true, summary: changesSummary(loadCatalog()) } };
+    const store = loadCatalog();
+    return {
+      status: 200,
+      body: { ok: true, summary: changesSummary(store), detail: changesDetail(store) },
+    };
   },
 
   async publishAction(token, action) {
@@ -262,10 +287,34 @@ export const demoAdapter = {
       return { status: 400, body: { ok: false, error: 'Action must be "publish" or "discard".' } };
     }
     const store = loadCatalog();
-    if (action === 'publish') publishAll(store);
-    else discardAll(store);
+    let entry = null;
+    if (action === 'publish') {
+      const before = changesSummary(store);
+      const detail = changesDetail(store);
+      publishAll(store);
+      if (before.total > 0) {
+        entry = {
+          id: makeId(),
+          publishedAt: new Date().toISOString(),
+          total: before.total,
+          detail,
+          publishedBy: 'Owner',
+        };
+        const history = loadHistory();
+        history.unshift(entry);
+        saveHistory(history);
+      }
+    } else {
+      discardAll(store);
+    }
     saveCatalog(store);
-    return { status: 200, body: { ok: true, summary: changesSummary(store) } };
+    return { status: 200, body: { ok: true, summary: changesSummary(store), entry } };
+  },
+
+  async publishHistory(token) {
+    await delay(120);
+    if (token !== DEMO_TOKEN) return denied();
+    return { status: 200, body: { ok: true, items: loadHistory() } };
   },
 
   // ---- Quick Sale: sales log (mirrors api/admin/sales.js) ----

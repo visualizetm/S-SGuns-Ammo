@@ -34,6 +34,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import BarChartSquare02 from '@untitled-ui/icons-react/build/esm/BarChartSquare02';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Tag01 from '@untitled-ui/icons-react/build/esm/Tag01';
+import ClockRewind from '@untitled-ui/icons-react/build/esm/ClockRewind';
 import Menu01 from '@untitled-ui/icons-react/build/esm/Menu01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import UploadCloud01 from '@untitled-ui/icons-react/build/esm/UploadCloud01';
@@ -43,6 +44,7 @@ import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
 import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
 import { adminPublishSummary, adminPublishAction, adminHealth } from '../../lib/apiClient.js';
 import { LOGO_ASSETS, BUSINESS } from '../../content/siteFacts.js';
+import { ChangesList } from './ChangesList.jsx';
 
 // The admin has exactly three top-level pages. Overview is the landing page
 // (statistics), Products is the full catalog manager (its own sub-sections),
@@ -51,6 +53,8 @@ export const ADMIN_SECTIONS = [
   { id: 'overview', label: 'Overview', icon: BarChartSquare02 },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'sales', label: 'Quick Sale', icon: Tag01 },
+  // shortLabel keeps the mobile bottom tab readable at 375px.
+  { id: 'history', label: 'Publish History', shortLabel: 'History', icon: ClockRewind },
 ];
 
 export function AdminLayout({
@@ -63,10 +67,12 @@ export function AdminLayout({
   children,
 }) {
   const [summary, setSummary] = useState(null);
-  const [confirming, setConfirming] = useState(''); // '' | 'publish' | 'discard'
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [flash, setFlash] = useState('');
+  const [detail, setDetail] = useState(null);
+  // Publish/Discard run through a modal: which action is open, what phase
+  // it is in, and any plain-language error to show inside it.
+  const [modalAction, setModalAction] = useState(''); // '' | 'publish' | 'discard'
+  const [modalPhase, setModalPhase] = useState('confirm'); // confirm | busy | done
+  const [modalError, setModalError] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Loud failure: when production has no database, nothing the owner saves
   // is stored. The health endpoint reports that state and this banner makes
@@ -74,6 +80,9 @@ export function AdminLayout({
   const [storageBroken, setStorageBroken] = useState(false);
   const menuBtnRef = useRef(null);
   const drawerRef = useRef(null);
+  const modalRef = useRef(null);
+  // The element that opened the modal, so focus can return to it on close.
+  const modalTriggerRef = useRef(null);
 
   const refresh = useCallback(async () => {
     const { status, body } = await adminPublishSummary(token);
@@ -81,7 +90,10 @@ export function AdminLayout({
       onLogout();
       return;
     }
-    if (body?.ok) setSummary(body.summary);
+    if (body?.ok) {
+      setSummary(body.summary);
+      setDetail(body.detail || null);
+    }
   }, [token, onLogout]);
 
   useEffect(() => {
@@ -135,37 +147,76 @@ export function AdminLayout({
     };
   }, [drawerOpen]);
 
-  async function run(action) {
-    setBusy(true);
-    setError('');
-    const { status, body } = await adminPublishAction(token, action);
-    setBusy(false);
-    setConfirming('');
+  // Modal behavior: focus the dialog on open, trap Tab inside, Escape
+  // closes (never mid-publish), and focus returns to whatever opened it.
+  useEffect(() => {
+    if (!modalAction) {
+      const trigger = modalTriggerRef.current;
+      if (trigger && typeof trigger.focus === 'function') trigger.focus();
+      return undefined;
+    }
+    const dialog = modalRef.current;
+    const focusables = () =>
+      dialog ? [...dialog.querySelectorAll('a[href], button:not([disabled])')] : [];
+    focusables()[0]?.focus();
+
+    function onKeyDown(event) {
+      if (event.key === 'Escape') {
+        if (modalPhase !== 'busy') closeModal();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalAction, modalPhase]);
+
+  async function runModal() {
+    setModalPhase('busy');
+    setModalError('');
+    const { status, body } = await adminPublishAction(token, modalAction);
     if (status === 401) {
       onLogout();
       return;
     }
     if (body?.ok) {
       setSummary(body.summary);
-      setFlash(
-        action === 'publish'
-          ? 'Published. The site is up to date.'
-          : 'Changes discarded.'
-      );
-      setTimeout(() => setFlash(''), 4000);
+      setModalPhase('done');
       notifyChange();
     } else {
-      setError(body?.error || 'That did not go through. Try again.');
+      setModalPhase('confirm');
+      setModalError(body?.error || 'That did not go through. Try again.');
     }
+  }
+
+  function closeModal() {
+    setModalAction('');
+    setModalPhase('confirm');
+    setModalError('');
   }
 
   const section = ADMIN_SECTIONS.find((s) => s.id === activeTab) || ADMIN_SECTIONS[0];
   const count = summary?.total ?? 0;
 
-  // The confirm banner renders under the top bar, so a drawer-launched action
-  // closes the drawer first to leave the banner visible.
+  // Publish/Discard open the modal; a drawer-launched action closes the
+  // drawer first so the modal is not stacked under it.
   function startConfirm(action, fromDrawer) {
-    setConfirming(action);
+    modalTriggerRef.current = document.activeElement;
+    setModalAction(action);
+    setModalPhase('confirm');
+    setModalError('');
     if (fromDrawer) setDrawerOpen(false);
   }
 
@@ -187,7 +238,7 @@ export function AdminLayout({
             type="button"
             className="btn btn-primary admin-pub-btn"
             onClick={() => startConfirm('publish', fromDrawer)}
-            disabled={busy || count === 0}
+            disabled={modalPhase === 'busy' || count === 0}
           >
             <UploadCloud01 aria-hidden="true" width={18} height={18} />
             Publish
@@ -196,7 +247,7 @@ export function AdminLayout({
             type="button"
             className="btn btn-secondary admin-pub-btn"
             onClick={() => startConfirm('discard', fromDrawer)}
-            disabled={busy || count === 0}
+            disabled={modalPhase === 'busy' || count === 0}
           >
             Discard
           </button>
@@ -295,7 +346,7 @@ export function AdminLayout({
               className="admin-top-pub"
               data-dirty={count > 0 ? 'true' : undefined}
               onClick={() => startConfirm('publish', false)}
-              disabled={busy || count === 0}
+              disabled={modalPhase === 'busy' || count === 0}
               aria-label={
                 count > 0
                   ? `Publish ${count} unpublished change${count === 1 ? '' : 's'}`
@@ -333,44 +384,6 @@ export function AdminLayout({
               so anything you save or publish will be lost. Fix: in Vercel,
               set the DATABASE_URL environment variable and redeploy.
             </p>
-          </div>
-        ) : null}
-
-        {(confirming || error || flash) ? (
-          <div className="admin-banner" role="status">
-            {flash ? <p className="admin-flash">{flash}</p> : null}
-            {error ? <p className="admin-error" role="alert">{error}</p> : null}
-            {confirming ? (
-              <div className="admin-confirm" role="alert">
-                <span>
-                  {confirming === 'publish'
-                    ? 'Put all unpublished changes on the public site?'
-                    : 'Throw away all unpublished changes?'}
-                </span>
-                <span className="admin-confirm-actions">
-                  <button
-                    type="button"
-                    className="btn btn-primary admin-pub-btn"
-                    onClick={() => run(confirming)}
-                    disabled={busy}
-                  >
-                    {busy
-                      ? 'Working...'
-                      : confirming === 'publish'
-                        ? 'Yes, publish'
-                        : 'Yes, discard'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary admin-pub-btn"
-                    onClick={() => setConfirming('')}
-                    disabled={busy}
-                  >
-                    Cancel
-                  </button>
-                </span>
-              </div>
-            ) : null}
           </div>
         ) : null}
 
@@ -431,18 +444,123 @@ export function AdminLayout({
         </div>
       ) : null}
 
+      {/* Publish / Discard modal: itemizes exactly what is about to go
+          live (or be thrown away) before anything happens. Centered card on
+          desktop, full-screen sheet on phones. */}
+      {modalAction ? (
+        <div className="admin-modal-root">
+          <div
+            className="admin-scrim"
+            aria-hidden="true"
+            onClick={() => modalPhase !== 'busy' && closeModal()}
+          />
+          <div
+            className="admin-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-modal-title"
+            ref={modalRef}
+          >
+            {modalPhase === 'done' ? (
+              <div className="admin-modal-done">
+                <CheckCircle aria-hidden="true" width={40} height={40} />
+                <h2 id="admin-modal-title" className="admin-modal-title">
+                  {modalAction === 'publish'
+                    ? 'Published. Your changes are live.'
+                    : 'Changes discarded.'}
+                </h2>
+                {modalAction === 'publish' ? (
+                  <a
+                    href="/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary admin-modal-btn"
+                  >
+                    <LinkExternal01 aria-hidden="true" width={18} height={18} />
+                    View the live site
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-primary admin-modal-btn"
+                  onClick={closeModal}
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="admin-modal-head">
+                  <h2 id="admin-modal-title" className="admin-modal-title">
+                    {modalAction === 'publish' ? 'Publish' : 'Discard'} {count}{' '}
+                    change{count === 1 ? '' : 's'}
+                  </h2>
+                  <button
+                    type="button"
+                    className="admin-modal-close"
+                    aria-label="Close"
+                    onClick={closeModal}
+                    disabled={modalPhase === 'busy'}
+                  >
+                    <XClose aria-hidden="true" width={22} height={22} />
+                  </button>
+                </div>
+                <p className="admin-modal-sub">
+                  {modalAction === 'publish'
+                    ? 'This is what goes live on the public site:'
+                    : 'These unpublished changes will be thrown away:'}
+                </p>
+                <div className="admin-modal-body">
+                  <ChangesList detail={detail} />
+                </div>
+                {modalError ? (
+                  <p role="alert" className="admin-modal-error">{modalError}</p>
+                ) : null}
+                <div className="admin-modal-actions">
+                  <button
+                    type="button"
+                    className={`btn admin-modal-btn ${
+                      modalAction === 'publish' ? 'btn-primary' : 'admin-modal-danger'
+                    }`}
+                    onClick={runModal}
+                    disabled={modalPhase === 'busy' || count === 0}
+                  >
+                    {modalPhase === 'busy'
+                      ? modalAction === 'publish'
+                        ? 'Publishing...'
+                        : 'Discarding...'
+                      : modalAction === 'publish'
+                        ? 'Publish now'
+                        : 'Discard changes'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary admin-modal-btn"
+                    onClick={closeModal}
+                    disabled={modalPhase === 'busy'}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {/* Mobile bottom tab bar: the primary one-thumb page switcher. */}
       <nav className="admin-tabbar" aria-label="Owner's Dashboard pages" data-fixed-nav>
-        {ADMIN_SECTIONS.map(({ id, label, icon: Icon }) => (
+        {ADMIN_SECTIONS.map(({ id, label, shortLabel, icon: Icon }) => (
           <button
             key={id}
             type="button"
             className="admin-tab"
             aria-current={activeTab === id ? 'page' : undefined}
+            aria-label={label}
             onClick={() => onSelectTab(id)}
           >
             <Icon aria-hidden="true" width={22} height={22} />
-            <span>{label}</span>
+            <span>{shortLabel || label}</span>
           </button>
         ))}
       </nav>
@@ -626,23 +744,6 @@ export function AdminLayout({
         .admin-dbwarn svg { flex-shrink: 0; margin-top: 0.15rem; }
         .admin-dbwarn p { margin: 0; font-size: 0.95rem; line-height: 1.5; }
 
-        .admin-banner {
-          position: sticky;
-          top: 0;
-          z-index: 15;
-          padding: 0.6rem 1.5rem;
-          background: var(--bg-deep);
-          border-bottom: 1px solid var(--border);
-        }
-        .admin-flash { margin: 0; color: var(--brand-dark); font-weight: 600; }
-        .admin-error { margin: 0; color: var(--danger); font-weight: 600; }
-        .admin-confirm {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-        }
-        .admin-confirm-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
         .admin-main {
           flex: 1;
@@ -741,6 +842,99 @@ export function AdminLayout({
         .admin-drawer-link:hover { border-color: var(--brand); color: var(--brand-dark); }
         .admin-drawer-link svg { flex-shrink: 0; }
 
+        /* Publish / Discard modal */
+        .admin-modal-root { position: fixed; inset: 0; z-index: 70; }
+        .admin-modal {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: min(30rem, calc(100vw - 2rem));
+          max-height: min(85vh, 40rem);
+          display: flex;
+          flex-direction: column;
+          background: var(--bg-card, #ffffff);
+          border: 1px solid var(--border, #dbe0e5);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 18px 48px color-mix(in srgb, #10110f 25%, transparent);
+          padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+          animation: admin-fade-in 160ms ease-out;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .admin-modal { animation: none; }
+        }
+        .admin-modal-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 0.75rem;
+        }
+        .admin-modal-title {
+          margin: 0;
+          font-family: var(--font-display);
+          font-size: 1.45rem;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+        .admin-modal-close {
+          flex-shrink: 0;
+          width: 44px;
+          height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--border-strong, #c4cbd3);
+          border-radius: var(--radius);
+          background: transparent;
+          color: var(--text-secondary, #454b52);
+          cursor: pointer;
+        }
+        .admin-modal-close:hover { border-color: var(--brand); color: var(--brand-dark); }
+        .admin-modal-sub { margin: 0.5rem 0 0.75rem; color: var(--text-muted); }
+        .admin-modal-body {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 0.25rem 0.1rem 0.5rem;
+        }
+        .admin-modal-error { margin: 0.5rem 0 0; color: var(--danger); font-weight: 600; }
+        .admin-modal-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          margin-top: 0.85rem;
+        }
+        .admin-modal-btn { min-height: 48px; font-size: 1rem; justify-content: center; }
+        .admin-modal-danger {
+          background: var(--danger);
+          color: #ffffff;
+          border: 1px solid var(--danger);
+        }
+        .admin-modal-danger:hover { filter: brightness(1.08); color: #ffffff; }
+        .admin-modal-done {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.9rem;
+          text-align: center;
+          padding: 1rem 0.5rem 0.25rem;
+        }
+        .admin-modal-done svg { color: var(--brand); }
+        .admin-modal-done .admin-modal-btn { width: 100%; }
+        @media (max-width: 767.98px) {
+          /* Full-screen sheet on phones. */
+          .admin-modal {
+            top: 0;
+            left: 0;
+            transform: none;
+            width: 100vw;
+            height: 100vh;
+            max-height: none;
+            border-radius: 0;
+            border: none;
+          }
+        }
+
         /* Bottom tab bar: hidden on desktop, fixed on mobile. */
         .admin-tabbar { display: none; }
 
@@ -808,19 +1002,7 @@ export function AdminLayout({
           /* The top app bar is sticky here; a sticky banner at top: 0 would
              slide beneath it. Keep the banner in normal flow right under the
              bar instead; it appears where the tap just happened. */
-          .admin-dbwarn {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.6rem;
-          padding: 0.85rem 1.5rem;
-          background: var(--danger);
-          color: #ffffff;
-          font-weight: 600;
-        }
-        .admin-dbwarn svg { flex-shrink: 0; margin-top: 0.15rem; }
-        .admin-dbwarn p { margin: 0; font-size: 0.95rem; line-height: 1.5; }
-
-        .admin-banner { position: static; padding: 0.6rem 0.9rem; }
+          .admin-dbwarn { padding: 0.85rem 0.9rem; }
           .admin-main {
             max-width: none;
             /* Bottom padding reserves the fixed tab bar's height plus
