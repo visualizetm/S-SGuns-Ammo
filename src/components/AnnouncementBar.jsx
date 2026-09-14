@@ -58,7 +58,7 @@ export function AnnouncementBar() {
         aria-label="Dismiss announcement"
         onClick={dismiss}
       >
-        <XClose aria-hidden="true" width={16} height={16} />
+        <XClose aria-hidden="true" width={20} height={20} />
       </button>
 
       <style>{`

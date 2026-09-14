@@ -753,6 +753,21 @@ export function AdminLayout({
           padding: 1.5rem;
         }
 
+        /* Shared inline confirmation line used by every panel. */
+        .panel-flash {
+          margin: 0 0 0.9rem;
+          padding: 0.55rem 0.8rem;
+          border-radius: var(--radius);
+          background: color-mix(in srgb, var(--brand) 12%, transparent);
+          color: var(--brand-dark);
+          font-weight: 600;
+        }
+        /* Photo/cover remove buttons: clear hover and focus states. */
+        .inv-photo-remove:hover, .col-cover-remove:hover, .bnd-photo-remove:hover {
+          color: var(--danger);
+          border-color: var(--danger);
+        }
+
         .admin-placeholder {
           padding: 2.5rem 1.5rem;
           text-align: center;
@@ -1017,7 +1032,8 @@ export function AdminLayout({
             bottom: 0;
             z-index: 50;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            /* One column per page; ADMIN_SECTIONS drives the count. */
+            grid-template-columns: repeat(4, 1fr);
             background: var(--bg-card, #ffffff);
             border-top: 1px solid var(--border, #dbe0e5);
             box-shadow: 0 -4px 16px color-mix(in srgb, #10110f 8%, transparent);

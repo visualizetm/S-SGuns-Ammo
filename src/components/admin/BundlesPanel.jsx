@@ -211,7 +211,7 @@ function BundleForm({ token, item, products, onSaved, onCancel }) {
           <div className="bnd-photo-preview">
             <img src={values.photo} alt={`Photo of ${values.name || 'bundle'}`} />
             <button type="button" className="bnd-photo-remove" aria-label="Remove photo" onClick={() => set('photo', '')} disabled={saving}>
-              <XClose aria-hidden="true" width={16} height={16} />
+              <XClose aria-hidden="true" width={20} height={20} />
             </button>
           </div>
         ) : null}
@@ -276,9 +276,15 @@ export function BundlesPanel({ token, version, onAuthFail, notifyChange }) {
     refresh();
   }, [refresh, version]);
 
-  function changed() {
+  const [flash, setFlash] = useState('');
+
+  function changed(message) {
     notifyChange();
     refresh();
+    if (message) {
+      setFlash(message);
+      setTimeout(() => setFlash(''), 4000);
+    }
   }
 
   async function remove(id) {
@@ -286,7 +292,7 @@ export function BundlesPanel({ token, version, onAuthFail, notifyChange }) {
     const { body } = await adminDeleteDraft(token, 'bundles', id);
     setBusyId('');
     setConfirmingId('');
-    if (body?.ok) changed();
+    if (body?.ok) changed('Bundle deleted. The removal goes live when you publish.');
     else setError(body?.error || 'Could not delete the bundle.');
   }
 
@@ -294,7 +300,7 @@ export function BundlesPanel({ token, version, onAuthFail, notifyChange }) {
     setBusyId(id);
     const { body } = await adminRestoreDraft(token, 'bundles', id);
     setBusyId('');
-    if (body?.ok) changed();
+    if (body?.ok) changed('Bundle restored.');
     else setError(body?.error || 'Could not restore the bundle.');
   }
 
@@ -315,7 +321,7 @@ export function BundlesPanel({ token, version, onAuthFail, notifyChange }) {
           onSaved={() => {
             setMode('list');
             setEditingItem(null);
-            changed();
+            changed('Bundle saved as a draft. Tap Publish to put it live.');
           }}
           onCancel={() => {
             setMode('list');
@@ -342,6 +348,7 @@ export function BundlesPanel({ token, version, onAuthFail, notifyChange }) {
       {error ? (
         <p role="alert" className="ssga-form-failure">{error}</p>
       ) : null}
+      {flash ? <p role="status" className="panel-flash">{flash}</p> : null}
       {loading ? <p role="status">Loading bundles...</p> : null}
       {!loading && items.length === 0 ? (
         <p className="bnd-empty">No bundles yet. Tap Add bundle to create the first one.</p>

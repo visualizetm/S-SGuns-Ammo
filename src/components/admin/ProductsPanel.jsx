@@ -259,7 +259,7 @@ function ProductForm({ token, item, collections, onSaved, onCancel }) {
                 onClick={() => set('photos', values.photos.filter((_, i) => i !== index))}
                 disabled={saving}
               >
-                <XClose aria-hidden="true" width={16} height={16} />
+                <XClose aria-hidden="true" width={20} height={20} />
               </button>
             </li>
           ))}
@@ -309,7 +309,7 @@ function ProductRow({ token, item, collections, onEdit, onChanged, onError }) {
     setBusy(true);
     const { body } = await adminSaveDraft(token, 'products', item.id, { stockStatus });
     setBusy(false);
-    if (body?.ok) onChanged();
+    if (body?.ok) onChanged('Stock status saved as a draft.');
     else onError(body?.error || 'Could not change the status.');
   }
 
@@ -317,7 +317,7 @@ function ProductRow({ token, item, collections, onEdit, onChanged, onError }) {
     setBusy(true);
     const { body } = await adminDeleteDraft(token, 'products', item.id);
     setBusy(false);
-    if (body?.ok) onChanged();
+    if (body?.ok) onChanged('Product deleted. The removal goes live when you publish.');
     else onError(body?.error || 'Could not delete the product.');
   }
 
@@ -325,7 +325,7 @@ function ProductRow({ token, item, collections, onEdit, onChanged, onError }) {
     setBusy(true);
     const { body } = await adminRestoreDraft(token, 'products', item.id);
     setBusy(false);
-    if (body?.ok) onChanged();
+    if (body?.ok) onChanged('Product restored.');
     else onError(body?.error || 'Could not restore the product.');
   }
 
@@ -433,9 +433,15 @@ export function ProductsPanel({ token, version, onAuthFail, notifyChange }) {
     return () => clearTimeout(timer);
   }, [search]);
 
-  function changed() {
+  const [flash, setFlash] = useState('');
+
+  function changed(message) {
     notifyChange();
     refresh();
+    if (message) {
+      setFlash(message);
+      setTimeout(() => setFlash(''), 4000);
+    }
   }
 
   if (mode !== 'list') {
@@ -448,7 +454,7 @@ export function ProductsPanel({ token, version, onAuthFail, notifyChange }) {
           onSaved={() => {
             setMode('list');
             setEditingItem(null);
-            changed();
+            changed('Product saved as a draft. Tap Publish to put it live.');
           }}
           onCancel={() => {
             setMode('list');
@@ -492,6 +498,7 @@ export function ProductsPanel({ token, version, onAuthFail, notifyChange }) {
       {error ? (
         <p role="alert" className="ssga-form-failure">{error}</p>
       ) : null}
+      {flash ? <p role="status" className="panel-flash">{flash}</p> : null}
       {loading ? <p role="status">Loading products...</p> : null}
       {!loading && items.length === 0 ? (
         <p className="inv-empty">

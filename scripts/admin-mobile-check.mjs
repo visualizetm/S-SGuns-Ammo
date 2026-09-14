@@ -95,9 +95,9 @@ try {
   check('375px: bottom tab bar visible and fixed', shell.tabbarVisible && shell.tabbarFixed === 'fixed');
   check('375px: tab bar marked data-fixed-nav for the audit contract', shell.tabbarMarked);
   check(
-    '375px: three tabs (Overview, Products, Quick Sale)',
-    shell.tabs.length === 3 &&
-      ['Overview', 'Products', 'Quick Sale'].every((l) => shell.tabs.some((t) => t.label === l)),
+    '375px: four tabs (Overview, Products, Quick Sale, History)',
+    shell.tabs.length === 4 &&
+      ['Overview', 'Products', 'Quick Sale', 'History'].every((l) => shell.tabs.some((t) => t.label === l)),
     JSON.stringify(shell.tabs.map((t) => t.label))
   );
   check(
@@ -254,8 +254,8 @@ try {
       draftPill: visible(document.querySelector('.admin-draft')),
     };
   });
-  check('1280px: sidebar visible with 3 nav items and the Publish control',
-    desk.sidebar && desk.sideNavItems === 3 && desk.sidePublish, JSON.stringify(desk));
+  check('1280px: sidebar visible with 4 nav items and the Publish control',
+    desk.sidebar && desk.sideNavItems === 4 && desk.sidePublish, JSON.stringify(desk));
   check('1280px: bottom tab bar, menu button, and mobile Publish pill hidden',
     !desk.tabbar && !desk.menuBtn && !desk.pubPill);
   check('1280px: View live site and draft pill visible in the top bar', desk.viewLive && desk.draftPill);

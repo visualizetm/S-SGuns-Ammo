@@ -21,6 +21,7 @@ const AUTH_ROUTES = [
   '/admin?tab=products&section=bundles',
   '/admin?tab=products&section=bulk',
   '/admin?tab=sales', // Quick Sale
+  '/admin?tab=history', // Publish History
 ];
 const AUTH_INIT = `
   sessionStorage.setItem('ssga-admin-token', 'demo-local-token');

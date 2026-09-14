@@ -108,7 +108,7 @@ function CollectionForm({ token, item, onSaved, onCancel }) {
           <div className="col-cover-preview">
             <img src={values.coverPhoto} alt={`Cover of ${values.name || 'collection'}`} />
             <button type="button" className="col-cover-remove" aria-label="Remove cover photo" onClick={() => set('coverPhoto', '')} disabled={saving}>
-              <XClose aria-hidden="true" width={16} height={16} />
+              <XClose aria-hidden="true" width={20} height={20} />
             </button>
           </div>
         ) : null}
@@ -168,9 +168,15 @@ export function CollectionsPanel({ token, version, onAuthFail, notifyChange }) {
     refresh();
   }, [refresh, version]);
 
-  function changed() {
+  const [flash, setFlash] = useState('');
+
+  function changed(message) {
     notifyChange();
     refresh();
+    if (message) {
+      setFlash(message);
+      setTimeout(() => setFlash(''), 4000);
+    }
   }
 
   async function move(index, direction) {
@@ -179,7 +185,7 @@ export function CollectionsPanel({ token, version, onAuthFail, notifyChange }) {
     const order = items.map((c) => c.id);
     [order[index], order[target]] = [order[target], order[index]];
     const { body } = await adminReorderCollections(token, order);
-    if (body?.ok) changed();
+    if (body?.ok) changed('Order saved as a draft.');
     else setError(body?.error || 'Could not reorder.');
   }
 
@@ -188,7 +194,7 @@ export function CollectionsPanel({ token, version, onAuthFail, notifyChange }) {
     const { body } = await adminDeleteDraft(token, 'collections', id);
     setBusyId('');
     setConfirmingId('');
-    if (body?.ok) changed();
+    if (body?.ok) changed('Collection deleted. The removal goes live when you publish.');
     else setError(body?.error || 'Could not delete the collection.');
   }
 
@@ -196,7 +202,7 @@ export function CollectionsPanel({ token, version, onAuthFail, notifyChange }) {
     setBusyId(id);
     const { body } = await adminRestoreDraft(token, 'collections', id);
     setBusyId('');
-    if (body?.ok) changed();
+    if (body?.ok) changed('Collection restored.');
     else setError(body?.error || 'Could not restore the collection.');
   }
 
@@ -209,7 +215,7 @@ export function CollectionsPanel({ token, version, onAuthFail, notifyChange }) {
           onSaved={() => {
             setMode('list');
             setEditingItem(null);
-            changed();
+            changed('Collection saved as a draft. Tap Publish to put it live.');
           }}
           onCancel={() => {
             setMode('list');
@@ -236,6 +242,7 @@ export function CollectionsPanel({ token, version, onAuthFail, notifyChange }) {
       {error ? (
         <p role="alert" className="ssga-form-failure">{error}</p>
       ) : null}
+      {flash ? <p role="status" className="panel-flash">{flash}</p> : null}
       {loading ? <p role="status">Loading collections...</p> : null}
       {!loading && items.length === 0 ? (
         <p className="col-empty">No collections yet. Tap Add collection to create the first one.</p>
