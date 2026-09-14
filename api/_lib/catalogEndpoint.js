@@ -6,11 +6,11 @@
 
 import { isAuthorized } from './auth.js';
 import { getCatalogAdapter } from './catalogAdapter.js';
-import { readJsonBody, sendJson, methodNotAllowed } from './http.js';
+import { readJsonBody, sendJson, methodNotAllowed, guard } from './http.js';
 import { displayOf, statusOf } from '../../shared/catalogStore.js';
 
 export function createCatalogEndpoint({ kind, list, validate, prepare }) {
-  return async function handler(req, res) {
+  return guard(async function handler(req, res) {
     if (!isAuthorized(req)) {
       return sendJson(res, 401, { ok: false, error: 'Not authorized.' });
     }
@@ -94,5 +94,5 @@ export function createCatalogEndpoint({ kind, list, validate, prepare }) {
     }
 
     return methodNotAllowed(res, ['GET', 'POST', 'PATCH', 'DELETE']);
-  };
+  });
 }

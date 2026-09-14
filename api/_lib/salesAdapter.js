@@ -19,6 +19,11 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { seedSalesStore } from '../../shared/salesSeeds.js';
+import {
+  isProductionRuntime,
+  dbNotConfiguredError,
+  databaseUrl,
+} from './runtimeEnv.js';
 
 const DEV_STORE_PATH = join(process.cwd(), '.data', 'sales-dev.json');
 const TABLE = 'sales';
@@ -77,6 +82,7 @@ function createDevSalesAdapter() {
   }
 
   return {
+    mode: 'dev-file',
     async listSales({ from, to } = {}) {
       return sortedDesc(load().filter((e) => inRange(e, from, to)));
     },
@@ -157,6 +163,7 @@ function createPostgresSalesAdapter(connectionString) {
   }
 
   return {
+    mode: 'postgres',
     async listSales({ from, to } = {}) {
       const sql = await getSql();
       const clauses = [];
@@ -215,14 +222,31 @@ function createPostgresSalesAdapter(connectionString) {
   };
 }
 
+// Production with no database fails LOUD (same rule as the catalog
+// adapter): the sales log must never silently write to serverless memory.
+function createUnconfiguredSalesAdapter() {
+  return new Proxy(
+    { mode: 'unconfigured' },
+    {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        if (prop === 'then') return undefined;
+        return async () => {
+          throw dbNotConfiguredError();
+        };
+      },
+    }
+  );
+}
+
 let salesAdapter = null;
 
 export function getSalesAdapter() {
   if (!salesAdapter) {
-    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-    salesAdapter = url
-      ? createPostgresSalesAdapter(url)
-      : createDevSalesAdapter();
+    const url = databaseUrl();
+    if (url) salesAdapter = createPostgresSalesAdapter(url);
+    else if (isProductionRuntime()) salesAdapter = createUnconfiguredSalesAdapter();
+    else salesAdapter = createDevSalesAdapter();
   }
   return salesAdapter;
 }

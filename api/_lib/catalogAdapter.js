@@ -41,6 +41,11 @@ import {
   discardAll,
 } from '../../shared/catalogStore.js';
 import { seedCatalogStore } from '../../shared/catalogSeeds.js';
+import {
+  isProductionRuntime,
+  dbNotConfiguredError,
+  databaseUrl,
+} from './runtimeEnv.js';
 
 const DEV_STORE_PATH = join(process.cwd(), '.data', 'catalog-dev.json');
 
@@ -80,6 +85,7 @@ function createDevAdapter() {
   }
 
   return {
+    mode: 'dev-file',
     async listProducts(options) {
       return listProducts(load(), options);
     },
@@ -311,6 +317,7 @@ function createPostgresAdapter(connectionString) {
   }
 
   return {
+    mode: 'postgres',
     async listProducts(options) {
       return withStore((s) => listProducts(s, options));
     },
@@ -362,16 +369,37 @@ function createPostgresAdapter(connectionString) {
   };
 }
 
+// Production with no database: every call fails LOUD with the exact
+// configuration error. Silent in-memory fallback is what caused the live
+// "publish succeeds but nothing appears" bug; it must never happen again.
+function createUnconfiguredAdapter() {
+  return new Proxy(
+    { mode: 'unconfigured' },
+    {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        if (prop === 'then') return undefined; // keep `await adapter` sane
+        return async () => {
+          throw dbNotConfiguredError();
+        };
+      },
+    }
+  );
+}
+
 let adapter = null;
 
 export function getCatalogAdapter() {
   if (!adapter) {
     // Vercel's Supabase/Postgres integrations set POSTGRES_URL (the pooled,
     // transaction-mode connection string, ideal for serverless). DATABASE_URL
-    // is also honored for other providers. With neither set, the dev store
-    // (DEMO seeds) is used.
-    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-    adapter = url ? createPostgresAdapter(url) : createDevAdapter();
+    // is also honored for other providers. With neither set: local dev uses
+    // the JSON file store; PRODUCTION refuses to run (loud failure, see
+    // runtimeEnv.js) because serverless memory loses every write.
+    const url = databaseUrl();
+    if (url) adapter = createPostgresAdapter(url);
+    else if (isProductionRuntime()) adapter = createUnconfiguredAdapter();
+    else adapter = createDevAdapter();
   }
   return adapter;
 }

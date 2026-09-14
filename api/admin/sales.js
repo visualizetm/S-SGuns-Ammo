@@ -18,11 +18,11 @@
 import { isAuthorized } from '../_lib/auth.js';
 import { getSalesAdapter } from '../_lib/salesAdapter.js';
 import { getCatalogAdapter } from '../_lib/catalogAdapter.js';
-import { readJsonBody, sendJson, methodNotAllowed } from '../_lib/http.js';
+import { readJsonBody, sendJson, methodNotAllowed, guard } from '../_lib/http.js';
 import { validateSale } from '../../shared/salesValidation.js';
 import { displayOf } from '../../shared/catalogStore.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (!isAuthorized(req)) {
     return sendJson(res, 401, { ok: false, error: 'Not authorized.' });
   }
@@ -115,3 +115,5 @@ export default async function handler(req, res) {
 
   return methodNotAllowed(res, ['GET', 'POST', 'DELETE']);
 }
+
+export default guard(handler);

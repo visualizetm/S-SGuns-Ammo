@@ -1,9 +1,26 @@
 # PRODUCTION-SETUP
 
 How to promote the demo-mode backends to production. Nothing here is
-required to run locally: with zero env vars the site uses the dev/demo
-implementations (JSON-file catalog with DEMO seeds, data-URL images,
-demo admin password).
+required to run locally: with zero env vars, LOCAL runs use the dev
+implementations (JSON-file catalog, data-URL images, demo password).
+
+PRODUCTION IS DIFFERENT ON PURPOSE. A deployed site (Vercel sets
+VERCEL=1) REFUSES to run without a database: every store-backed endpoint
+answers 503 "Database not configured. Set DATABASE_URL." and the Owner's
+Dashboard shows a red "saves are not being stored" banner. This loud
+failure replaced a silent one: without it, the serverless dev store held
+data in per-instance memory, so Publish reported success and the changes
+vanished when the function instance ended.
+
+## REQUIRED in production (the site fails loud without these)
+
+| Variable | Purpose |
+| --- | --- |
+| `POSTGRES_URL` (or `DATABASE_URL`) | Pooled Postgres connection string for the catalog, sales, and publish-history stores. Supabase's Vercel integration sets `POSTGRES_URL` automatically. |
+
+Verify after deploy: sign in to the dashboard, then
+`GET /api/admin/health` (with the bearer token) must report
+`{ "ok": true, "adapter": "postgres" }`.
 
 The public site is phone-first: there are no contact forms and no
 message backend to configure. Every "get in touch" action is a
@@ -15,7 +32,7 @@ click-to-call link, so there is nothing to set up for contact.
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Real admin password for `/admin` | Documented demo password `oxford` |
 | `ADMIN_SESSION_SECRET` | Random secret that signs admin session tokens | Secret derived from the admin password (demo grade) |
-| `POSTGRES_URL` (or `DATABASE_URL`) | Pooled Postgres connection string for the catalog store. Vercel's Supabase integration sets `POSTGRES_URL` automatically | Dev JSON file store (`.data/catalog-dev.json`), in-memory on read-only filesystems |
+| `POSTGRES_URL` (or `DATABASE_URL`) | REQUIRED. Pooled Postgres connection string. Vercel's Supabase integration sets `POSTGRES_URL` automatically | PRODUCTION: loud 503 error + red dashboard banner. Local dev only: JSON file store |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for photo storage | Photos stored as small data URLs inside the records |
 
 Set all four for a real deployment. Redeploy after changing any of them.

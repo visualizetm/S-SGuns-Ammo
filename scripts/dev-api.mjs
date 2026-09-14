@@ -13,6 +13,7 @@ import adminPublishHandler from '../api/admin/publish.js';
 import adminProductsCsvHandler from '../api/admin/products-csv.js';
 import adminInventoryImageHandler from '../api/admin/inventory-image.js';
 import adminSalesHandler from '../api/admin/sales.js';
+import adminHealthHandler from '../api/admin/health.js';
 
 const ROUTES = {
   '/api/admin/login': loginHandler,
@@ -24,6 +25,7 @@ const ROUTES = {
   '/api/admin/products-csv': adminProductsCsvHandler,
   '/api/admin/inventory-image': adminInventoryImageHandler,
   '/api/admin/sales': adminSalesHandler,
+  '/api/admin/health': adminHealthHandler,
 };
 
 const PORT = Number(process.env.PORT || 3999);

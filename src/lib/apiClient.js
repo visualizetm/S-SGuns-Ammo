@@ -137,6 +137,19 @@ export async function adminReorderCollections(token, order) {
   }
 }
 
+// ---- Health (dashboard diagnostics) ----
+
+export async function adminHealth(token) {
+  try {
+    return await callApi('/api/admin/health', {
+      method: 'GET',
+      headers: authHeaders(token, false),
+    });
+  } catch {
+    return demoAdapter.health(token);
+  }
+}
+
 // ---- Publish flow ----
 
 export async function adminPublishSummary(token) {

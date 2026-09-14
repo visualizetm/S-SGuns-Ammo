@@ -5,13 +5,13 @@
 // Bundles are included only when at least two member products are live.
 // Display data only: this site sells nothing online.
 import { getCatalogAdapter } from '../_lib/catalogAdapter.js';
-import { sendJson, methodNotAllowed } from '../_lib/http.js';
+import { sendJson, methodNotAllowed, guard } from '../_lib/http.js';
 import {
   getPublicProduct,
   listPublicBundles,
 } from '../../shared/catalogStore.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
 
   const url = new URL(req.url, 'http://localhost');
@@ -36,3 +36,5 @@ export default async function handler(req, res) {
   ]);
   return sendJson(res, 200, { ok: true, items, collections, bundles });
 }
+
+export default guard(handler);

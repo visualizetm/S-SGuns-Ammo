@@ -49,6 +49,18 @@ async function storeInBlob({ filename, dataUrl }) {
   return { ok: true, url: blob.url };
 }
 
+// Which storage this deployment would use, for the health endpoint. In
+// production with no storage configured this reports 'unconfigured' so the
+// dashboard can warn instead of quietly stuffing base64 into the database.
+export function imageStorageMode() {
+  if (process.env.BLOB_READ_WRITE_TOKEN) return 'vercel-blob';
+  const production =
+    process.env.VERCEL === '1' ||
+    process.env.VERCEL === 'true' ||
+    process.env.NODE_ENV === 'production';
+  return production ? 'unconfigured' : 'dev-data-url';
+}
+
 export async function storeImage(input) {
   const error = validate(input || {});
   if (error) return { ok: false, error };

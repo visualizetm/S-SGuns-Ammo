@@ -5,9 +5,9 @@
 //   POST body: { action: 'discard' } -> revert ALL drafts to last published
 import { isAuthorized } from '../_lib/auth.js';
 import { getCatalogAdapter } from '../_lib/catalogAdapter.js';
-import { readJsonBody, sendJson, methodNotAllowed } from '../_lib/http.js';
+import { readJsonBody, sendJson, methodNotAllowed, guard } from '../_lib/http.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (!isAuthorized(req)) {
     return sendJson(res, 401, { ok: false, error: 'Not authorized.' });
   }
@@ -36,3 +36,5 @@ export default async function handler(req, res) {
 
   return methodNotAllowed(res, ['GET', 'POST']);
 }
+
+export default guard(handler);

@@ -41,7 +41,7 @@ import LinkExternal01 from '@untitled-ui/icons-react/build/esm/LinkExternal01';
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
 import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
-import { adminPublishSummary, adminPublishAction } from '../../lib/apiClient.js';
+import { adminPublishSummary, adminPublishAction, adminHealth } from '../../lib/apiClient.js';
 import { LOGO_ASSETS, BUSINESS } from '../../content/siteFacts.js';
 
 // The admin has exactly three top-level pages. Overview is the landing page
@@ -68,6 +68,10 @@ export function AdminLayout({
   const [error, setError] = useState('');
   const [flash, setFlash] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Loud failure: when production has no database, nothing the owner saves
+  // is stored. The health endpoint reports that state and this banner makes
+  // it impossible to miss (see api/admin/health.js).
+  const [storageBroken, setStorageBroken] = useState(false);
   const menuBtnRef = useRef(null);
   const drawerRef = useRef(null);
 
@@ -83,6 +87,19 @@ export function AdminLayout({
   useEffect(() => {
     refresh();
   }, [refresh, version]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { body } = await adminHealth(token);
+      if (alive && body && (body.ok === false || body.adapter === 'unconfigured')) {
+        setStorageBroken(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [token]);
 
   // Drawer behavior: focus the first control on open, trap Tab inside, close
   // on Escape, and hand focus back to the menu button on close.
@@ -307,6 +324,17 @@ export function AdminLayout({
             </button>
           </div>
         </header>
+
+        {storageBroken ? (
+          <div className="admin-dbwarn" role="alert">
+            <AlertCircle aria-hidden="true" width={20} height={20} />
+            <p>
+              Saves are NOT being stored. The site database is not connected,
+              so anything you save or publish will be lost. Fix: in Vercel,
+              set the DATABASE_URL environment variable and redeploy.
+            </p>
+          </div>
+        ) : null}
 
         {(confirming || error || flash) ? (
           <div className="admin-banner" role="status">
@@ -586,6 +614,18 @@ export function AdminLayout({
         /* Mobile-only chrome, hidden on desktop. */
         .admin-top-pub, .admin-menu-btn { display: none; }
 
+        .admin-dbwarn {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          padding: 0.85rem 1.5rem;
+          background: var(--danger);
+          color: #ffffff;
+          font-weight: 600;
+        }
+        .admin-dbwarn svg { flex-shrink: 0; margin-top: 0.15rem; }
+        .admin-dbwarn p { margin: 0; font-size: 0.95rem; line-height: 1.5; }
+
         .admin-banner {
           position: sticky;
           top: 0;
@@ -768,7 +808,19 @@ export function AdminLayout({
           /* The top app bar is sticky here; a sticky banner at top: 0 would
              slide beneath it. Keep the banner in normal flow right under the
              bar instead; it appears where the tap just happened. */
-          .admin-banner { position: static; padding: 0.6rem 0.9rem; }
+          .admin-dbwarn {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          padding: 0.85rem 1.5rem;
+          background: var(--danger);
+          color: #ffffff;
+          font-weight: 600;
+        }
+        .admin-dbwarn svg { flex-shrink: 0; margin-top: 0.15rem; }
+        .admin-dbwarn p { margin: 0; font-size: 0.95rem; line-height: 1.5; }
+
+        .admin-banner { position: static; padding: 0.6rem 0.9rem; }
           .admin-main {
             max-width: none;
             /* Bottom padding reserves the fixed tab bar's height plus

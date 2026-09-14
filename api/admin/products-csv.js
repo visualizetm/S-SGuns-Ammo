@@ -7,7 +7,7 @@
 // Template with the expected headers: public/bulk-template.csv
 import { isAuthorized } from '../_lib/auth.js';
 import { getCatalogAdapter } from '../_lib/catalogAdapter.js';
-import { readJsonBody, sendJson, methodNotAllowed } from '../_lib/http.js';
+import { readJsonBody, sendJson, methodNotAllowed, guard } from '../_lib/http.js';
 import { parseCsvWithHeaders, toCsv } from '../../shared/csv.js';
 import { validateProduct, withComputedSale } from '../../shared/catalogValidation.js';
 
@@ -28,7 +28,7 @@ export const CSV_HEADERS = [
 
 const MAX_ROWS = 500;
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (!isAuthorized(req)) {
     return sendJson(res, 401, { ok: false, error: 'Not authorized.' });
   }
@@ -164,3 +164,5 @@ export default async function handler(req, res) {
 
   return methodNotAllowed(res, ['GET', 'POST']);
 }
+
+export default guard(handler);

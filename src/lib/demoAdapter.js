@@ -122,6 +122,17 @@ export const demoAdapter = {
     return { status: 401, body: { ok: false, error: 'Incorrect password.' } };
   },
 
+  // ---- Health: the in-browser demo stores in localStorage, never lost ----
+
+  async health(token) {
+    await delay(80);
+    if (token !== DEMO_TOKEN) return denied();
+    return {
+      status: 200,
+      body: { ok: true, adapter: 'browser-demo', imageStorage: 'browser-demo', runtime: 'demo' },
+    };
+  },
+
   // ---- Public catalog reads (published snapshot only) ----
 
   async publicGetCatalog({ collectionId, q } = {}) {

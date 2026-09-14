@@ -8,6 +8,7 @@
 
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import {
   validateProduct,
   validateCollection,
@@ -28,6 +29,7 @@ import {
 } from '../src/lib/catalogView.js';
 import { verifyToken } from '../api/_lib/auth.js';
 import loginHandler from '../api/admin/login.js';
+import adminHealthHandler from '../api/admin/health.js';
 import inventoryHandler from '../api/inventory/index.js';
 import adminProductsHandler from '../api/admin/products.js';
 import adminCollectionsHandler from '../api/admin/collections.js';
@@ -903,6 +905,41 @@ ok('reviews: star count clamps to whole stars in 0..5', () => {
   assert.equal(starCount(9), 5);
   assert.equal(starCount(-2), 0);
 });
+
+// ---- Production persistence guard: loud failure, never silent loss ----
+
+await (async () => {
+  const auth = await login();
+
+  // Dev runtime: health reports the file store and a healthy state, and
+  // every JSON response carries no-store so the public read is never stale.
+  let res = await call(adminHealthHandler, { method: 'GET', url: '/api/admin/health', headers: auth });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.adapter, 'dev-file');
+  assert.equal(res.body.runtime, 'dev');
+  ok('health: dev runtime reports dev-file adapter, ok true', () => {});
+
+  res = await call(adminHealthHandler, { method: 'GET', url: '/api/admin/health' });
+  assert.equal(res.statusCode, 401);
+  ok('health: auth-gated (401 without a token)', () => {});
+
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.equal(res.headers['cache-control'], 'no-store');
+  ok('public inventory: served with Cache-Control no-store (never stale)', () => {});
+
+  // Simulated Vercel deployment with NO database: every store-backed
+  // endpoint must fail LOUD with the exact configuration error. Run in a
+  // child process so the env change cannot leak into this one.
+  const raw = execFileSync(
+    process.execPath,
+    ['scripts/prod-guard-check.mjs'],
+    { env: { ...process.env, VERCEL: '1', POSTGRES_URL: '', DATABASE_URL: '' } }
+  ).toString();
+  const report = JSON.parse(raw.trim().split('\n').pop());
+  assert.equal(report.failed, 0, JSON.stringify(report.results));
+  ok('production guard: no DATABASE_URL means 503 everywhere, health warns', () => {});
+})();
 
 // ---- Announcement bar: enabled by default, gated exactly as rendered ----
 
