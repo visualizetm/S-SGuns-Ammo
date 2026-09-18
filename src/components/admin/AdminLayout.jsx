@@ -44,7 +44,16 @@ import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
 import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
 import { adminPublishSummary, adminPublishAction, adminHealth } from '../../lib/apiClient.js';
 import { LOGO_ASSETS, BUSINESS } from '../../content/siteFacts.js';
+import { isDashboardHost, publicSiteUrl } from '../../config/hosts.js';
 import { ChangesList } from './ChangesList.jsx';
+
+// On the dashboard's own host (dashboard.<public host>), a relative
+// href="/" would just reload the dashboard's own root, not leave for the
+// storefront, so "view the live site" needs the absolute public URL there.
+// Everywhere else (local dev, a path-based /admin mount, a preview
+// deployment) it stays relative, so it previews THAT deployment's own
+// public pages rather than jumping out to production.
+const LIVE_SITE_URL = isDashboardHost() ? publicSiteUrl('/') : '/';
 
 // The admin has exactly three top-level pages. Overview is the landing page
 // (statistics), Products is the full catalog manager (its own sub-sections),
@@ -332,7 +341,7 @@ export function AdminLayout({
               )}
             </span>
             <a
-              href="/"
+              href={LIVE_SITE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="admin-viewlive"
@@ -420,7 +429,7 @@ export function AdminLayout({
             </div>
             {publishControl('drawer')}
             <a
-              href="/"
+              href={LIVE_SITE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="admin-drawer-link"
@@ -471,7 +480,7 @@ export function AdminLayout({
                 </h2>
                 {modalAction === 'publish' ? (
                   <a
-                    href="/"
+                    href={LIVE_SITE_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary admin-modal-btn"

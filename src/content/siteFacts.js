@@ -17,7 +17,7 @@
 
 // Swapped to the custom domain at launch. Used by the sitemap, robots,
 // and JSON-LD generation.
-export const BASE_URL = 'https://ssgunsammo.visualizeclients.com';
+export const BASE_URL = 'https://ssgunsandammo.com';
 
 // ---------- Confirmed facts ----------
 

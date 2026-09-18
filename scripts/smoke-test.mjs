@@ -67,6 +67,7 @@ import {
 import { diffOps } from '../api/_lib/catalogAdapter.js';
 import { isTransactionUnsupportedError } from '../api/_lib/mongoClient.js';
 import { mongoUri, mongoDbName, dbNotConfiguredError } from '../api/_lib/runtimeEnv.js';
+import { isDashboardHostname, DEFAULT_PUBLIC_HOST, DEFAULT_DASHBOARD_HOST } from '../shared/hosts.js';
 
 // Fresh dev store every run.
 function resetStores() {
@@ -1278,6 +1279,27 @@ ok('mongo: the loud-failure message names the right env var', () => {
   const err = dbNotConfiguredError();
   assert.equal(err.code, 'DB_NOT_CONFIGURED');
   assert.equal(err.message, 'Database not configured. Set MONGODB_URI.');
+});
+
+ok('hosts: dashboard host detection matches the configured host and the dashboard. prefix', () => {
+  assert.equal(isDashboardHostname('dashboard.ssgunsandammo.com'), true);
+  assert.equal(isDashboardHostname('DASHBOARD.SSGUNSANDAMMO.COM'), true); // case-insensitive
+  assert.equal(isDashboardHostname('dashboard.other-domain.test', 'dashboard.other-domain.test'), true);
+  assert.equal(isDashboardHostname('dashboard.anything.example'), true); // belt-and-suspenders prefix rule
+});
+
+ok('hosts: the public host, localhost, and preview hosts are never the dashboard', () => {
+  assert.equal(isDashboardHostname('ssgunsandammo.com'), false);
+  assert.equal(isDashboardHostname('www.ssgunsandammo.com'), false);
+  assert.equal(isDashboardHostname('localhost'), false);
+  assert.equal(isDashboardHostname('my-preview-123.vercel.app'), false);
+  assert.equal(isDashboardHostname(''), false);
+  assert.equal(isDashboardHostname(undefined), false);
+});
+
+ok('hosts: default host constants match the real production domains', () => {
+  assert.equal(DEFAULT_PUBLIC_HOST, 'ssgunsandammo.com');
+  assert.equal(DEFAULT_DASHBOARD_HOST, 'dashboard.ssgunsandammo.com');
 });
 
 console.log(`\n${passed} checks passed.`);

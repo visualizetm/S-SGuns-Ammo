@@ -5,7 +5,8 @@
 //   3. DEMO seed data cannot leak into the MongoDB path: every seed export
 //      is empty, and the MongoDB adapter function body contains no seeding
 //      call at all.
-//   4. The build emitted robots.txt, sitemap.xml, and the web manifest.
+//   4. The build emitted sitemap.xml and the web manifest, and
+//      api/robots.js (which serves /robots.txt at request time) exists.
 //   5. Enumerates the [[...]] placeholders still in siteFacts.js so the
 //      remaining owner-confirmation work is visible at a glance
 //      (informational, not a failure).
@@ -139,15 +140,21 @@ const files = textFiles();
 }
 
 // ---------- 4. Build outputs ----------
+// robots.txt is intentionally NOT a static build output: it is served at
+// request time by api/robots.js (see vercel.json's "/robots.txt" rewrite)
+// so it can differ by host (dashboard vs. public). A static dist/robots.txt
+// would shadow that rewrite, so its absence here is correct, not a bug.
 {
-  const wanted = ['dist/robots.txt', 'dist/sitemap.xml', 'dist/site.webmanifest'];
+  const wanted = ['dist/sitemap.xml', 'dist/site.webmanifest'];
   const missing = wanted.filter((path) => !existsSync(join(ROOT, path)));
   if (!existsSync(join(ROOT, 'dist'))) {
     failures.push(['build outputs', ['dist/ missing entirely; run `npm run build` first']]);
   } else if (missing.length) {
     failures.push(['build outputs', missing.map((path) => `${path} missing`)]);
+  } else if (!existsSync(join(ROOT, 'api/robots.js'))) {
+    failures.push(['build outputs', ['api/robots.js missing (serves /robots.txt at request time)']]);
   } else {
-    passes.push('build outputs: robots.txt, sitemap.xml, site.webmanifest present in dist/');
+    passes.push('build outputs: sitemap.xml, site.webmanifest present in dist/; api/robots.js present');
   }
 }
 

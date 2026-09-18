@@ -1,7 +1,11 @@
 // Build-time SEO output, run automatically after vite build (npm run build).
 // Everything derives from src/content/siteFacts.js:
-//   - dist/robots.txt        allow public routes, disallow /admin and /api
 //   - dist/sitemap.xml       all public static routes
+//   (robots.txt is served at request time by api/robots.js, not written
+//   here as a static file, because it must differ by host: full-disallow
+//   on the Owner's Dashboard host, allow-with-exclusions on the public
+//   host. A static dist/robots.txt would shadow that host-aware rewrite,
+//   since Vercel resolves static files before rewrites.)
 //   - dist/<route>/index.html  copies of the SPA shell with that route's
 //     title, meta description, and og tags baked into the raw HTML, so
 //     crawlers see correct metadata without executing JavaScript. Vercel
@@ -96,19 +100,6 @@ for (const route of PUBLIC_ROUTES) {
     console.log(`seo: ${route.path} (title, meta, og)`);
   }
 }
-
-// robots.txt
-const robots = [
-  'User-agent: *',
-  'Allow: /',
-  'Disallow: /admin',
-  'Disallow: /api',
-  '',
-  `Sitemap: ${BASE_URL}/sitemap.xml`,
-  '',
-].join('\n');
-writeFileSync(join(DIST, 'robots.txt'), robots);
-console.log('seo: robots.txt');
 
 // sitemap.xml
 const urls = PUBLIC_ROUTES.map(

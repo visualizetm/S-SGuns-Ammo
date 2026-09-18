@@ -235,7 +235,7 @@ export function OverviewPage({ token, version, onAuthFail }) {
               <AlertTriangle aria-hidden="true" width={18} height={18} />
               Low stock
             </h3>
-            <Link to="/admin?tab=products" className="ov-list-link">Manage</Link>
+            <Link to="?tab=products" className="ov-list-link">Manage</Link>
           </div>
           {lowStock.length === 0 ? (
             <p className="ov-empty">Nothing is low on stock.</p>
@@ -243,7 +243,7 @@ export function OverviewPage({ token, version, onAuthFail }) {
             <ul className="ov-list">
               {lowStock.slice(0, 8).map((p) => (
                 <li key={p.id} className="ov-list-row">
-                  <Link to="/admin?tab=products" className="ov-list-name">{p.name}</Link>
+                  <Link to="?tab=products" className="ov-list-name">{p.name}</Link>
                   <span className="ov-list-meta">{USD.format(p.price)}</span>
                 </li>
               ))}
@@ -257,7 +257,7 @@ export function OverviewPage({ token, version, onAuthFail }) {
               <TrendUp02 aria-hidden="true" width={18} height={18} />
               Recently sold
             </h3>
-            <Link to="/admin?tab=sales" className="ov-list-link">Quick Sale</Link>
+            <Link to="?tab=sales" className="ov-list-link">Quick Sale</Link>
           </div>
           {recentSold.length === 0 ? (
             <p className="ov-empty">No sales logged yet.</p>

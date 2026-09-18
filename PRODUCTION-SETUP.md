@@ -156,16 +156,82 @@ MongoDB Atlas cluster (any tier, including the free M0).
 ## SEO output (automatic at build)
 
 - `npm run build` runs `scripts/generate-seo.mjs` after vite: it writes
-  `robots.txt` (public routes allowed, `/admin` and `/api` disallowed),
   `sitemap.xml`, prerendered head metadata for each static public route,
   and LocalBusiness JSON-LD (confirmed fields only) on the home page.
-- `BASE_URL` lives in `src/content/siteFacts.js`; swap it to the custom
-  domain at launch and redeploy so the sitemap and JSON-LD follow.
+- `robots.txt` is NOT a static file. It is served at request time by
+  `api/robots.js` (via the `/robots.txt` rewrite in `vercel.json`) so it
+  can differ by host: full `Disallow: /` on the Owner's Dashboard host,
+  and the normal public robots.txt (public routes allowed, `/admin` and
+  `/api` disallowed) everywhere else.
+- `BASE_URL` lives in `src/content/siteFacts.js`, set to
+  `https://ssgunsandammo.com`. Update it (and redeploy) if the public
+  domain ever changes, so the sitemap, robots.txt, and JSON-LD follow.
 - Documented limitation: item pages (`/inventory/:id`) are
   client-rendered. Their titles and og tags are set dynamically in the
   browser, which most modern crawlers execute, but raw-HTML scrapers see
   the site defaults. Revisit with prerendering or SSR if item-level
   social previews matter later.
+
+## Owner's Dashboard on its own domain
+
+One Vite build and one Vercel deployment serve two hostnames. Which app
+renders is decided by `window.location.hostname` (`src/config/hosts.js`,
+`shared/hosts.js`):
+
+- `https://ssgunsandammo.com` (and `www`) → the public storefront.
+- `https://dashboard.ssgunsandammo.com` → the Owner's Dashboard, mounted
+  at the root path. No public storefront route ever renders on this
+  host, and any path other than `/` redirects (client-side) to the same
+  path on the public host.
+
+The API is same-origin on both hosts (no CORS changes needed) because
+both hostnames point at the same deployment.
+
+### Vercel domains
+
+In the Vercel project, add all three domains under Project Settings ->
+Domains: `ssgunsandammo.com`, `www.ssgunsandammo.com`,
+`dashboard.ssgunsandammo.com`. Set `ssgunsandammo.com` as the primary
+domain and redirect `www` to it (Vercel offers this as a toggle when you
+add `www`).
+
+### DNS records
+
+At your DNS provider, point all three at Vercel exactly as Vercel's
+domain-verification screen instructs for your account (it shows the
+current recommended records when you add each domain there):
+
+| Host | Type | Value |
+| --- | --- | --- |
+| `@` (apex, `ssgunsandammo.com`) | A (or ALIAS/ANAME if your provider supports it) | Vercel's apex IP/target, shown on the domain's setup screen |
+| `www` | CNAME | `cname.vercel-dns.com` |
+| `dashboard` | CNAME | `cname.vercel-dns.com` |
+
+`www.ssgunsandammo.com` redirects to the apex (configured in Vercel, not
+DNS). `dashboard.ssgunsandammo.com` is a normal Vercel domain on the same
+project as the apex, not a separate deployment.
+
+### Old `/admin` links
+
+`vercel.json` 301-redirects `/admin` and `/admin/*` on the public
+hostnames (`ssgunsandammo.com` and `www.ssgunsandammo.com` only, scoped
+by `has: [{ "type": "host", ... }]`) to
+`https://dashboard.ssgunsandammo.com/`, so any old bookmark or link to
+the public site's `/admin` still works. The redirect is deliberately
+scoped to the exact production hostnames, not a blanket rule, so
+`/admin` keeps working path-based on Vercel preview deployments
+(`*.vercel.app`) and in local dev.
+
+### Host env vars (optional)
+
+`VITE_PUBLIC_HOST` and `VITE_DASHBOARD_HOST` override the two hostnames
+baked into the client bundle at build time (defaults are
+`ssgunsandammo.com` and `dashboard.ssgunsandammo.com`). They are plain
+hostnames, not secrets. Leave them unset for the real deployment; they
+exist so the same code works if the domains ever change, or for testing
+host-based routing under different names. Neither hostname matches
+`localhost` or a `*.vercel.app` preview URL, so local dev and previews
+keep the original path-based `/admin` behavior automatically.
 
 ## Local development
 
