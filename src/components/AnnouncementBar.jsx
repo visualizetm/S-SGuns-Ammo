@@ -89,10 +89,15 @@ export function AnnouncementBar() {
           white-space: nowrap;
         }
         .anb-phone:hover { color: var(--tan); }
-        .anb-close {
+        /* Scoped under .anb so this beats base.css's generic
+           "button:not(.btn)" reset (border, background, color, padding)
+           on specificity alone, no !important needed for the resting
+           state. */
+        .anb .anb-close {
           flex-shrink: 0;
           width: 44px;
           height: 44px;
+          padding: 0;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -103,7 +108,14 @@ export function AnnouncementBar() {
           cursor: pointer;
           opacity: 0.85;
         }
-        .anb-close:hover { opacity: 1; background: color-mix(in srgb, var(--ivory) 12%, transparent); }
+        .anb .anb-close:hover {
+          opacity: 1;
+          background: color-mix(in srgb, var(--ivory) 12%, transparent);
+          /* base.css's "button:not(.btn):hover:not(:disabled)" ties this
+             selector's specificity, so without !important the icon could
+             lose its color on hover depending on stylesheet order. */
+          color: var(--ivory) !important;
+        }
         .anb :focus-visible { outline-color: var(--ivory); }
         @media (max-width: 767.98px) {
           .anb { padding-left: 0.75rem; }
