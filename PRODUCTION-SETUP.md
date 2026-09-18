@@ -36,9 +36,17 @@ click-to-call link, so there is nothing to set up for contact.
 | `MONGODB_URI` | REQUIRED. MongoDB Atlas connection string | PRODUCTION: loud 503 error + red dashboard banner. Local dev only: JSON file store |
 | `MONGODB_DB` | Database name | Defaults to `ssguns` |
 | `CLOUDINARY_URL` (or `CLOUDINARY_CLOUD_NAME` + `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`) | Cloudinary account for permanent photo storage | PRODUCTION: uploads answer 503 with a clear error. Local dev only: data-URL photos |
+| `VITE_MAINTENANCE_MODE` (optional) | Set to `true` to take the public site down for maintenance | `false`: public site serves normally |
+| `VITE_PUBLIC_HOST` (optional) | Overrides the public storefront hostname baked into the client bundle | Defaults to `ssgunsandammo.com` |
+| `VITE_DASHBOARD_HOST` (optional) | Overrides the Owner's Dashboard hostname baked into the client bundle | Defaults to `dashboard.ssgunsandammo.com` |
 
 Set at least `MONGODB_URI` and the Cloudinary variable(s) for a real
 deployment. Redeploy after changing any of them.
+
+There is no contact-form or message-backend env var. The public site is
+phone-first by explicit, standing design decision (see "REQUIRED in
+production" above): every "get in touch" action is a click-to-call
+link, so nothing needs to be configured for contact.
 
 Copy-paste with the Vercel CLI (or paste the same values into Project
 Settings, Environment Variables, in the dashboard):
@@ -60,9 +68,16 @@ vercel --prod   # redeploy so the new env takes effect
 Run `npm run build` then `npm run preflight` before any production
 deploy. It fails the deploy if the retired phone number reappears, if an
 em or en dash slips into copy, if DEMO seed data could reach the
-production path, or if the build did not emit robots.txt, sitemap.xml,
-and the web manifest. It also lists every `[[...]]` owner-confirmation
-placeholder still in `src/content/siteFacts.js`.
+production path, or if the build did not emit sitemap.xml and the web
+manifest (robots.txt is served at request time by `api/robots.js`, not
+a build output; see "SEO output" below). It also lists every `[[...]]`
+owner-confirmation placeholder still in `src/content/siteFacts.js`.
+
+`npm run build` itself never requires any env var: it succeeds with a
+completely empty environment, and every secret listed above is read
+only at request time inside `api/` serverless functions, never at
+build time. Confirmed by building both with zero env vars and with
+every secret above set to a real-looking value: identical output.
 
 ## Store photos
 
