@@ -12,9 +12,9 @@
 //   deleteSale(id)           -> deleted entry | null
 //
 // Dev: JSON file .data/sales-dev.json.
-// Production: `sales` collection in MongoDB Atlas via MONGODB_URI,
-// self-creating (an index is enough; MongoDB creates the collection on
-// first write), starts EMPTY.
+// Production: `sales` collection in MongoDB Atlas via DATABASE_MONGODB_URI
+// (or MONGODB_URI), self-creating (an index is enough; MongoDB creates the
+// collection on first write), starts EMPTY.
 
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

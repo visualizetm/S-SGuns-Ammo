@@ -15,7 +15,7 @@ export function isProductionRuntime() {
 }
 
 export const DB_NOT_CONFIGURED_MESSAGE =
-  'Database not configured. Set MONGODB_URI.';
+  'Database not configured. Set DATABASE_MONGODB_URI.';
 
 export function dbNotConfiguredError() {
   const error = new Error(DB_NOT_CONFIGURED_MESSAGE);
@@ -23,10 +23,14 @@ export function dbNotConfiguredError() {
   return error;
 }
 
-// MongoDB Atlas connection string. Read only at request time (never at
-// build time) so a production build never requires this secret to exist.
+// MongoDB Atlas connection string. Vercel's project settings name this
+// variable DATABASE_MONGODB_URI (fixed, cannot be renamed there), so that
+// name is checked first; MONGODB_URI is kept as a fallback for local dev
+// and any other environment that still sets the shorter name. Read only at
+// request time (never at build time) so a production build never requires
+// this secret to exist.
 export function mongoUri() {
-  return process.env.MONGODB_URI || '';
+  return process.env.DATABASE_MONGODB_URI || process.env.MONGODB_URI || '';
 }
 
 export function mongoDbName() {

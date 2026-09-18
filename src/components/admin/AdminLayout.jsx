@@ -391,7 +391,7 @@ export function AdminLayout({
             <p>
               Saves are NOT being stored. The site database is not connected,
               so anything you save or publish will be lost. Fix: in Vercel,
-              set the DATABASE_URL environment variable and redeploy.
+              set the DATABASE_MONGODB_URI environment variable and redeploy.
             </p>
           </div>
         ) : null}

@@ -1,20 +1,23 @@
-// Verifies MONGODB_URI actually connects, and shows what is in each
-// collection right now. Run this from your own machine (or anywhere with
-// network access to Atlas) after setting the connection string, to confirm
-// the database is reachable before trusting the live site to it:
+// Verifies the MongoDB connection string actually connects, and shows what
+// is in each collection right now. Run this from your own machine (or
+// anywhere with network access to Atlas) after setting the connection
+// string, to confirm the database is reachable before trusting the live
+// site to it:
 //
-//   MONGODB_URI="mongodb+srv://..." node scripts/db-check.mjs
+//   DATABASE_MONGODB_URI="mongodb+srv://..." node scripts/db-check.mjs
 //
+// DATABASE_MONGODB_URI is checked first (the name Vercel's project
+// settings use), falling back to MONGODB_URI if that is unset.
 // Optional: MONGODB_DB to check a database name other than the default
 // "ssguns". Prints collection names and document counts, then exits.
 // Never prints the connection string itself.
 
 import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI;
+const uri = process.env.DATABASE_MONGODB_URI || process.env.MONGODB_URI;
 if (!uri) {
-  console.error('MONGODB_URI is not set. Example:');
-  console.error('  MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net" node scripts/db-check.mjs');
+  console.error('DATABASE_MONGODB_URI is not set. Example:');
+  console.error('  DATABASE_MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net" node scripts/db-check.mjs');
   process.exit(1);
 }
 

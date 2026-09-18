@@ -64,7 +64,8 @@ generated from the submark by `scripts/generate-icons.mjs`.
 
 ## Demo-mode items to revisit at production
 
-- Catalog storage is a JSON file (dev) until `MONGODB_URI` is set; see
-  PRODUCTION-SETUP.md for the MongoDB Atlas and Cloudinary promotion steps.
+- Catalog storage is a JSON file (dev) until `DATABASE_MONGODB_URI` is
+  set; see PRODUCTION-SETUP.md for the MongoDB Atlas and Cloudinary
+  promotion steps.
 - Admin gate uses a documented demo password; set `ADMIN_PASSWORD` and
   `ADMIN_SESSION_SECRET` in Vercel before launch.

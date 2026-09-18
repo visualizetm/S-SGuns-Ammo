@@ -999,11 +999,11 @@ await (async () => {
   const raw = execFileSync(
     process.execPath,
     ['scripts/prod-guard-check.mjs'],
-    { env: { ...process.env, VERCEL: '1', MONGODB_URI: '' } }
+    { env: { ...process.env, VERCEL: '1', DATABASE_MONGODB_URI: '', MONGODB_URI: '' } }
   ).toString();
   const report = JSON.parse(raw.trim().split('\n').pop());
   assert.equal(report.failed, 0, JSON.stringify(report.results));
-  ok('production guard: no MONGODB_URI means 503 everywhere, health warns', () => {});
+  ok('production guard: no DATABASE_MONGODB_URI/MONGODB_URI means 503 everywhere, health warns', () => {});
 })();
 
 // ---- Publish modal diff + publish history ----
@@ -1259,18 +1259,24 @@ ok('mongo: recognizes the "not a replica set" error, and only that error', () =>
 });
 
 ok('mongo: connection details come only from env, read at request time', () => {
-  const before = process.env.MONGODB_URI;
+  const before = process.env.DATABASE_MONGODB_URI;
+  const beforeFallback = process.env.MONGODB_URI;
   const beforeDb = process.env.MONGODB_DB;
+  delete process.env.DATABASE_MONGODB_URI;
   delete process.env.MONGODB_URI;
   delete process.env.MONGODB_DB;
   assert.equal(mongoUri(), '');
   assert.equal(mongoDbName(), 'ssguns'); // documented default
-  process.env.MONGODB_URI = 'mongodb+srv://user:pass@cluster.mongodb.net';
+  process.env.MONGODB_URI = 'mongodb+srv://fallback:pass@cluster.mongodb.net';
+  assert.equal(mongoUri(), 'mongodb+srv://fallback:pass@cluster.mongodb.net'); // MONGODB_URI fallback
+  process.env.DATABASE_MONGODB_URI = 'mongodb+srv://user:pass@cluster.mongodb.net';
   process.env.MONGODB_DB = 'custom';
-  assert.equal(mongoUri(), 'mongodb+srv://user:pass@cluster.mongodb.net');
+  assert.equal(mongoUri(), 'mongodb+srv://user:pass@cluster.mongodb.net'); // DATABASE_MONGODB_URI wins
   assert.equal(mongoDbName(), 'custom');
-  if (before === undefined) delete process.env.MONGODB_URI;
-  else process.env.MONGODB_URI = before;
+  if (before === undefined) delete process.env.DATABASE_MONGODB_URI;
+  else process.env.DATABASE_MONGODB_URI = before;
+  if (beforeFallback === undefined) delete process.env.MONGODB_URI;
+  else process.env.MONGODB_URI = beforeFallback;
   if (beforeDb === undefined) delete process.env.MONGODB_DB;
   else process.env.MONGODB_DB = beforeDb;
 });
@@ -1278,7 +1284,7 @@ ok('mongo: connection details come only from env, read at request time', () => {
 ok('mongo: the loud-failure message names the right env var', () => {
   const err = dbNotConfiguredError();
   assert.equal(err.code, 'DB_NOT_CONFIGURED');
-  assert.equal(err.message, 'Database not configured. Set MONGODB_URI.');
+  assert.equal(err.message, 'Database not configured. Set DATABASE_MONGODB_URI.');
 });
 
 ok('hosts: dashboard host detection matches the configured host and the dashboard. prefix', () => {

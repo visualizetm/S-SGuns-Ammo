@@ -13,10 +13,11 @@
 //   publishAll() / discardAll()          -> summary after the operation
 //
 // Implementations, selected from the environment at runtime:
-//   - MONGODB_URI set -> MongoDB Atlas, one document per record in the
-//     products / collections / bundles collections, publish/discard in a
-//     single transaction (falls back to a plain bulkWrite if the cluster
-//     does not support transactions; see mongoClient.js).
+//   - DATABASE_MONGODB_URI (or MONGODB_URI) set -> MongoDB Atlas, one
+//     document per record in the products / collections / bundles
+//     collections, publish/discard in a single transaction (falls back to
+//     a plain bulkWrite if the cluster does not support transactions; see
+//     mongoClient.js).
 //   - otherwise -> dev JSON file store at .data/catalog-dev.json; in-memory
 //     on read-only filesystems.
 // The draft/publish semantics live in shared/catalogStore.js and are
@@ -329,9 +330,10 @@ let adapter = null;
 
 export function getCatalogAdapter() {
   if (!adapter) {
-    // MONGODB_URI set -> MongoDB Atlas. With it unset: local dev uses the
-    // JSON file store; PRODUCTION refuses to run (loud failure, see
-    // runtimeEnv.js) because serverless memory loses every write.
+    // DATABASE_MONGODB_URI (or MONGODB_URI) set -> MongoDB Atlas. With it
+    // unset: local dev uses the JSON file store; PRODUCTION refuses to run
+    // (loud failure, see runtimeEnv.js) because serverless memory loses
+    // every write.
     const uri = mongoUri();
     if (uri) adapter = createMongoAdapter();
     else if (isProductionRuntime()) adapter = createUnconfiguredAdapter();

@@ -6,22 +6,23 @@ implementations (JSON-file catalog, data-URL images, demo password).
 
 PRODUCTION IS DIFFERENT ON PURPOSE. A deployed site (Vercel sets
 VERCEL=1) REFUSES to run without a database: every store-backed endpoint
-answers 503 "Database not configured. Set MONGODB_URI." and the Owner's
-Dashboard shows a red "saves are not being stored" banner. This loud
-failure replaced a silent one: without it, the serverless dev store held
-data in per-instance memory, so Publish reported success and the changes
-vanished when the function instance ended.
+answers 503 "Database not configured. Set DATABASE_MONGODB_URI." and the
+Owner's Dashboard shows a red "saves are not being stored" banner. This
+loud failure replaced a silent one: without it, the serverless dev store
+held data in per-instance memory, so Publish reported success and the
+changes vanished when the function instance ended.
 
 ## REQUIRED in production (the site fails loud without these)
 
 | Variable | Purpose |
 | --- | --- |
-| `MONGODB_URI` | MongoDB Atlas connection string for the catalog, sales, and publish-history stores. |
+| `DATABASE_MONGODB_URI` | MongoDB Atlas connection string for the catalog, sales, and publish-history stores. This is the name Vercel's project settings use (it cannot be renamed there); `MONGODB_URI` is accepted as a fallback name for local dev or any other environment. |
 
 Verify after deploy: sign in to the dashboard, then
 `GET /api/admin/health` (with the bearer token) must report
 `{ "ok": true, "adapter": "mongodb" }`. From your own machine you can
-also check the database directly: `MONGODB_URI=... node scripts/db-check.mjs`.
+also check the database directly:
+`DATABASE_MONGODB_URI=... node scripts/db-check.mjs`.
 
 The public site is phone-first: there are no contact forms and no
 message backend to configure. Every "get in touch" action is a
@@ -33,15 +34,15 @@ click-to-call link, so there is nothing to set up for contact.
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Real admin password for `/admin` | Documented demo password `oxford` |
 | `ADMIN_SESSION_SECRET` | Random secret that signs admin session tokens | Secret derived from the admin password (demo grade) |
-| `MONGODB_URI` | REQUIRED. MongoDB Atlas connection string | PRODUCTION: loud 503 error + red dashboard banner. Local dev only: JSON file store |
+| `DATABASE_MONGODB_URI` | REQUIRED. MongoDB Atlas connection string (fixed name in Vercel's project settings; `MONGODB_URI` is accepted as a fallback) | PRODUCTION: loud 503 error + red dashboard banner. Local dev only: JSON file store |
 | `MONGODB_DB` | Database name | Defaults to `ssguns` |
 | `CLOUDINARY_URL` (or `CLOUDINARY_CLOUD_NAME` + `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`) | Cloudinary account for permanent photo storage | PRODUCTION: uploads answer 503 with a clear error. Local dev only: data-URL photos |
 | `VITE_MAINTENANCE_MODE` (optional) | Set to `true` to take the public site down for maintenance | `false`: public site serves normally |
 | `VITE_PUBLIC_HOST` (optional) | Overrides the public storefront hostname baked into the client bundle | Defaults to `ssgunsandammo.com` |
 | `VITE_DASHBOARD_HOST` (optional) | Overrides the Owner's Dashboard hostname baked into the client bundle | Defaults to `dashboard.ssgunsandammo.com` |
 
-Set at least `MONGODB_URI` and the Cloudinary variable(s) for a real
-deployment. Redeploy after changing any of them.
+Set at least `DATABASE_MONGODB_URI` and the Cloudinary variable(s) for a
+real deployment. Redeploy after changing any of them.
 
 There is no contact-form or message-backend env var. The public site is
 phone-first by explicit, standing design decision (see "REQUIRED in
@@ -58,7 +59,7 @@ openssl rand -hex 32      # -> ADMIN_SESSION_SECRET
 
 vercel env add ADMIN_PASSWORD production
 vercel env add ADMIN_SESSION_SECRET production
-vercel env add MONGODB_URI production
+vercel env add DATABASE_MONGODB_URI production
 vercel env add CLOUDINARY_URL production
 vercel --prod   # redeploy so the new env takes effect
 ```
@@ -111,7 +112,9 @@ MongoDB Atlas cluster (any tier, including the free M0).
    username/password) is the actual security boundary. Under Database,
    click Connect, choose "Drivers", and copy the connection string; it
    looks like `mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/`. Set
-   that as `MONGODB_URI` in Vercel.
+   that as `DATABASE_MONGODB_URI` in Vercel (the fixed name Vercel's
+   project settings use there; `MONGODB_URI` also works as a fallback
+   name, for local dev or any other environment).
 2. Database name: `MONGODB_DB`, defaults to `ssguns` if unset. Nothing
    else to create; MongoDB creates each collection automatically the
    first time something is written to it.
@@ -139,9 +142,9 @@ MongoDB Atlas cluster (any tier, including the free M0).
 7. Single-editor assumption: non-publish writes are read-modify-write
    without document locking. Fine for one owner on one phone; revisit
    before adding a second concurrent editor.
-8. Verify the connection from your own machine (or CI): `MONGODB_URI=...
-   node scripts/db-check.mjs` connects, pings, and prints a document
-   count per collection.
+8. Verify the connection from your own machine (or CI):
+   `DATABASE_MONGODB_URI=... node scripts/db-check.mjs` connects, pings,
+   and prints a document count per collection.
 
 ## Photo storage (Cloudinary)
 
@@ -164,7 +167,7 @@ MongoDB Atlas cluster (any tier, including the free M0).
    only the reference. The smoke suite fails if a destroy call is added.
 5. Migrating legacy images (base64 or old Vercel Blob URLs) into
    Cloudinary, one time:
-   `MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs`
+   `DATABASE_MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs`
    (add `--dry-run` to preview; safe to rerun, already-migrated images
    are skipped).
 

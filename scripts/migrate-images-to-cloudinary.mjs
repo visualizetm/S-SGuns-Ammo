@@ -6,10 +6,11 @@
 // Run from a terminal with the target store's env vars:
 //
 //   Production catalog (MongoDB Atlas):
-//     MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs
+//     DATABASE_MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs
 //   Preview what would change without writing:
-//     MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs --dry-run
-//   Local dev store (.data/catalog-dev.json): omit MONGODB_URI.
+//     DATABASE_MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs --dry-run
+//   Local dev store (.data/catalog-dev.json): omit DATABASE_MONGODB_URI
+//   (MONGODB_URI is also accepted as a fallback name for either case).
 //
 // Idempotent: images already on Cloudinary (res.cloudinary.com) are skipped,
 // so it is safe to run again after a partial failure.
@@ -78,7 +79,7 @@ if (!cloudinaryConfigured()) {
   process.exit(1);
 }
 
-const mongoUri = process.env.MONGODB_URI;
+const mongoUri = process.env.DATABASE_MONGODB_URI || process.env.MONGODB_URI;
 
 if (mongoUri) {
   const { MongoClient } = await import('mongodb');
@@ -111,7 +112,7 @@ if (mongoUri) {
   }
   if (changed && !DRY_RUN) writeFileSync(DEV_STORE, JSON.stringify(store, null, 2));
 } else {
-  console.log('No store found (no MONGODB_URI and no .data/catalog-dev.json). Nothing to migrate.');
+  console.log('No store found (no DATABASE_MONGODB_URI/MONGODB_URI and no .data/catalog-dev.json). Nothing to migrate.');
 }
 
 console.log(`${DRY_RUN ? 'Dry run complete.' : 'Migration complete.'} ${uploaded} image(s) uploaded.`);

@@ -6,9 +6,10 @@
 // finds the same client instead of opening a second one). A cold start
 // gets a fresh module and a fresh client, which is the correct behavior.
 //
-// Connection string: MONGODB_URI (MongoDB Atlas). Database name: MONGODB_DB
-// (default "ssguns"). Both are read only when a connection is actually
-// needed, never at import/build time.
+// Connection string: DATABASE_MONGODB_URI (MongoDB Atlas), falling back to
+// MONGODB_URI if that is unset (see runtimeEnv.js's mongoUri()). Database
+// name: MONGODB_DB (default "ssguns"). Both are read only when a
+// connection is actually needed, never at import/build time.
 
 import { MongoClient } from 'mongodb';
 import { mongoUri, mongoDbName } from './runtimeEnv.js';
@@ -84,9 +85,9 @@ export async function ensureIndexes() {
 // transactions (every Atlas cluster does, including the free M0 tier,
 // because Atlas clusters are always replica sets). False once it is known
 // NOT to (a standalone mongod with no --replSet, which only happens for a
-// developer pointing MONGODB_URI at a bare local `mongod`). Cached after
-// the first attempt so every later publish/discard skips straight to the
-// right path instead of re-discovering it.
+// developer pointing the connection string at a bare local `mongod`).
+// Cached after the first attempt so every later publish/discard skips
+// straight to the right path instead of re-discovering it.
 let transactionsSupported = null;
 
 // Runs `fn(session)` inside a MongoDB transaction when the cluster supports
