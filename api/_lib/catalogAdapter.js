@@ -13,10 +13,12 @@
 //   publishAll() / discardAll()          -> summary after the operation
 //
 // Implementations, selected from the environment at runtime:
-//   - DATABASE_URL set -> serverless Postgres (Neon / Vercel Postgres),
-//     one JSONB row per record, publish/discard in a single transaction.
-//   - otherwise -> dev JSON file store at .data/catalog-dev.json seeded
-//     with DEMO records; in-memory on read-only filesystems.
+//   - MONGODB_URI set -> MongoDB Atlas, one document per record in the
+//     products / collections / bundles collections, publish/discard in a
+//     single transaction (falls back to a plain bulkWrite if the cluster
+//     does not support transactions; see mongoClient.js).
+//   - otherwise -> dev JSON file store at .data/catalog-dev.json; in-memory
+//     on read-only filesystems.
 // The draft/publish semantics live in shared/catalogStore.js and are
 // identical across implementations. See PRODUCTION-SETUP.md.
 
@@ -45,8 +47,9 @@ import { seedCatalogStore } from '../../shared/catalogSeeds.js';
 import {
   isProductionRuntime,
   dbNotConfiguredError,
-  databaseUrl,
+  mongoUri,
 } from './runtimeEnv.js';
+import { getCollection, ensureIndexes, withOptionalTransaction } from './mongoClient.js';
 
 const DEV_STORE_PATH = join(process.cwd(), '.data', 'catalog-dev.json');
 
@@ -141,187 +144,115 @@ function createDevAdapter() {
   };
 }
 
-// ---------- Production store: serverless Postgres ----------
+// ---------- Production store: MongoDB Atlas ----------
 
-const TABLES = {
-  products: 'catalog_products',
-  collections: 'catalog_collections',
-  bundles: 'catalog_bundles',
+const KIND_TO_COLLECTION = {
+  products: 'products',
+  collections: 'collections',
+  bundles: 'bundles',
 };
 
-// One diff of two stores into the minimal set of write statements
-// (parameterized text + params), shared by mutate and the atomic publish.
-function diffStatements(before, after) {
-  const statements = [];
-  for (const kind of KINDS) {
-    const beforeById = new Map(before[kind].map((r) => [r.id, r]));
-    const afterIds = new Set(after[kind].map((r) => r.id));
-    for (const record of after[kind]) {
-      const prev = beforeById.get(record.id);
-      if (prev && JSON.stringify(prev) === JSON.stringify(record)) continue;
-      statements.push({
-        text: `INSERT INTO ${TABLES[kind]} (id, created_at, updated_at, draft, published)
-               VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
-               ON CONFLICT (id) DO UPDATE SET
-                 updated_at = EXCLUDED.updated_at,
-                 draft = EXCLUDED.draft,
-                 published = EXCLUDED.published`,
-        // Pass the objects directly: the postgres driver serializes them to
-        // jsonb once. Pre-stringifying would double-encode into a JSON string.
-        params: [
-          record.id,
-          record.createdAt,
-          record.updatedAt,
-          record.draft,
-          record.published,
-        ],
-      });
-    }
-    for (const prev of before[kind]) {
-      if (!afterIds.has(prev.id)) {
-        statements.push({
-          text: `DELETE FROM ${TABLES[kind]} WHERE id = $1`,
-          params: [prev.id],
-        });
-      }
-    }
-  }
-  return statements;
-}
-
-// Production store: any standard Postgres reached over the wire, using the
-// `postgres` driver. Works with Supabase (via the Vercel integration's
-// pooled POSTGRES_URL), Neon, Vercel Postgres, or a self-hosted database.
-// prepare:false is required for Supabase's transaction-mode pooler
-// (pgBouncer), which does not support prepared statements.
-function createPostgresAdapter(connectionString) {
-  let sqlPromise = null;
-
-  async function getSql() {
-    if (!sqlPromise) {
-      sqlPromise = (async () => {
-        const { default: postgres } = await import('postgres');
-        const local = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString);
-        const sql = postgres(connectionString, {
-          prepare: false,
-          ssl: local ? false : 'require',
-          max: 3,
-          idle_timeout: 20,
-          connect_timeout: 15,
-        });
-        for (const table of Object.values(TABLES)) {
-          await sql.unsafe(`CREATE TABLE IF NOT EXISTS ${table} (
-            id TEXT PRIMARY KEY,
-            created_at TIMESTAMPTZ NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL,
-            draft JSONB,
-            published JSONB
-          )`);
-        }
-        await sql.unsafe(`CREATE TABLE IF NOT EXISTS catalog_meta (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL
-        )`);
-        await clearDemoIfPresent(sql);
-        return sql;
-      })();
-    }
-    return sqlPromise;
-  }
-
-  // One-time DEMO cleanup. Earlier deployments seeded DEMO example listings
-  // into an empty live store; the demos were removed before launch, so this
-  // deletes exactly those known seed rows (and the six starter collections)
-  // if they are still present, then marks itself done. Two guards keep it
-  // safe on a live database:
-  //   - a one-time marker row ('demo_cleared') means it runs at most once;
-  //   - it deletes ONLY the fixed, known seed ids, so the owner's real
-  //     records (random UUIDs) can never be touched.
-  // Nothing DEMO can seed into this store anymore: production starts and
-  // stays empty until the owner adds real inventory.
-  async function clearDemoIfPresent(sql) {
-    const marked = await sql.unsafe(
-      `SELECT 1 FROM catalog_meta WHERE key = 'demo_cleared' LIMIT 1`
-    );
-    if (marked.length > 0) return;
-
-    const STARTER_COLLECTION_IDS = [
-      'col-handguns',
-      'col-rifles',
-      'col-shotguns',
-      'col-ammunition',
-      'col-optics',
-      'col-other',
-    ];
-    await sql.begin(async (tx) => {
-      await tx.unsafe(`DELETE FROM ${TABLES.products} WHERE id LIKE 'demo-%'`);
-      await tx.unsafe(`DELETE FROM ${TABLES.bundles} WHERE id LIKE 'demo-%'`);
-      await tx.unsafe(
-        `DELETE FROM ${TABLES.collections} WHERE id = ANY($1)`,
-        [STARTER_COLLECTION_IDS]
-      );
-      await tx.unsafe(`DELETE FROM catalog_meta WHERE key = 'demo_seeded'`);
-      await tx.unsafe(
-        `INSERT INTO catalog_meta (key, value) VALUES ('demo_cleared', $1)
-         ON CONFLICT (key) DO NOTHING`,
-        [new Date().toISOString()]
-      );
+// One diff of two stores into the minimal set of MongoDB bulkWrite
+// operations per kind: an upsert (by business id, not Mongo's own _id) for
+// every new or changed record, a delete for every record that disappeared.
+// Mirrors the Postgres adapter's diffStatements so both implementations
+// write exactly the same minimal set of changes.
+export function diffOps(beforeList, afterList) {
+  const ops = [];
+  const beforeById = new Map(beforeList.map((r) => [r.id, r]));
+  const afterIds = new Set(afterList.map((r) => r.id));
+  for (const record of afterList) {
+    const prev = beforeById.get(record.id);
+    if (prev && JSON.stringify(prev) === JSON.stringify(record)) continue;
+    ops.push({
+      replaceOne: {
+        filter: { id: record.id },
+        replacement: record,
+        upsert: true,
+      },
     });
   }
+  for (const prev of beforeList) {
+    if (!afterIds.has(prev.id)) {
+      ops.push({ deleteOne: { filter: { id: prev.id } } });
+    }
+  }
+  return ops;
+}
 
-  // Load the catalog, apply the same pure operations as the dev store, then
-  // write back only changed rows. The catalog is shop-scale (hundreds of
-  // rows), so this stays fast; publish/discard persist in one transaction.
-  async function loadStore(sql) {
+// Production store: MongoDB Atlas via the official driver. The connection
+// itself is shared and cached across invocations by mongoClient.js; this
+// function only implements the store operations on top of it.
+function createMongoAdapter() {
+  // Loads the whole catalog (all three kinds) into plain JS arrays, runs
+  // the shared pure operations from shared/catalogStore.js against them in
+  // memory, then writes back only the documents that actually changed.
+  // This mirrors the Postgres adapter's approach exactly: some pure
+  // operations (deleteDraft on a collection, for one) touch more than one
+  // kind at once (removing a collection also edits every product that
+  // referenced it), so the pure layer always expects the FULL store.
+  async function loadStore(session) {
     const store = { products: [], collections: [], bundles: [] };
     for (const kind of KINDS) {
-      const rows = await sql.unsafe(
-        `SELECT id, created_at, updated_at, draft, published FROM ${TABLES[kind]}`
-      );
-      store[kind] = rows.map((row) => ({
-        id: row.id,
-        createdAt: new Date(row.created_at).toISOString(),
-        updatedAt: new Date(row.updated_at).toISOString(),
-        draft: row.draft,
-        published: row.published,
-      }));
+      const col = await getCollection(KIND_TO_COLLECTION[kind]);
+      const findOpts = { projection: { _id: 0 } };
+      if (session) findOpts.session = session;
+      store[kind] = await col.find({}, findOpts).toArray();
     }
     return store;
   }
 
+  async function persistDiff(before, after, session) {
+    for (const kind of KINDS) {
+      const ops = diffOps(before[kind], after[kind]);
+      if (ops.length === 0) continue;
+      const col = await getCollection(KIND_TO_COLLECTION[kind]);
+      await col.bulkWrite(ops, session ? { session } : undefined);
+    }
+  }
+
+  // Non-atomic mutation: every caller here (saveDraft, deleteDraft, etc.)
+  // touches at most one business record (deleteDraft on a collection also
+  // patches referencing products, but that is still one logical write).
+  // A single MongoDB document write is already atomic, so no transaction
+  // is needed for these.
   async function mutate(fn) {
-    const sql = await getSql();
-    const before = await loadStore(sql);
+    await ensureIndexes();
+    const before = await loadStore();
     const after = JSON.parse(JSON.stringify(before));
     const result = fn(after);
-    for (const { text, params } of diffStatements(before, after)) {
-      await sql.unsafe(text, params);
-    }
+    await persistDiff(before, after, null);
     return result;
   }
 
+  // Atomic mutation: publish and discard can change many records across
+  // all three kinds at once, and the app's contract is that this promotion
+  // is all-or-nothing. Runs inside a MongoDB transaction when the cluster
+  // supports one (every Atlas tier); see mongoClient.js for the documented
+  // fallback when it does not (standalone mongod only).
+  //
+  // The callback re-reads the current store and recomputes the diff on
+  // every attempt, because MongoDB retries a transaction's callback on a
+  // transient error.
   async function mutateAtomic(fn) {
-    const sql = await getSql();
-    const before = await loadStore(sql);
-    const after = JSON.parse(JSON.stringify(before));
-    const result = fn(after);
-    const statements = diffStatements(before, after);
-    if (statements.length > 0) {
-      await sql.begin(async (tx) => {
-        for (const { text, params } of statements) await tx.unsafe(text, params);
-      });
-    }
-    return result;
+    await ensureIndexes();
+    return withOptionalTransaction(async (session) => {
+      const before = await loadStore(session);
+      const after = JSON.parse(JSON.stringify(before));
+      const result = fn(after);
+      await persistDiff(before, after, session);
+      return result;
+    });
   }
 
   async function withStore(fn) {
-    const sql = await getSql();
-    const store = await loadStore(sql);
+    await ensureIndexes();
+    const store = await loadStore();
     return fn(store);
   }
 
   return {
-    mode: 'postgres',
+    mode: 'mongodb',
     async listProducts(options) {
       return withStore((s) => listProducts(s, options));
     },
@@ -398,13 +329,11 @@ let adapter = null;
 
 export function getCatalogAdapter() {
   if (!adapter) {
-    // Vercel's Supabase/Postgres integrations set POSTGRES_URL (the pooled,
-    // transaction-mode connection string, ideal for serverless). DATABASE_URL
-    // is also honored for other providers. With neither set: local dev uses
-    // the JSON file store; PRODUCTION refuses to run (loud failure, see
+    // MONGODB_URI set -> MongoDB Atlas. With it unset: local dev uses the
+    // JSON file store; PRODUCTION refuses to run (loud failure, see
     // runtimeEnv.js) because serverless memory loses every write.
-    const url = databaseUrl();
-    if (url) adapter = createPostgresAdapter(url);
+    const uri = mongoUri();
+    if (uri) adapter = createMongoAdapter();
     else if (isProductionRuntime()) adapter = createUnconfiguredAdapter();
     else adapter = createDevAdapter();
   }

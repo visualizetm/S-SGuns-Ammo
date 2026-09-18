@@ -2,9 +2,9 @@
 // Checks the things that must never ship:
 //   1. The old, wrong phone number appears nowhere in the repo.
 //   2. No em or en dashes in rendered copy (brand rule: none anywhere).
-//   3. DEMO seed data cannot leak into the Postgres path: seedCatalogStore
-//      is referenced only by the dev/demo adapters, and the Postgres
-//      adapter function body contains no seeding at all.
+//   3. DEMO seed data cannot leak into the MongoDB path: every seed export
+//      is empty, and the MongoDB adapter function body contains no seeding
+//      call at all.
 //   4. The build emitted robots.txt, sitemap.xml, and the web manifest.
 //   5. Enumerates the [[...]] placeholders still in siteFacts.js so the
 //      remaining owner-confirmation work is visible at a glance
@@ -96,8 +96,7 @@ const files = textFiles();
   // The DEMO example data was removed before launch. Three hard guarantees:
   //   - every seed export is EMPTY, so no path (dev store, in-browser demo,
   //     production) can ever render a DEMO product, collection, bundle or sale;
-  //   - the Postgres adapter contains NO seeding call at all (its only demo
-  //     code is the one-time cleanup that deletes previously seeded rows);
+  //   - the MongoDB adapter contains NO seeding call at all;
   //   - no "DEMO:" labeled content remains in shipped source.
   const hits = [];
 
@@ -119,12 +118,12 @@ const files = textFiles();
   }
 
   const adapter = readFileSync(join(ROOT, 'api/_lib/catalogAdapter.js'), 'utf8');
-  const pgStart = adapter.indexOf('function createPostgresAdapter');
-  const pgEnd = adapter.indexOf('export function getCatalogAdapter');
+  const pgStart = adapter.indexOf('function createMongoAdapter');
+  const pgEnd = adapter.indexOf('// Production with no database');
   if (pgStart < 0 || pgEnd < 0 || pgEnd <= pgStart) {
-    hits.push('catalogAdapter.js: could not locate the Postgres adapter body');
+    hits.push('catalogAdapter.js: could not locate the MongoDB adapter body');
   } else if (/seedCatalogStore/.test(adapter.slice(pgStart, pgEnd))) {
-    hits.push('catalogAdapter.js: the Postgres adapter must never seed DEMO data');
+    hits.push('catalogAdapter.js: the MongoDB adapter must never seed DEMO data');
   }
 
   for (const file of files) {
@@ -136,7 +135,7 @@ const files = textFiles();
   }
 
   if (hits.length) failures.push(['DEMO data removal', hits]);
-  else passes.push('DEMO data: all seeds empty, no Postgres seeding, no DEMO content in src/shared/api');
+  else passes.push('DEMO data: all seeds empty, no MongoDB seeding, no DEMO content in src/shared/api');
 }
 
 // ---------- 4. Build outputs ----------

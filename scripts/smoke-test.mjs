@@ -64,6 +64,9 @@ import {
   isPublicPath,
   RETRY_AFTER_SECONDS,
 } from '../shared/maintenance.js';
+import { diffOps } from '../api/_lib/catalogAdapter.js';
+import { isTransactionUnsupportedError } from '../api/_lib/mongoClient.js';
+import { mongoUri, mongoDbName, dbNotConfiguredError } from '../api/_lib/runtimeEnv.js';
 
 // Fresh dev store every run.
 function resetStores() {
@@ -950,11 +953,11 @@ await (async () => {
   const raw = execFileSync(
     process.execPath,
     ['scripts/prod-guard-check.mjs'],
-    { env: { ...process.env, VERCEL: '1', POSTGRES_URL: '', DATABASE_URL: '' } }
+    { env: { ...process.env, VERCEL: '1', MONGODB_URI: '' } }
   ).toString();
   const report = JSON.parse(raw.trim().split('\n').pop());
   assert.equal(report.failed, 0, JSON.stringify(report.results));
-  ok('production guard: no DATABASE_URL means 503 everywhere, health warns', () => {});
+  ok('production guard: no MONGODB_URI means 503 everywhere, health warns', () => {});
 })();
 
 // ---- Publish modal diff + publish history ----
@@ -1152,6 +1155,84 @@ ok('maintenance: every public route is covered, static files are not', () => {
 
 ok('maintenance: Retry-After is a sane positive number of seconds', () => {
   assert.ok(Number.isInteger(RETRY_AFTER_SECONDS) && RETRY_AFTER_SECONDS > 0);
+});
+
+// ---- MongoDB adapter: pure logic that does not need a live cluster ----
+// (Full CRUD/publish/discard/Quick Sale behavior is already exercised
+// against the dev-file adapter above through the exact same shared pure
+// functions from shared/catalogStore.js that the Mongo adapter also calls;
+// these checks cover the two pieces that are genuinely new to the Mongo
+// adapter: translating a store diff into bulkWrite ops, and recognizing
+// when a cluster does not support transactions.)
+
+ok('mongo: diffOps upserts new/changed records and deletes removed ones', () => {
+  const before = [
+    { id: 'a', name: 'Unchanged' },
+    { id: 'b', name: 'Old name' },
+    { id: 'c', name: 'Will be removed' },
+  ];
+  const after = [
+    { id: 'a', name: 'Unchanged' },
+    { id: 'b', name: 'New name' },
+    { id: 'd', name: 'Brand new' },
+  ];
+  const ops = diffOps(before, after);
+  // Unchanged record 'a' produces no operation at all.
+  assert.equal(ops.length, 3);
+  const upserts = ops.filter((o) => o.replaceOne).map((o) => o.replaceOne);
+  const deletes = ops.filter((o) => o.deleteOne).map((o) => o.deleteOne);
+  assert.deepEqual(
+    upserts.map((u) => u.filter.id).sort(),
+    ['b', 'd']
+  );
+  assert.ok(upserts.every((u) => u.upsert === true));
+  assert.equal(upserts.find((u) => u.filter.id === 'b').replacement.name, 'New name');
+  assert.deepEqual(deletes.map((d) => d.filter.id), ['c']);
+});
+
+ok('mongo: diffOps is a no-op when nothing changed', () => {
+  const same = [{ id: 'a', name: 'X' }, { id: 'b', name: 'Y' }];
+  assert.deepEqual(diffOps(same, same), []);
+  assert.deepEqual(diffOps([], []), []);
+});
+
+ok('mongo: recognizes the "not a replica set" error, and only that error', () => {
+  assert.equal(
+    isTransactionUnsupportedError({
+      message: 'Transaction numbers are only allowed on a replica set member or mongos',
+    }),
+    true
+  );
+  assert.equal(isTransactionUnsupportedError({ code: 20, message: 'IllegalOperation' }), true);
+  // A real write conflict or network error must NOT be treated as
+  // "transactions unsupported" and silently fall back outside the
+  // transaction; it has to propagate and fail the publish loudly instead.
+  assert.equal(isTransactionUnsupportedError({ code: 112, message: 'WriteConflict' }), false);
+  assert.equal(isTransactionUnsupportedError(new Error('network timeout')), false);
+  assert.equal(isTransactionUnsupportedError(undefined), false);
+});
+
+ok('mongo: connection details come only from env, read at request time', () => {
+  const before = process.env.MONGODB_URI;
+  const beforeDb = process.env.MONGODB_DB;
+  delete process.env.MONGODB_URI;
+  delete process.env.MONGODB_DB;
+  assert.equal(mongoUri(), '');
+  assert.equal(mongoDbName(), 'ssguns'); // documented default
+  process.env.MONGODB_URI = 'mongodb+srv://user:pass@cluster.mongodb.net';
+  process.env.MONGODB_DB = 'custom';
+  assert.equal(mongoUri(), 'mongodb+srv://user:pass@cluster.mongodb.net');
+  assert.equal(mongoDbName(), 'custom');
+  if (before === undefined) delete process.env.MONGODB_URI;
+  else process.env.MONGODB_URI = before;
+  if (beforeDb === undefined) delete process.env.MONGODB_DB;
+  else process.env.MONGODB_DB = beforeDb;
+});
+
+ok('mongo: the loud-failure message names the right env var', () => {
+  const err = dbNotConfiguredError();
+  assert.equal(err.code, 'DB_NOT_CONFIGURED');
+  assert.equal(err.message, 'Database not configured. Set MONGODB_URI.');
 });
 
 console.log(`\n${passed} checks passed.`);

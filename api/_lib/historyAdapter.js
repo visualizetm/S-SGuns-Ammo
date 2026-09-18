@@ -13,10 +13,10 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { isProductionRuntime, dbNotConfiguredError, databaseUrl } from './runtimeEnv.js';
+import { isProductionRuntime, dbNotConfiguredError, mongoUri } from './runtimeEnv.js';
+import { getCollection, ensureIndexes } from './mongoClient.js';
 
 const DEV_STORE_PATH = join(process.cwd(), '.data', 'publish-history-dev.json');
-const TABLE = 'publish_history';
 export const HISTORY_KEEP = 100;
 
 function newEntry(fields) {
@@ -74,69 +74,38 @@ function createDevHistoryAdapter() {
   };
 }
 
-// ---------- Production store: Postgres ----------
+// ---------- Production store: MongoDB Atlas ----------
 
-function createPostgresHistoryAdapter(connectionString) {
-  let sqlPromise = null;
-
-  async function getSql() {
-    if (!sqlPromise) {
-      sqlPromise = (async () => {
-        const { default: postgres } = await import('postgres');
-        const local = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString);
-        const sql = postgres(connectionString, {
-          prepare: false,
-          ssl: local ? false : 'require',
-          max: 3,
-          idle_timeout: 20,
-          connect_timeout: 15,
-        });
-        await sql.unsafe(`CREATE TABLE IF NOT EXISTS ${TABLE} (
-          id TEXT PRIMARY KEY,
-          published_at TIMESTAMPTZ NOT NULL,
-          total INTEGER NOT NULL,
-          detail JSONB NOT NULL,
-          published_by TEXT NOT NULL
-        )`);
-        return sql;
-      })();
-    }
-    return sqlPromise;
-  }
-
-  function rowToEntry(row) {
-    return {
-      id: row.id,
-      publishedAt: new Date(row.published_at).toISOString(),
-      total: Number(row.total),
-      detail: row.detail || {},
-      publishedBy: row.published_by,
-    };
+function createMongoHistoryAdapter() {
+  async function col() {
+    await ensureIndexes();
+    return getCollection('publishHistory');
   }
 
   return {
-    mode: 'postgres',
+    mode: 'mongodb',
     async listHistory() {
-      const sql = await getSql();
-      const rows = await sql.unsafe(
-        `SELECT * FROM ${TABLE} ORDER BY published_at DESC LIMIT ${HISTORY_KEEP}`
-      );
-      return rows.map(rowToEntry);
+      const c = await col();
+      return c
+        .find({}, { projection: { _id: 0 } })
+        .sort({ publishedAt: -1 })
+        .limit(HISTORY_KEEP)
+        .toArray();
     },
     async recordPublish(fields) {
-      const sql = await getSql();
+      const c = await col();
       const entry = newEntry(fields);
-      await sql.unsafe(
-        `INSERT INTO ${TABLE} (id, published_at, total, detail, published_by)
-         VALUES ($1, $2, $3, $4::jsonb, $5)`,
-        [entry.id, entry.publishedAt, entry.total, entry.detail, entry.publishedBy]
-      );
-      // Keep at most HISTORY_KEEP entries.
-      await sql.unsafe(
-        `DELETE FROM ${TABLE} WHERE id NOT IN (
-           SELECT id FROM ${TABLE} ORDER BY published_at DESC LIMIT ${HISTORY_KEEP}
-         )`
-      );
+      await c.insertOne({ ...entry });
+      // Keep at most HISTORY_KEEP entries: find the ids of everything
+      // beyond the newest HISTORY_KEEP and drop them.
+      const overflow = await c
+        .find({}, { projection: { _id: 0, id: 1 } })
+        .sort({ publishedAt: -1 })
+        .skip(HISTORY_KEEP)
+        .toArray();
+      if (overflow.length > 0) {
+        await c.deleteMany({ id: { $in: overflow.map((o) => o.id) } });
+      }
       return entry;
     },
   };
@@ -162,8 +131,8 @@ let historyAdapter = null;
 
 export function getHistoryAdapter() {
   if (!historyAdapter) {
-    const url = databaseUrl();
-    if (url) historyAdapter = createPostgresHistoryAdapter(url);
+    const uri = mongoUri();
+    if (uri) historyAdapter = createMongoHistoryAdapter();
     else if (isProductionRuntime()) historyAdapter = createUnconfiguredHistoryAdapter();
     else historyAdapter = createDevHistoryAdapter();
   }

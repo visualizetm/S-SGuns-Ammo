@@ -6,7 +6,7 @@ implementations (JSON-file catalog, data-URL images, demo password).
 
 PRODUCTION IS DIFFERENT ON PURPOSE. A deployed site (Vercel sets
 VERCEL=1) REFUSES to run without a database: every store-backed endpoint
-answers 503 "Database not configured. Set DATABASE_URL." and the Owner's
+answers 503 "Database not configured. Set MONGODB_URI." and the Owner's
 Dashboard shows a red "saves are not being stored" banner. This loud
 failure replaced a silent one: without it, the serverless dev store held
 data in per-instance memory, so Publish reported success and the changes
@@ -16,11 +16,12 @@ vanished when the function instance ended.
 
 | Variable | Purpose |
 | --- | --- |
-| `POSTGRES_URL` (or `DATABASE_URL`) | Pooled Postgres connection string for the catalog, sales, and publish-history stores. Supabase's Vercel integration sets `POSTGRES_URL` automatically. |
+| `MONGODB_URI` | MongoDB Atlas connection string for the catalog, sales, and publish-history stores. |
 
 Verify after deploy: sign in to the dashboard, then
 `GET /api/admin/health` (with the bearer token) must report
-`{ "ok": true, "adapter": "postgres" }`.
+`{ "ok": true, "adapter": "mongodb" }`. From your own machine you can
+also check the database directly: `MONGODB_URI=... node scripts/db-check.mjs`.
 
 The public site is phone-first: there are no contact forms and no
 message backend to configure. Every "get in touch" action is a
@@ -32,10 +33,12 @@ click-to-call link, so there is nothing to set up for contact.
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Real admin password for `/admin` | Documented demo password `oxford` |
 | `ADMIN_SESSION_SECRET` | Random secret that signs admin session tokens | Secret derived from the admin password (demo grade) |
-| `POSTGRES_URL` (or `DATABASE_URL`) | REQUIRED. Pooled Postgres connection string. Vercel's Supabase integration sets `POSTGRES_URL` automatically | PRODUCTION: loud 503 error + red dashboard banner. Local dev only: JSON file store |
+| `MONGODB_URI` | REQUIRED. MongoDB Atlas connection string | PRODUCTION: loud 503 error + red dashboard banner. Local dev only: JSON file store |
+| `MONGODB_DB` | Database name | Defaults to `ssguns` |
 | `CLOUDINARY_URL` (or `CLOUDINARY_CLOUD_NAME` + `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`) | Cloudinary account for permanent photo storage | PRODUCTION: uploads answer 503 with a clear error. Local dev only: data-URL photos |
 
-Set all four for a real deployment. Redeploy after changing any of them.
+Set at least `MONGODB_URI` and the Cloudinary variable(s) for a real
+deployment. Redeploy after changing any of them.
 
 Copy-paste with the Vercel CLI (or paste the same values into Project
 Settings, Environment Variables, in the dashboard):
@@ -47,7 +50,7 @@ openssl rand -hex 32      # -> ADMIN_SESSION_SECRET
 
 vercel env add ADMIN_PASSWORD production
 vercel env add ADMIN_SESSION_SECRET production
-vercel env add POSTGRES_URL production
+vercel env add MONGODB_URI production
 vercel env add CLOUDINARY_URL production
 vercel --prod   # redeploy so the new env takes effect
 ```
@@ -57,7 +60,7 @@ vercel --prod   # redeploy so the new env takes effect
 Run `npm run build` then `npm run preflight` before any production
 deploy. It fails the deploy if the retired phone number reappears, if an
 em or en dash slips into copy, if DEMO seed data could reach the
-Postgres path, or if the build did not emit robots.txt, sitemap.xml,
+production path, or if the build did not emit robots.txt, sitemap.xml,
 and the web manifest. It also lists every `[[...]]` owner-confirmation
 placeholder still in `src/content/siteFacts.js`.
 
@@ -81,30 +84,49 @@ placeholder still in `src/content/siteFacts.js`.
 - Not yet implemented (fine for a single-owner admin): login rate
   limiting, multiple users, per-token revocation.
 
-## Catalog database (Supabase, or any Postgres)
+## Catalog database (MongoDB Atlas)
 
-The catalog store uses the `postgres` driver, which works with Supabase,
-Neon, Vercel Postgres, or a self-hosted database.
+The catalog store uses the official `mongodb` driver, talking to a
+MongoDB Atlas cluster (any tier, including the free M0).
 
-1. Supabase via Vercel: add the Supabase integration to the project; it
-   sets `POSTGRES_URL` (the pooled, transaction-mode connection) and other
-   vars automatically. The adapter reads `POSTGRES_URL` first, then
-   `DATABASE_URL`. Use the POOLED connection string for serverless (the
-   driver sets `prepare:false` and TLS, which the Supabase pooler needs).
-2. No migration step: the adapter creates its three tables on first use
-   (`catalog_products`, `catalog_collections`, `catalog_bundles`), each
-   `id TEXT PRIMARY KEY, created_at, updated_at, draft JSONB, published
-   JSONB`.
-3. Draft/publish semantics are identical to the dev store because both
-   run the same operations (shared/catalogStore.js). Publish and Discard
-   write through a single transaction, so the promotion is atomic.
-4. Production starts EMPTY on purpose. The owner adds real products
+1. Create a free cluster at mongodb.com/atlas. Under Database Access,
+   create a user with a strong password. Under Network Access, allow
+   access from anywhere (`0.0.0.0/0`) since Vercel's serverless functions
+   do not have a fixed IP; Atlas's own auth (the connection string's
+   username/password) is the actual security boundary. Under Database,
+   click Connect, choose "Drivers", and copy the connection string; it
+   looks like `mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/`. Set
+   that as `MONGODB_URI` in Vercel.
+2. Database name: `MONGODB_DB`, defaults to `ssguns` if unset. Nothing
+   else to create; MongoDB creates each collection automatically the
+   first time something is written to it.
+3. Collections: `products`, `collections`, `bundles` (each document:
+   `{ id, createdAt, updatedAt, draft, published }`, matching the dev
+   store's shape exactly), `sales`, and `publishHistory`. Indexes (a
+   unique index on `id`, plus `updatedAt` and the field each public read
+   filters on) are created automatically the first time the app touches
+   each collection; see `api/_lib/mongoClient.js`.
+4. Draft/publish semantics are identical to the dev store because both
+   run the same operations (`shared/catalogStore.js`). Publish and
+   Discard run inside a MongoDB transaction when the cluster supports one
+   (every Atlas tier does, since Atlas clusters are always replica
+   sets), so the promotion is atomic. The one documented exception: a
+   bare local `mongod` started without `--replSet` does NOT support
+   transactions, and the adapter automatically falls back to a plain,
+   non-transactional `bulkWrite` for that case only (never on Atlas). See
+   the comment on `withOptionalTransaction` in `api/_lib/mongoClient.js`
+   for the exact tradeoff.
+5. Connection reuse: the `MongoClient` (and its `connect()` promise) is
+   created once per warm serverless instance and cached at module scope,
+   never reopened per request.
+6. Production starts EMPTY on purpose. The owner adds real products
    through the admin; DEMO seeds never promote to production.
-5. Single-editor assumption: writes are read-modify-write without row
-   locking. Fine for one owner on one phone; revisit before adding a
-   second concurrent editor.
-6. Verify locally against any Postgres: `POSTGRES_URL=... node
-   scripts/test-postgres.mjs` exercises create, publish, edit, and delete.
+7. Single-editor assumption: non-publish writes are read-modify-write
+   without document locking. Fine for one owner on one phone; revisit
+   before adding a second concurrent editor.
+8. Verify the connection from your own machine (or CI): `MONGODB_URI=...
+   node scripts/db-check.mjs` connects, pings, and prints a document
+   count per collection.
 
 ## Photo storage (Cloudinary)
 
@@ -127,7 +149,7 @@ Neon, Vercel Postgres, or a self-hosted database.
    only the reference. The smoke suite fails if a destroy call is added.
 5. Migrating legacy images (base64 or old Vercel Blob URLs) into
    Cloudinary, one time:
-   `POSTGRES_URL=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs`
+   `MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs`
    (add `--dry-run` to preview; safe to rerun, already-migrated images
    are skipped).
 
@@ -149,8 +171,8 @@ Neon, Vercel Postgres, or a self-hosted database.
 
 - `node scripts/dev-api.mjs` serves every endpoint on
   http://localhost:3999 with zero credentials for curl testing.
-- The dev catalog persists to `.data/catalog-dev.json` (gitignored).
-  Delete the folder to reseed the DEMO catalog.
+- The dev catalog persists to `.data/catalog-dev.json` (gitignored) and
+  starts empty. Delete the folder to reset it.
 - `npm run smoke` covers validation, auth, the draft/publish flow, CSV,
   and every endpoint. `npm run responsive-check` audits every public
-  page and all four admin tabs.
+  page and every admin page.

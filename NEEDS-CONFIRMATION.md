@@ -55,8 +55,8 @@ generated from the submark by `scripts/generate-icons.mjs`.
 
 ## Product catalog
 
-- Seeded catalog data is fictional and prefixed "DEMO:". The owner enters
-  real items through `/admin`; production (Postgres) starts empty.
+- The catalog ships empty everywhere. The owner enters real items through
+  `/admin`; production (MongoDB) starts empty.
 - Public pricing is owner-approved (prices and sale/compare-at values may
   show publicly).
 - Condition values (New, Used) and stock statuses (In Stock, Low Stock,
@@ -64,7 +64,7 @@ generated from the submark by `scripts/generate-icons.mjs`.
 
 ## Demo-mode items to revisit at production
 
-- Catalog storage is a JSON file (dev) until `DATABASE_URL` is set; see
-  PRODUCTION-SETUP.md for the Postgres and Vercel Blob promotion steps.
+- Catalog storage is a JSON file (dev) until `MONGODB_URI` is set; see
+  PRODUCTION-SETUP.md for the MongoDB Atlas and Cloudinary promotion steps.
 - Admin gate uses a documented demo password; set `ADMIN_PASSWORD` and
   `ADMIN_SESSION_SECRET` in Vercel before launch.

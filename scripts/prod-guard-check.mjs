@@ -1,14 +1,13 @@
 // Verifies the production loud-failure guarantee by simulating a Vercel
 // deployment with NO database configured (the smoke suite spawns this with
-// VERCEL=1 and no POSTGRES_URL/DATABASE_URL). Every store-backed endpoint
-// must answer 503 with the exact configuration error, and the health
-// endpoint must report the broken state, so a misconfigured deployment can
-// never silently lose the owner's saves again.
+// VERCEL=1 and no MONGODB_URI). Every store-backed endpoint must answer 503
+// with the exact configuration error, and the health endpoint must report
+// the broken state, so a misconfigured deployment can never silently lose
+// the owner's saves again.
 //
 // Prints a JSON report to stdout; exits 0 only if every expectation holds.
 
-delete process.env.POSTGRES_URL;
-delete process.env.DATABASE_URL;
+delete process.env.MONGODB_URI;
 process.env.VERCEL = process.env.VERCEL || '1';
 
 const { default: loginHandler } = await import('../api/admin/login.js');
@@ -59,7 +58,7 @@ expect(
   'public inventory 503 + message',
   inv.statusCode === 503 &&
     inv.body?.code === 'DB_NOT_CONFIGURED' &&
-    inv.body?.error === 'Database not configured. Set DATABASE_URL.',
+    inv.body?.error === 'Database not configured. Set MONGODB_URI.',
   JSON.stringify({ status: inv.statusCode, body: inv.body })
 );
 
@@ -99,7 +98,7 @@ expect(
 );
 expect(
   'health leaks no secrets',
-  !JSON.stringify(health.body).match(/postgres:\/\/|cloudinary:\/\/|api_key|secret/i),
+  !JSON.stringify(health.body).match(/mongodb(\+srv)?:\/\/|cloudinary:\/\/|api_key|secret/i),
   'body contains secret-like content'
 );
 

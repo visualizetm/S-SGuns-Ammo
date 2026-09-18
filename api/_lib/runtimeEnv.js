@@ -15,7 +15,7 @@ export function isProductionRuntime() {
 }
 
 export const DB_NOT_CONFIGURED_MESSAGE =
-  'Database not configured. Set DATABASE_URL.';
+  'Database not configured. Set MONGODB_URI.';
 
 export function dbNotConfiguredError() {
   const error = new Error(DB_NOT_CONFIGURED_MESSAGE);
@@ -23,6 +23,12 @@ export function dbNotConfiguredError() {
   return error;
 }
 
-export function databaseUrl() {
-  return process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
+// MongoDB Atlas connection string. Read only at request time (never at
+// build time) so a production build never requires this secret to exist.
+export function mongoUri() {
+  return process.env.MONGODB_URI || '';
+}
+
+export function mongoDbName() {
+  return process.env.MONGODB_DB || 'ssguns';
 }

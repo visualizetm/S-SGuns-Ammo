@@ -11,22 +11,19 @@
 //   getSale(id)              -> entry | null
 //   deleteSale(id)           -> deleted entry | null
 //
-// Dev: JSON file .data/sales-dev.json, seeded with DEMO sales.
-// Production: `sales` table via POSTGRES_URL/DATABASE_URL, self-creating,
-// starts EMPTY. DEMO sales never promote.
+// Dev: JSON file .data/sales-dev.json.
+// Production: `sales` collection in MongoDB Atlas via MONGODB_URI,
+// self-creating (an index is enough; MongoDB creates the collection on
+// first write), starts EMPTY.
 
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { seedSalesStore } from '../../shared/salesSeeds.js';
-import {
-  isProductionRuntime,
-  dbNotConfiguredError,
-  databaseUrl,
-} from './runtimeEnv.js';
+import { isProductionRuntime, dbNotConfiguredError, mongoUri } from './runtimeEnv.js';
+import { getCollection, ensureIndexes } from './mongoClient.js';
 
 const DEV_STORE_PATH = join(process.cwd(), '.data', 'sales-dev.json');
-const TABLE = 'sales';
 
 function inRange(entry, from, to) {
   if (from && entry.soldAt < from) return false;
@@ -107,123 +104,50 @@ function createDevSalesAdapter() {
   };
 }
 
-// ---------- Production store: Postgres ----------
+// ---------- Production store: MongoDB Atlas ----------
 
-function createPostgresSalesAdapter(connectionString) {
-  let sqlPromise = null;
-
-  async function getSql() {
-    if (!sqlPromise) {
-      sqlPromise = (async () => {
-        const { default: postgres } = await import('postgres');
-        const local = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString);
-        const sql = postgres(connectionString, {
-          prepare: false,
-          ssl: local ? false : 'require',
-          max: 3,
-          idle_timeout: 20,
-          connect_timeout: 15,
-        });
-        await sql.unsafe(`CREATE TABLE IF NOT EXISTS ${TABLE} (
-          id TEXT PRIMARY KEY,
-          created_at TIMESTAMPTZ NOT NULL,
-          product_id TEXT,
-          product_name_snapshot TEXT NOT NULL,
-          price_at_sale NUMERIC NOT NULL,
-          quantity INTEGER NOT NULL,
-          sold_at TIMESTAMPTZ NOT NULL,
-          note TEXT,
-          marked_sold BOOLEAN NOT NULL DEFAULT false,
-          prev_stock_status TEXT
-        )`);
-        // One-time DEMO cleanup: earlier deployments seeded example sales
-        // (fixed ids 'demo-sale-*'). The demos were removed before launch;
-        // delete any that remain. Idempotent and touches only those ids, so
-        // real sales (random UUIDs) can never match.
-        await sql.unsafe(`DELETE FROM ${TABLE} WHERE id LIKE 'demo-sale-%'`);
-        return sql;
-      })();
-    }
-    return sqlPromise;
-  }
-
-  function rowToEntry(row) {
-    return {
-      id: row.id,
-      createdAt: new Date(row.created_at).toISOString(),
-      productId: row.product_id,
-      productNameSnapshot: row.product_name_snapshot,
-      priceAtSale: Number(row.price_at_sale),
-      quantity: Number(row.quantity),
-      soldAt: new Date(row.sold_at).toISOString(),
-      note: row.note || '',
-      markedSold: row.marked_sold === true,
-      prevStockStatus: row.prev_stock_status ?? null,
-    };
+function createMongoSalesAdapter() {
+  async function col() {
+    await ensureIndexes();
+    return getCollection('sales');
   }
 
   return {
-    mode: 'postgres',
+    mode: 'mongodb',
     async listSales({ from, to } = {}) {
-      const sql = await getSql();
-      const clauses = [];
-      const params = [];
-      if (from) {
-        params.push(from);
-        clauses.push(`sold_at >= $${params.length}`);
+      const c = await col();
+      const filter = {};
+      if (from || to) {
+        filter.soldAt = {};
+        if (from) filter.soldAt.$gte = from;
+        if (to) filter.soldAt.$lte = to;
       }
-      if (to) {
-        params.push(to);
-        clauses.push(`sold_at <= $${params.length}`);
-      }
-      const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
-      const rows = await sql.unsafe(
-        `SELECT * FROM ${TABLE} ${where} ORDER BY sold_at DESC`,
-        params
-      );
-      return rows.map(rowToEntry);
+      return c
+        .find(filter, { projection: { _id: 0 } })
+        .sort({ soldAt: -1 })
+        .toArray();
     },
     async createSale(fields) {
-      const sql = await getSql();
+      const c = await col();
       const entry = newEntry(fields);
-      await sql.unsafe(
-        `INSERT INTO ${TABLE}
-           (id, created_at, product_id, product_name_snapshot, price_at_sale,
-            quantity, sold_at, note, marked_sold, prev_stock_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          entry.id,
-          entry.createdAt,
-          entry.productId,
-          entry.productNameSnapshot,
-          entry.priceAtSale,
-          entry.quantity,
-          entry.soldAt,
-          entry.note,
-          entry.markedSold,
-          entry.prevStockStatus,
-        ]
-      );
+      await c.insertOne({ ...entry });
       return entry;
     },
     async getSale(id) {
-      const sql = await getSql();
-      const rows = await sql.unsafe(`SELECT * FROM ${TABLE} WHERE id = $1`, [id]);
-      return rows[0] ? rowToEntry(rows[0]) : null;
+      const c = await col();
+      return c.findOne({ id }, { projection: { _id: 0 } });
     },
     async deleteSale(id) {
-      const sql = await getSql();
-      const rows = await sql.unsafe(
-        `DELETE FROM ${TABLE} WHERE id = $1 RETURNING *`,
-        [id]
-      );
-      return rows[0] ? rowToEntry(rows[0]) : null;
+      const c = await col();
+      const entry = await c.findOne({ id }, { projection: { _id: 0 } });
+      if (!entry) return null;
+      await c.deleteOne({ id });
+      return entry;
     },
   };
 }
 
-// Production with no database fails LOUD (same rule as the catalog
-// adapter): the sales log must never silently write to serverless memory.
+// Production with no database fails LOUD (same rule as every adapter).
 function createUnconfiguredSalesAdapter() {
   return new Proxy(
     { mode: 'unconfigured' },
@@ -243,8 +167,8 @@ let salesAdapter = null;
 
 export function getSalesAdapter() {
   if (!salesAdapter) {
-    const url = databaseUrl();
-    if (url) salesAdapter = createPostgresSalesAdapter(url);
+    const uri = mongoUri();
+    if (uri) salesAdapter = createMongoSalesAdapter();
     else if (isProductionRuntime()) salesAdapter = createUnconfiguredSalesAdapter();
     else salesAdapter = createDevSalesAdapter();
   }

@@ -2,7 +2,7 @@
 //
 // Reports which backing services this deployment is actually running so a
 // misconfiguration is visible instead of silent:
-//   { ok, adapter: "postgres" | "dev-file" | "unconfigured",
+//   { ok, adapter: "mongodb" | "dev-file" | "unconfigured",
 //     imageStorage: "cloudinary" | "dev-data-url" | "unconfigured",
 //     runtime: "production" | "dev" }
 //
@@ -13,7 +13,7 @@
 
 import { isAuthorized } from '../_lib/auth.js';
 import { sendJson, methodNotAllowed, guard } from '../_lib/http.js';
-import { isProductionRuntime, databaseUrl } from '../_lib/runtimeEnv.js';
+import { isProductionRuntime, mongoUri } from '../_lib/runtimeEnv.js';
 import { imageStorageMode } from '../_lib/imageStorage.js';
 
 async function handler(req, res) {
@@ -23,8 +23,8 @@ async function handler(req, res) {
   if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
 
   const production = isProductionRuntime();
-  const adapter = databaseUrl()
-    ? 'postgres'
+  const adapter = mongoUri()
+    ? 'mongodb'
     : production
       ? 'unconfigured'
       : 'dev-file';

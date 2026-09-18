@@ -1,15 +1,15 @@
 // One-time, admin-only migration: re-upload any legacy product/collection/
-// bundle images (base64 data URLs or Vercel Blob URLs) to Cloudinary and
+// bundle images (base64 data URLs or old Vercel Blob URLs) to Cloudinary and
 // rewrite the stored references to the Cloudinary delivery URL + public_id.
 // Never deletes anything anywhere (owner's permanence rule).
 //
 // Run from a terminal with the target store's env vars:
 //
-//   Production catalog (Supabase/Postgres):
-//     POSTGRES_URL=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs
+//   Production catalog (MongoDB Atlas):
+//     MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs
 //   Preview what would change without writing:
-//     POSTGRES_URL=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs --dry-run
-//   Local dev store (.data/catalog-dev.json): omit POSTGRES_URL.
+//     MONGODB_URI=... CLOUDINARY_URL=... node scripts/migrate-images-to-cloudinary.mjs --dry-run
+//   Local dev store (.data/catalog-dev.json): omit MONGODB_URI.
 //
 // Idempotent: images already on Cloudinary (res.cloudinary.com) are skipped,
 // so it is safe to run again after a partial failure.
@@ -20,11 +20,7 @@ import { cloudinaryConfigured, uploadToCloudinary } from '../api/_lib/imageStora
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const DEV_STORE = join(process.cwd(), '.data', 'catalog-dev.json');
-const TABLES = {
-  products: 'catalog_products',
-  collections: 'catalog_collections',
-  bundles: 'catalog_bundles',
-};
+const KINDS = ['products', 'collections', 'bundles'];
 
 function needsMigration(url) {
   if (typeof url !== 'string' || !url) return false;
@@ -82,30 +78,32 @@ if (!cloudinaryConfigured()) {
   process.exit(1);
 }
 
-const dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const mongoUri = process.env.MONGODB_URI;
 
-if (dbUrl) {
-  const { default: postgres } = await import('postgres');
-  const local = /@(localhost|127\.0\.0\.1)[:/]/.test(dbUrl);
-  const sql = postgres(dbUrl, { prepare: false, ssl: local ? false : 'require', max: 2 });
-  for (const [kind, table] of Object.entries(TABLES)) {
-    const rows = await sql.unsafe(`SELECT id, draft, published FROM ${table}`);
-    for (const row of rows) {
-      const draftChanged = await migrateFields(kind, row.id, 'draft', row.draft);
-      const publishedChanged = await migrateFields(kind, row.id, 'published', row.published);
+if (mongoUri) {
+  const { MongoClient } = await import('mongodb');
+  const client = new MongoClient(mongoUri, { maxPoolSize: 2 });
+  await client.connect();
+  const db = client.db(process.env.MONGODB_DB || 'ssguns');
+  for (const kind of KINDS) {
+    const collection = db.collection(kind);
+    const docs = await collection.find({}).toArray();
+    for (const doc of docs) {
+      const draftChanged = await migrateFields(kind, doc.id, 'draft', doc.draft);
+      const publishedChanged = await migrateFields(kind, doc.id, 'published', doc.published);
       if ((draftChanged || publishedChanged) && !DRY_RUN) {
-        await sql.unsafe(
-          `UPDATE ${table} SET draft = $1::jsonb, published = $2::jsonb, updated_at = $3 WHERE id = $4`,
-          [row.draft, row.published, new Date().toISOString(), row.id]
+        await collection.updateOne(
+          { id: doc.id },
+          { $set: { draft: doc.draft, published: doc.published, updatedAt: new Date().toISOString() } }
         );
       }
     }
   }
-  await sql.end();
+  await client.close();
 } else if (existsSync(DEV_STORE)) {
   const store = JSON.parse(readFileSync(DEV_STORE, 'utf8'));
   let changed = false;
-  for (const kind of Object.keys(TABLES)) {
+  for (const kind of KINDS) {
     for (const record of store[kind] || []) {
       if (await migrateFields(kind, record.id, 'draft', record.draft)) changed = true;
       if (await migrateFields(kind, record.id, 'published', record.published)) changed = true;
@@ -113,7 +111,7 @@ if (dbUrl) {
   }
   if (changed && !DRY_RUN) writeFileSync(DEV_STORE, JSON.stringify(store, null, 2));
 } else {
-  console.log('No store found (no database URL and no .data/catalog-dev.json). Nothing to migrate.');
+  console.log('No store found (no MONGODB_URI and no .data/catalog-dev.json). Nothing to migrate.');
 }
 
 console.log(`${DRY_RUN ? 'Dry run complete.' : 'Migration complete.'} ${uploaded} image(s) uploaded.`);

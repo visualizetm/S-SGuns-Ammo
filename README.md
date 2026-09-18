@@ -7,8 +7,9 @@ Phone: (610) 467-0284.
 Informational only. No e-commerce, no cart, no checkout, and no online
 payments, by design. The catalog displays products and prices (public
 pricing approved by the owner) with "call the shop" as the only next
-step. See `NEEDS-CONFIRMATION.md` for every fact that still needs owner
-confirmation before publish.
+step. There are no contact forms: every "get in touch" action is a
+click-to-call link. See `NEEDS-CONFIRMATION.md` for every fact that
+still needs owner confirmation before publish.
 
 ## Stack
 
@@ -31,7 +32,7 @@ Light-first heritage brand. Tokens live in `src/styles/base.css`:
 - Tinted borders and rings use `color-mix` on `--brand`, so a reskin is
   single-token
 - Logo art lives in `public/brand/` (source PNGs) with paths wired in
-  `LOGO_ASSETS` (`src/data/business.js`). Site-ready `.web.webp`
+  `LOGO_ASSETS` (`src/content/siteFacts.js`). Site-ready `.web.webp`
   versions, the favicon, apple-touch-icon, and og:image are derived with
   `node scripts/optimize-brand-assets.mjs`; rerun it after replacing any
   source PNG. Rifle art appears only as large feature graphics; the
@@ -44,68 +45,63 @@ npm install
 npm run build        # production build to dist/
 npm run preview      # serve the built site locally
 npm run dev          # dev server with HMR
-npm run smoke        # node smoke test for validation, adapter, endpoints
+npm run smoke        # node smoke test for validation, adapters, every endpoint
 npm run responsive-check  # headless responsive / no-overlap checks
 ```
 
 ## Demo mode, and how it promotes to production
 
-The public forms and the admin call the serverless endpoints first. When
-those are unreachable (plain `vite dev` / `vite preview`), the client
-falls back to an in-browser demo adapter (`src/lib/demoAdapter.js`). The
-demo catalog mirrors the server exactly because both wrap the same pure
+The Owner's Dashboard calls the serverless endpoints first. When those
+are unreachable (plain `vite dev` / `vite preview`), the client falls
+back to an in-browser demo adapter (`src/lib/demoAdapter.js`). The demo
+catalog mirrors the server exactly because both wrap the same pure
 draft/publish operations (`shared/catalogStore.js`), persisted in
-localStorage; the forms answer with the honest "being set up" message
-since there is nothing to forward to. On Vercel the real API handles
-everything; the promotion path to Postgres, Vercel Blob, and Web3Forms
-is in `PRODUCTION-SETUP.md`.
+localStorage. On Vercel the real API handles everything; the promotion
+path to MongoDB Atlas and Cloudinary is in `PRODUCTION-SETUP.md`.
 
 ## API
 
 | Route | Method | Purpose |
 | --- | --- | --- |
-| `/api/forms/contact` | POST | Contact form |
-| `/api/forms/transfer` | POST | Transfer inquiry form |
-| `/api/forms/email-signup` | POST | Email capture |
 | `/api/admin/login` | POST | Admin login, returns signed expiring bearer token |
+| `/api/admin/health` | GET | Auth-gated diagnostics: which adapters this deployment is running (auth) |
 | `/api/inventory` | GET | Public catalog: PUBLISHED products, collections, gated bundles; `?collection=&q=` or `?id=` for one item |
 | `/api/admin/products` | GET POST PATCH DELETE | Product drafts: list, save, restore, delete (auth) |
 | `/api/admin/collections` | GET POST PATCH DELETE | Collection drafts, plus `{order:[ids]}` reorder (auth) |
 | `/api/admin/bundles` | GET POST PATCH DELETE | Bundle drafts (auth) |
-| `/api/admin/publish` | GET POST | Unpublished-changes summary; publish or discard all (auth) |
+| `/api/admin/publish` | GET POST | Unpublished-changes summary and itemized diff; publish or discard all (auth) |
+| `/api/admin/publish-history` | GET | Itemized log of past publishes (auth) |
 | `/api/admin/products-csv` | GET POST | CSV export / import of product drafts (auth) |
-| `/api/admin/inventory-image` | POST | Upload a photo (auth) |
+| `/api/admin/inventory-image` | POST | Upload a photo to Cloudinary (auth) |
+| `/api/admin/sales` | GET POST DELETE | Quick Sale log: list, log a sale, undo (auth) |
 
 The catalog is a draft/publish store: every admin edit is a draft, and
 the public read serves only the published snapshot, promoted atomically
-by the Publish bar. Storage sits behind swappable adapters
-(zero-credential JSON file and data-URL images in dev; Postgres and
-Vercel Blob behind env vars in production; see `PRODUCTION-SETUP.md`).
-The public forms store nothing server-side: they validate, drop
-honeypot hits, and forward to the owner's email through Web3Forms.
-Everything is display data only: no cart, no checkout, no purchase
-flow.
+through the Publish modal. Storage sits behind swappable adapters
+(zero-credential JSON file and data-URL images in dev; MongoDB Atlas and
+Cloudinary behind env vars in production; see `PRODUCTION-SETUP.md`).
+Everything is display data only: no cart, no checkout, no purchase flow.
 
-Every POST body is validated server-side in `shared/validation.js` (also
-reused client-side for inline errors). Invalid input returns 422 with
-per-field errors. A hidden honeypot field silently drops bot submissions.
+Every POST body is validated server-side in `shared/catalogValidation.js`
+and `shared/salesValidation.js` (also reused client-side for inline
+errors). Invalid input returns 422 with per-field errors.
 
-## Admin (demo)
+## Owner's Dashboard (demo)
 
-- Visit `/admin`, password: `oxford`. Tabs: Products, Collections,
-  Bundles, Bulk Editor, with the persistent Publish bar on top.
+- Visit `/admin`, password: `oxford`. Pages: Overview, Products (with
+  Collections, Bundles, and the Bulk Editor as sub-sections), Quick Sale,
+  and Publish History, with the persistent Publish control always
+  reachable.
 - Auth is checked server-side only (`api/_lib/auth.js`); the password never
   appears in a `VITE_` variable or the client bundle. Set `ADMIN_PASSWORD`
   in Vercel project settings to override the demo password.
 - The in-browser demo fallback also gates on the demo password, but that
   gate is cosmetic by definition (it ships to the browser). It exists only
-  so local demos work; real deployments authenticate on the server. Promote
-  to real session auth alongside the database adapter before launch.
+  so local demos work; real deployments authenticate on the server.
 
 ## Deploy
 
 `vercel.json` sets the build command, `dist` output, an SPA rewrite that
 excludes `api/` so functions are not shadowed, and security headers
-(nosniff, DENY framing, XSS protection). The footer shows the git commit
-SHA injected at build time (`VERCEL_GIT_COMMIT_SHA` on Vercel, `git
-rev-parse` locally).
+(nosniff, DENY framing, XSS protection). See `PRODUCTION-SETUP.md` for
+every environment variable a real deployment needs.
