@@ -402,6 +402,27 @@ await (async () => {
   assert.ok(!res.body.items.some((i) => i.id === temp.id));
   ok('delete: removal is a draft until publish, then the item is gone', () => {});
 
+  // delete: a NEVER-published product has no live counterpart to remove, so
+  // it disappears from the admin list immediately, with no publish step.
+  const neverPublished = await makeProduct(auth, {
+    name: 'Smoke Never Published',
+    collectionIds: [rifles.id],
+    model: 'NP-1',
+    price: 10,
+  });
+  res = await call(adminProductsHandler, {
+    method: 'DELETE',
+    headers: auth,
+    body: { id: neverPublished.id },
+  });
+  assert.equal(res.statusCode, 200);
+  res = await call(adminProductsHandler, { method: 'GET', url: '/x', headers: auth });
+  assert.ok(
+    !res.body.items.some((i) => i.id === neverPublished.id),
+    'never-published product is gone from the admin list right away'
+  );
+  ok('delete: a never-published product is removed immediately, no publish needed', () => {});
+
   // ---- collections CRUD ----
 
   const rimfire = await makeCollection(auth, 'Rimfire');
@@ -424,6 +445,30 @@ await (async () => {
   res = await call(adminCollectionsHandler, { method: 'GET', url: '/x', headers: auth });
   assert.equal(res.body.items[0].id, rimfire.id);
   ok('collections: reorder puts the moved collection first', () => {});
+
+  // hide / unhide: visible:false takes a published collection off the
+  // public read; visible:true brings it back. Both are drafts like any
+  // other edit, so publish makes the effect visible on the public side.
+  await publish(auth);
+  res = await call(adminCollectionsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { id: rifles.id, visible: false },
+  });
+  assert.equal(res.body.item.visible, false);
+  await publish(auth);
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.ok(!res.body.collections.some((c) => c.id === rifles.id), 'hidden collection is off the public read');
+  res = await call(adminCollectionsHandler, {
+    method: 'POST',
+    headers: auth,
+    body: { id: rifles.id, visible: true },
+  });
+  assert.equal(res.body.item.visible, true);
+  await publish(auth);
+  res = await call(inventoryHandler, { method: 'GET', url: '/api/inventory' });
+  assert.ok(res.body.collections.some((c) => c.id === rifles.id), 'unhidden collection is back on the public read');
+  ok('collections: hide (visible:false) and unhide (visible:true) both work', () => {});
 
   // deleting a collection keeps its products
   res = await call(adminCollectionsHandler, {
