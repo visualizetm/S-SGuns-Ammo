@@ -60,12 +60,12 @@ export const HOURS = [
   { day: 'Thursday', label: '1:00 PM to 5:00 PM', opens: '13:00', closes: '17:00' },
   { day: 'Friday', label: '1:00 PM to 5:00 PM', opens: '13:00', closes: '17:00' },
   { day: 'Saturday', label: '9:00 AM to 3:00 PM', opens: '09:00', closes: '15:00' },
-  { day: 'Sunday', label: 'Closed', opens: null, closes: null },
+  { day: 'Sunday', label: '9:00 AM to 2:00 PM', opens: '09:00', closes: '14:00' },
 ];
 
 // Compact one-line summary for tight spots (footer, hero, meta).
 export const HOURS_SUMMARY =
-  'Wed to Fri 1:00 to 5:00 PM, Sat 9:00 AM to 3:00 PM. Closed Sun, Mon, Tue.';
+  'Wed to Fri 1:00 to 5:00 PM, Sat 9:00 AM to 3:00 PM, Sun 9:00 AM to 2:00 PM. Closed Mon, Tue.';
 
 // ---------- Unconfirmed facts: labeled placeholders only ----------
 
