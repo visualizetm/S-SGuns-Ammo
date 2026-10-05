@@ -26,6 +26,41 @@ const AUTH_ROUTES = [
 const AUTH_INIT = `
   sessionStorage.setItem('ssga-admin-token', 'demo-local-token');
 `;
+// Seeds the in-browser demo catalog (same storage the admin demo adapter
+// reads) with one already-published product, so /inventory can be audited
+// with the grid actually populated, not only its zero-products empty
+// state (which the plain ROUTES pass above already covers).
+const PUBLISHED_PRODUCT = {
+  id: 'responsive-check-product',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  draft: {
+    name: 'Responsive Check Rifle',
+    manufacturer: 'Check Arms',
+    model: 'C-1',
+    caliber: '.308',
+    condition: 'New',
+    price: 599,
+    compareAtPrice: null,
+    saleLabel: '',
+    stockStatus: 'In Stock',
+    description: 'Responsive gate fixture',
+    collectionIds: [],
+    photos: [],
+    featured: false,
+    onSale: false,
+  },
+};
+PUBLISHED_PRODUCT.published = { ...PUBLISHED_PRODUCT.draft };
+const CATALOG_INIT = `
+  localStorage.setItem('ssga-demo-catalog-v2', JSON.stringify({
+    products: [${JSON.stringify(PUBLISHED_PRODUCT)}],
+    collections: [],
+    bundles: [],
+  }));
+`;
+// Scoped to exactly the viewports the inventory-page gate is required at.
+const INVENTORY_POPULATED_VIEWPORTS = new Set([375, 768, 1440]);
 const VIEWPORTS = [
   { name: 'mobile-375', width: 375, height: 667 },
   { name: 'tablet-768', width: 768, height: 1024 },
@@ -194,7 +229,62 @@ try {
     for (const route of AUTH_ROUTES) {
       await audit(authPage, route);
     }
+
+    // The product add/edit form (photo upload lives here) only appears
+    // after clicking "Add product": a plain route visit never renders it,
+    // so it needs its own step to be covered by this gate.
+    await authPage.goto(`${BASE}/admin?tab=products`, { waitUntil: 'load' });
+    await authPage.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+    await authPage.click('.inv-add');
+    await authPage.waitForSelector('.inv-form', { timeout: 5000 }).catch(() => {});
+    await authPage.waitForTimeout(900);
+    const formProblems = await authPage.evaluate(auditPage, viewport.width < 768);
+    const formLabel = '/admin?tab=products [add product form open]';
+    if (formProblems.length === 0) {
+      console.log(`ok - ${viewport.name} ${formLabel}`);
+    } else {
+      failures += formProblems.length;
+      for (const p of formProblems) console.log(`FAIL - ${viewport.name} ${formLabel}: ${p}`);
+    }
+
     await authContext.close();
+
+    // /inventory with a published product actually in the demo catalog,
+    // at exactly the viewports this gate is required at: the plain ROUTES
+    // pass above only ever exercises the zero-products empty state, since
+    // the demo catalog starts empty.
+    if (INVENTORY_POPULATED_VIEWPORTS.has(viewport.width)) {
+      const catalogContext = await browser.newContext({
+        viewport: { width: viewport.width, height: viewport.height },
+      });
+      await catalogContext.addInitScript(CATALOG_INIT);
+      const catalogPage = await catalogContext.newPage();
+      await audit(catalogPage, '/inventory');
+
+      const cardState = await catalogPage.evaluate(() => {
+        const card = document.querySelector('.pc-card');
+        if (!card) return { present: false };
+        const style = getComputedStyle(card);
+        const rect = card.getBoundingClientRect();
+        return {
+          present: true,
+          visible:
+            Number(style.opacity) > 0 &&
+            style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            rect.width > 0 &&
+            rect.height > 0,
+        };
+      });
+      const cardLabel = '/inventory [published product visible]';
+      if (cardState.present && cardState.visible) {
+        console.log(`ok - ${viewport.name} ${cardLabel}`);
+      } else {
+        failures += 1;
+        console.log(`FAIL - ${viewport.name} ${cardLabel}: ${JSON.stringify(cardState)}`);
+      }
+      await catalogContext.close();
+    }
   }
 } finally {
   await browser.close();

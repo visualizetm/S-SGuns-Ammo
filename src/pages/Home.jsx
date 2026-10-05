@@ -16,6 +16,7 @@ import { publicGetCatalog } from '../lib/apiClient.js';
 import { HOME_COPY, PAGE_META } from '../content/siteFacts.js';
 import { featuredItems } from '../lib/catalogView.js';
 import { ProductCard, ProductCardStyles } from '../components/ProductCard.jsx';
+import { ErrorBoundary } from '../components/ErrorBoundary.jsx';
 import { Reviews } from '../components/Reviews.jsx';
 import { Slot } from '../components/Slot.jsx';
 import { MapEmbed } from '../components/MapEmbed.jsx';
@@ -57,17 +58,31 @@ function FeaturedStrip() {
   return (
     <section className="hm-feat section" aria-labelledby="hm-feat-heading">
       <div className="wrap">
-        <div className="reveal">
+        {/* This whole section mounts only after the catalog fetch resolves
+            (featured.length === 0 returns null above), so it is never
+            wrapped in the reveal-on-scroll animation: the same async-mount
+            risk as the inventory grid applies here (see useReveal.js), and
+            featured stock must never depend on a scroll observer to show. */}
+        <div>
           <p className="eyebrow">From the inventory</p>
           <h2 id="hm-feat-heading" className="display section-title">
             In the Case Right Now
           </h2>
         </div>
-        <div className="hm-feat-grid stagger">
-          {featured.map((item) => (
-            <ProductCard key={item.id} item={item} />
-          ))}
-        </div>
+        <ErrorBoundary
+          fallback={
+            <p role="alert" className="hm-feat-error">
+              Something went wrong loading inventory. Call the shop at{' '}
+              <a href={BUSINESS.phoneHref}>{BUSINESS.phoneDisplay}</a>.
+            </p>
+          }
+        >
+          <div className="hm-feat-grid">
+            {featured.map((item) => (
+              <ProductCard key={item.id} item={item} />
+            ))}
+          </div>
+        </ErrorBoundary>
         <p className="hm-feat-more">
           <Link to="/inventory" className="btn btn-secondary">
             See the full inventory
@@ -83,6 +98,7 @@ function FeaturedStrip() {
           gap: 1.25rem;
         }
         .hm-feat-more { margin: 1.75rem 0 0; }
+        .hm-feat-error { color: var(--text-secondary); max-width: 34rem; }
         @media (max-width: 1199.98px) {
           .hm-feat-grid { grid-template-columns: repeat(2, 1fr); }
         }

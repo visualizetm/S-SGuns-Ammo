@@ -1,6 +1,10 @@
 // App-level error boundary: a runtime error shows a branded plain-language
 // fallback with the shop phone, never a white screen. Reload gives the SPA
 // a clean start.
+//
+// Also used locally (e.g. around the inventory grid) via the `fallback`
+// prop, so a crash in one section of a page shows a small inline message
+// in its place instead of taking over the whole screen.
 
 import { Component } from 'react';
 import { BUSINESS } from '../content/siteFacts.js';
@@ -17,6 +21,7 @@ export class ErrorBoundary extends Component {
 
   render() {
     if (!this.state.failed) return this.props.children;
+    if (this.props.fallback) return this.props.fallback;
     return (
       <div className="err-wrap">
         <div className="err-box">

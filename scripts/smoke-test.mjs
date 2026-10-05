@@ -168,6 +168,22 @@ async function publish(auth) {
   return res.body.summary;
 }
 
+// ---- public inventory page actually renders (not just the API) ----
+//
+// A real browser check, not just a handler call: the inventory page can
+// have correct markup in the DOM and still show nothing to a visitor (an
+// animation class stuck at opacity:0, a swallowed render error). Spawned
+// as its own process because it builds the site, runs a real HTTP server,
+// and drives Chromium, so it needs full .data isolation before and after
+// (see scripts/inventory-render-check.mjs); run first, right after
+// resetStores(), so every test after it still starts from an empty store.
+(() => {
+  const raw = execFileSync(process.execPath, ['scripts/inventory-render-check.mjs']).toString();
+  const report = JSON.parse(raw.trim().split('\n').pop());
+  assert.equal(report.failed, 0, JSON.stringify(report.results));
+  ok('inventory page: empty state and product grid both render and are actually visible', () => {});
+})();
+
 // ---- catalog validation ----
 
 ok('product: valid input passes, price normalized, onSale computed', () => {

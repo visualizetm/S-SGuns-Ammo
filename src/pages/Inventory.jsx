@@ -19,10 +19,35 @@ import {
   filterProducts,
 } from '../lib/catalogView.js';
 import { ProductCard, ProductCardStyles } from '../components/ProductCard.jsx';
+import { ErrorBoundary } from '../components/ErrorBoundary.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const BUNDLES_TAB = '__bundles__';
+
+// A crash rendering one bad product record (a malformed price, a broken
+// field) must not take down the whole page, header and filters included:
+// the app-level ErrorBoundary would do that. This local boundary is scoped
+// to the grid alone, so the rest of the page (and the ability to call the
+// shop) stays usable.
+function InventoryGrid({ items }) {
+  return (
+    <ErrorBoundary
+      fallback={
+        <p role="alert" className="cat-empty">
+          Something went wrong loading inventory. Call the shop at{' '}
+          <a href={BUSINESS.phoneHref}>{BUSINESS.phoneDisplay}</a>.
+        </p>
+      }
+    >
+      <div className="cat-grid">
+        {items.map((item) => (
+          <ProductCard key={item.id} item={item} />
+        ))}
+      </div>
+    </ErrorBoundary>
+  );
+}
 
 function BundleCard({ bundle }) {
   return (
@@ -199,7 +224,12 @@ export function Inventory() {
           ) : null}
 
           {!loading && !failed && items.length === 0 && bundles.length === 0 ? (
-            <div className="cat-empty-state reveal">
+            // Not wrapped in the reveal-on-scroll animation: this content
+            // mounts asynchronously after the catalog fetch resolves, and a
+            // decorative fade-in must never be able to leave the shop's
+            // actual inventory status invisible (opacity: 0) if the
+            // IntersectionObserver that drives it ever fails to fire.
+            <div className="cat-empty-state">
               <p className="cat-empty">
                 The online list is being stocked. Call the shop for current
                 inventory; we will tell you exactly what is in the case.
@@ -282,8 +312,13 @@ export function Inventory() {
                 </div>
               ) : null}
 
+              {/* Not wrapped in the reveal-on-scroll animation: all three
+                  branches below mount after the catalog fetch resolves (or
+                  after a tab/filter change), and the shop's actual listing
+                  or its "nothing here" message must never depend on a
+                  scroll-triggered observer to become visible. */}
               {showBundles ? (
-                <div className="cat-bundles stagger">
+                <div className="cat-bundles">
                   {bundles.map((bundle) => (
                     <BundleCard key={bundle.id} bundle={bundle} />
                   ))}
@@ -295,11 +330,7 @@ export function Inventory() {
                     : 'Nothing listed in this collection yet. Call the shop for what is in the case.'}
                 </p>
               ) : (
-                <div className="cat-grid stagger">
-                  {visible.map((item) => (
-                    <ProductCard key={item.id} item={item} />
-                  ))}
-                </div>
+                <InventoryGrid items={visible} />
               )}
 
               <p className="cat-footnote">
