@@ -9,13 +9,13 @@
 //
 // Navigation, by viewport:
 //   Desktop / wide tablet (>= 1024px): a fixed left sidebar with the submark,
-//   the three page items (icon + label, active highlighted), the persistent
+//   the page items (icon + label, active highlighted), the persistent
 //   Publish control, and log out. The top bar shows the page title, a Draft
 //   indicator, and View live site.
 //
 //   Phone / narrow tablet (< 1024px): a persistent bottom tab bar with the
-//   three pages (Overview, Products, Quick Sale) is the PRIMARY navigation,
-//   one-thumb reachable. A sticky top app bar shows the submark, the current
+//   five pages (Overview, Products, Quick Sale, Hours, Publish History) is
+//   the PRIMARY navigation, one-thumb reachable. A sticky top app bar shows the submark, the current
 //   page title, a compact Publish button with the unpublished count (so
 //   Publish is never buried), and a menu button that opens a slide-in drawer
 //   carrying the SECONDARY items only: the full Publish/Discard control, View
@@ -35,6 +35,7 @@ import BarChartSquare02 from '@untitled-ui/icons-react/build/esm/BarChartSquare0
 import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Tag01 from '@untitled-ui/icons-react/build/esm/Tag01';
 import ClockRewind from '@untitled-ui/icons-react/build/esm/ClockRewind';
+import Clock from '@untitled-ui/icons-react/build/esm/Clock';
 import Menu01 from '@untitled-ui/icons-react/build/esm/Menu01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import UploadCloud01 from '@untitled-ui/icons-react/build/esm/UploadCloud01';
@@ -55,13 +56,15 @@ import { ChangesList } from './ChangesList.jsx';
 // public pages rather than jumping out to production.
 const LIVE_SITE_URL = isDashboardHost() ? publicSiteUrl('/') : '/';
 
-// The admin has exactly three top-level pages. Overview is the landing page
+// The admin has five top-level pages. Overview is the landing page
 // (statistics), Products is the full catalog manager (its own sub-sections),
-// and Quick Sale is the counter sales-logging tool.
+// Quick Sale is the counter sales-logging tool, Hours is weekly hours and
+// temporary closures, and Publish History is a read-only log.
 export const ADMIN_SECTIONS = [
   { id: 'overview', label: 'Overview', icon: BarChartSquare02 },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'sales', label: 'Quick Sale', icon: Tag01 },
+  { id: 'hours', label: 'Hours', icon: Clock },
   // shortLabel keeps the mobile bottom tab readable at 375px.
   { id: 'history', label: 'Publish History', shortLabel: 'History', icon: ClockRewind },
 ];
@@ -1042,7 +1045,7 @@ export function AdminLayout({
             z-index: 50;
             display: grid;
             /* One column per page; ADMIN_SECTIONS drives the count. */
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             background: var(--bg-card, #ffffff);
             border-top: 1px solid var(--border, #dbe0e5);
             box-shadow: 0 -4px 16px color-mix(in srgb, #10110f 8%, transparent);

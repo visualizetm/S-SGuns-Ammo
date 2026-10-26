@@ -15,7 +15,8 @@ import CheckVerified01 from '@untitled-ui/icons-react/build/esm/CheckVerified01'
 import CurrencyDollarCircle from '@untitled-ui/icons-react/build/esm/CurrencyDollarCircle';
 import TrendUp02 from '@untitled-ui/icons-react/build/esm/TrendUp02';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
-import { adminListCatalog, adminListSales } from '../../lib/apiClient.js';
+import Clock from '@untitled-ui/icons-react/build/esm/Clock';
+import { adminListCatalog, adminListSales, adminGetHours } from '../../lib/apiClient.js';
 import {
   saleTotal,
   salesInWindow,
@@ -23,6 +24,7 @@ import {
   stockSummary,
   dailyBuckets,
 } from '../../lib/salesStats.js';
+import { getShopStatus, statusSentence } from '../../../shared/hours.js';
 
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const USD0 = new Intl.NumberFormat('en-US', {
@@ -119,6 +121,7 @@ export function OverviewPage({ token, version, onAuthFail }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [range, setRange] = useState('7d');
+  const [hoursStatus, setHoursStatus] = useState(null);
 
   const refresh = useCallback(async () => {
     setError('');
@@ -139,6 +142,22 @@ export function OverviewPage({ token, version, onAuthFail }) {
     if (bund.body?.ok) setBundles(bund.body.items.filter((b) => b.status !== 'removing'));
     if (sale.body?.ok) setSales(sale.body.items);
   }, [token, onAuthFail]);
+
+  // Secondary, best-effort: a one-line status chip linking to Hours. Never
+  // blocks the main page loading state or shows an error of its own.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const res = await adminGetHours(token);
+      if (!alive || !res.body?.ok) return;
+      setHoursStatus(
+        res.body.configured ? getShopStatus(new Date(), res.body.weekly, res.body.closures) : { state: 'unconfigured' }
+      );
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [token, version]);
 
   useEffect(() => {
     refresh();
@@ -183,6 +202,13 @@ export function OverviewPage({ token, version, onAuthFail }) {
   return (
     <div className="ov-page">
       {error ? <p role="alert" className="ssga-form-failure">{error}</p> : null}
+
+      {hoursStatus ? (
+        <Link to="?tab=hours" className="ov-hours-chip">
+          <Clock aria-hidden="true" width={16} height={16} />
+          {statusSentence(hoursStatus)}
+        </Link>
+      ) : null}
 
       <div className="ov-grid">
         <KpiCard
@@ -289,6 +315,22 @@ function OverviewStyles() {
     <style>{`
       .ov-page { display: flex; flex-direction: column; gap: 1.25rem; }
       .ov-loading { color: var(--text-secondary); }
+      .ov-hours-chip {
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 44px;
+        padding: 0 1rem;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--bg-card);
+        color: var(--text);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .ov-hours-chip:hover { border-color: var(--brand); color: var(--brand-dark); }
+      .ov-hours-chip svg { flex-shrink: 0; color: var(--brand); }
       .ov-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);

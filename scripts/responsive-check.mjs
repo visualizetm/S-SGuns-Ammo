@@ -21,10 +21,44 @@ const AUTH_ROUTES = [
   '/admin?tab=products&section=bundles',
   '/admin?tab=products&section=bulk',
   '/admin?tab=sales', // Quick Sale
+  '/admin?tab=hours', // Hours (unconfigured/empty state: amber notice, 7 closed rows)
   '/admin?tab=history', // Publish History
 ];
 const AUTH_INIT = `
   sessionStorage.setItem('ssga-admin-token', 'demo-local-token');
+`;
+// Seeds the in-browser demo hours store with a full week and one upcoming
+// closure (far enough out that it is never active, so the status card's
+// primary action stays "Close the Shop" and no reopen choreography is
+// needed), so the Hours page's populated states (a non-empty closures
+// list) and the Close the Shop sheet can both be audited, not just the
+// empty unconfigured state the plain AUTH_ROUTES pass above exercises.
+const HOURS_INIT = `
+  localStorage.setItem('ssga-demo-hours-v1', JSON.stringify({
+    timezone: 'America/New_York',
+    weekly: [
+      { day: 0, open: true, opens: '10:00', closes: '14:00' },
+      { day: 1, open: false, opens: null, closes: null },
+      { day: 2, open: false, opens: null, closes: null },
+      { day: 3, open: true, opens: '13:00', closes: '17:00' },
+      { day: 4, open: true, opens: '13:00', closes: '17:00' },
+      { day: 5, open: true, opens: '13:00', closes: '17:00' },
+      { day: 6, open: true, opens: '09:00', closes: '15:00' }
+    ],
+    closures: [{
+      id: 'responsive-check-closure',
+      startDate: '2099-01-01',
+      endDate: '2099-01-02',
+      reason: 'personal',
+      label: 'Responsive check closure',
+      message: 'Closed for testing',
+      note: '',
+      noticeDays: 7,
+      createdAt: '2020-01-01T00:00:00.000Z',
+      cancelledAt: null
+    }],
+    updatedAt: '2020-01-01T00:00:00.000Z'
+  }));
 `;
 // Seeds the in-browser demo catalog (same storage the admin demo adapter
 // reads) with one already-published product, so /inventory can be audited
@@ -104,6 +138,12 @@ function auditPage(isMobile) {
   const els = [...document.querySelectorAll('body *')].filter((el) => {
     const style = getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden') return false;
+    // A true modal (e.g. the Hours page's Close the Shop sheet) marks the
+    // content behind it inert: hidden from assistive tech, unfocusable, and
+    // unclickable. It is covered on screen by design, so it is excluded from
+    // every check below exactly like display:none content, not flagged as
+    // overlapping or clipped.
+    if (el.closest('[inert]')) return false;
     const rect = el.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) return false;
     // Skip intentionally off-screen helpers (skip link, honeypot).
@@ -132,6 +172,13 @@ function auditPage(isMobile) {
   // data-fixed-nav-pad content region whose bottom padding reserves at
   // least the chrome's height, so the end of the content is never hidden.
   const inFixedNav = (el) => Boolean(el.closest('[data-fixed-nav]'));
+  // A true full-screen modal (e.g. the Hours page's Close the Shop sheet,
+  // marked data-modal-backdrop) stacks above everything outside it by
+  // design, including sticky/fixed chrome like the admin top bar. Content
+  // outside it is also inert (see above) and excluded from `els` entirely,
+  // but outside chrome that isn't part of that inert subtree (parent-owned
+  // layout like the sticky top bar) still needs this layer exemption.
+  const inModal = (el) => Boolean(el.closest('[data-modal-backdrop]'));
   for (const nav of document.querySelectorAll('[data-fixed-nav]')) {
     const navStyle = getComputedStyle(nav);
     if (navStyle.display === 'none' || navStyle.visibility === 'hidden') continue;
@@ -159,6 +206,7 @@ function auditPage(isMobile) {
       // Fixed chrome layers over content by design (see above); only
       // pairs on the same layer count as defects.
       if (inFixedNav(a) !== inFixedNav(b)) continue;
+      if (inModal(a) !== inModal(b)) continue;
       const ra = a.getBoundingClientRect();
       const rb = b.getBoundingClientRect();
       const xOverlap = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
@@ -172,6 +220,7 @@ function auditPage(isMobile) {
   // Tap targets on mobile: anchors and buttons at least 44x44.
   if (isMobile) {
     for (const el of document.querySelectorAll('a, button, input, select, textarea, label')) {
+      if (el.closest('[inert]')) continue;
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.right < 0) continue;
       if (el.tagName === 'A' || el.tagName === 'BUTTON') {
@@ -225,6 +274,7 @@ try {
       viewport: { width: viewport.width, height: viewport.height },
     });
     await authContext.addInitScript(AUTH_INIT);
+    await authContext.addInitScript(HOURS_INIT);
     const authPage = await authContext.newPage();
     for (const route of AUTH_ROUTES) {
       await audit(authPage, route);
@@ -245,6 +295,34 @@ try {
     } else {
       failures += formProblems.length;
       for (const p of formProblems) console.log(`FAIL - ${viewport.name} ${formLabel}: ${p}`);
+    }
+
+    // Hours page with real demo data: the closures list populated (the
+    // seeded upcoming closure), then Close the Shop opens the sheet (full
+    // screen on phone, a centered card above that) for its own audit pass.
+    await authPage.goto(`${BASE}/admin?tab=hours`, { waitUntil: 'load' });
+    await authPage.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+    await authPage.waitForSelector('.hp-closure-row', { timeout: 5000 }).catch(() => {});
+    await authPage.waitForTimeout(900);
+    const hoursProblems = await authPage.evaluate(auditPage, viewport.width < 768);
+    const hoursLabel = '/admin?tab=hours [closures populated]';
+    if (hoursProblems.length === 0) {
+      console.log(`ok - ${viewport.name} ${hoursLabel}`);
+    } else {
+      failures += hoursProblems.length;
+      for (const p of hoursProblems) console.log(`FAIL - ${viewport.name} ${hoursLabel}: ${p}`);
+    }
+
+    await authPage.click('.hp-status-btn'); // "Close the Shop" (no closure is active)
+    await authPage.waitForSelector('.hp-sheet', { timeout: 5000 }).catch(() => {});
+    await authPage.waitForTimeout(900);
+    const sheetProblems = await authPage.evaluate(auditPage, viewport.width < 768);
+    const sheetLabel = '/admin?tab=hours [Close the Shop sheet open]';
+    if (sheetProblems.length === 0) {
+      console.log(`ok - ${viewport.name} ${sheetLabel}`);
+    } else {
+      failures += sheetProblems.length;
+      for (const p of sheetProblems) console.log(`FAIL - ${viewport.name} ${sheetLabel}: ${p}`);
     }
 
     await authContext.close();

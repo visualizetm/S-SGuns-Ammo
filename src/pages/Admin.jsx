@@ -14,6 +14,7 @@ import { OverviewPage } from '../components/admin/OverviewPage.jsx';
 import { ProductsPage } from '../components/admin/ProductsPage.jsx';
 import { QuickSalePage } from '../components/admin/QuickSalePage.jsx';
 import { PublishHistoryPage } from '../components/admin/PublishHistoryPage.jsx';
+import { HoursPage } from '../components/admin/HoursPage.jsx';
 
 const TOKEN_KEY = 'ssga-admin-token';
 
@@ -89,6 +90,7 @@ export function Admin() {
         />
       ) : null}
       {activeTab === 'sales' ? <QuickSalePage {...panelProps} /> : null}
+      {activeTab === 'hours' ? <HoursPage {...panelProps} /> : null}
       {activeTab === 'history' ? <PublishHistoryPage {...panelProps} /> : null}
     </AdminLayout>
   );
