@@ -9,11 +9,11 @@ import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import {
   BUSINESS,
-  HOURS,
   SOCIAL_LINKS,
   PAGE_META,
 } from '../content/siteFacts.js';
 import { MapEmbed } from '../components/MapEmbed.jsx';
+import { ShopHours } from '../components/ShopHours.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 
 export function Contact() {
@@ -123,19 +123,7 @@ export function Contact() {
 
             <div className="ct-hours">
               <h3 className="ct-hours-title">Hours</h3>
-              <dl className="ct-hours-list">
-                {HOURS.map((row) => (
-                  <div
-                    key={row.day}
-                    className="ct-hours-row"
-                    data-closed={row.opens ? undefined : 'true'}
-                  >
-                    <dt>{row.day}</dt>
-                    <dd>{row.label}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="ct-hours-note">Holiday hours: to be determined.</p>
+              <ShopHours variant="full" />
             </div>
 
             <div className="ct-map">
@@ -192,28 +180,6 @@ export function Contact() {
             letter-spacing: var(--track-label);
             color: var(--text-muted);
             margin: 0 0 0.5rem;
-          }
-          .ct-hours-list {
-            margin: 0;
-            max-width: 20rem;
-            border-top: 1px solid var(--border);
-          }
-          .ct-hours-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            padding: 0.35rem 0;
-            border-bottom: 1px solid var(--border);
-          }
-          .ct-hours-row dt { font-weight: 600; color: var(--text); }
-          .ct-hours-row dd { margin: 0; color: var(--text-secondary); }
-          .ct-hours-row[data-closed] dt,
-          .ct-hours-row[data-closed] dd { color: var(--text-muted); }
-          .ct-hours-note {
-            max-width: 20rem;
-            margin: 0.6rem 0 0;
-            font-size: 0.85rem;
-            color: var(--text-muted);
           }
           .ct-ctas {
             display: flex;

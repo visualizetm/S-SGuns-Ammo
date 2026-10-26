@@ -103,3 +103,60 @@ Hours + Temporary Closures feature, one entry per milestone commit.
   scripts/responsive-check.mjs`: 134/134 checks pass, 0 failures,
   across all six viewports.
 
+## Milestone 4: public display
+
+- `src/components/ClosureBar.jsx`: new, site-wide closure notice
+  (same pattern as the existing `AnnouncementBar`: sessionStorage
+  dismissal, fails soft, renders nothing until data loads). Two
+  states, one component: active (stronger style, click-to-call, no
+  dismiss button so a visitor can never hide it and then show up at a
+  locked door) and heads-up (softer style, dismissible per closure id
+  so a later closure's notice still shows even if an earlier one was
+  dismissed). Rendered in `Layout.jsx` between `AnnouncementBar` and
+  `Navbar` (stacks below the "site is new" banner if that is still
+  showing; never replaces it).
+- Every raw `HOURS` / `HOURS_SUMMARY` usage replaced with the shared
+  `ShopHours` component: `Layout.jsx` footer (compact), `Home.jsx`
+  visit block (compact), `Contact.jsx` (full, replacing its own
+  hand-rolled hours table and the stale "Holiday hours: to be
+  determined" note, now genuinely handled by closures).
+- Bug found and fixed before wiring any of this up: `ShopHours` only
+  rendered its own `<ShopHoursStyles />` (the `.sh-compact` CSS,
+  including the CLS-preventing `min-height`) from the `full` variant's
+  branches, never the `compact` ones. A page using only the compact
+  variant (no full variant anywhere on it) would show the compact line
+  with no flex layout or CLS protection at all. Fixed by rendering
+  `<ShopHoursStyles />` unconditionally from every return path.
+- `scripts/hours-render-check.mjs`: new, a real-browser check (same
+  shape as `scripts/inventory-render-check.mjs`) for every state a
+  visitor can land on: hours never configured (must show today's real
+  siteFacts.js data, never an invented placeholder), configured and
+  open, configured and closed, an active closure, an upcoming closure
+  inside its own notice window, and the GET /api/hours request
+  failing outright. Wired into `npm run smoke`.
+  - Real bug found while building this check, not in the app: the
+    public `/api/hours` endpoint filters closures using the *server's*
+    real clock; Playwright's Clock API only fakes the *browser's*
+    clock. Hardcoded November-2026 test dates for the closures
+    scenarios silently never matched the server's real October-2026
+    "now", so the closures never showed up as active or in their
+    notice window. Fixed by anchoring every test date to the real
+    instant the script starts (today, computed once) and expressing
+    closure dates as offsets from it, so the server's real clock and
+    the browser's faked clock always agree, keeping this correct no
+    matter what day the suite runs on. Also found: `noticeDays` must
+    be one of `NOTICE_DAY_OPTIONS` (0/1/3/7/14), not an arbitrary
+    number, and the active-closure fixture has to be reopened before
+    the next scenario runs or it keeps shadowing it (the server clock
+    can't be wound forward to retire it naturally).
+  - A deliberate 500 from a mocked route makes Chromium itself log a
+    "Failed to load resource" console error; the check's own
+    JS-error filter now excludes that one specific, expected message
+    (same spirit as the existing CERT/TUNNEL exclusions) so it is not
+    mistaken for an app bug.
+- `npm run build` clean, `npm run smoke`: 106/106, `npm run preflight`:
+  PASS (4/4), `node scripts/responsive-check.mjs`: 134/134 (the new
+  `ClosureBar` in every page's header never breaks layout when there
+  is nothing to show, which is its state on every check since no
+  closure is seeded there).
+

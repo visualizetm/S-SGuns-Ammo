@@ -10,9 +10,10 @@ import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import Menu02 from '@untitled-ui/icons-react/build/esm/Menu02';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
-import Clock from '@untitled-ui/icons-react/build/esm/Clock';
-import { BUSINESS, HOURS_SUMMARY, LOGO_ASSETS } from '../content/siteFacts.js';
+import { BUSINESS, LOGO_ASSETS } from '../content/siteFacts.js';
 import { AnnouncementBar } from './AnnouncementBar.jsx';
+import { ShopHours } from './ShopHours.jsx';
+import { ClosureBar } from './ClosureBar.jsx';
 import { useReveal } from '../lib/useReveal.js';
 
 const NAV_ITEMS = [
@@ -429,10 +430,7 @@ function Footer() {
             <Mail01 aria-hidden="true" width={16} height={16} />
             <a href={BUSINESS.emailHref}>{BUSINESS.emailDisplay}</a>
           </p>
-          <p className="ft-line ft-hours">
-            <Clock aria-hidden="true" width={16} height={16} />
-            <span>{HOURS_SUMMARY}</span>
-          </p>
+          <ShopHours variant="compact" className="ft-line ft-hours" />
           <p className="ft-line">
             <MarkerPin01 aria-hidden="true" width={16} height={16} />
             <a
@@ -565,6 +563,7 @@ export function Layout() {
       {/* New-site announcement: normal flow above the sticky navbar, so it
           pushes the page down and can never overlap chrome or content. */}
       <AnnouncementBar />
+      <ClosureBar />
       <Navbar />
       <main id="main" className="ssga-main">
         <Outlet />

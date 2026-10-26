@@ -48,23 +48,27 @@ export function ShopHours({ variant = 'compact', overrideData = null, className 
   // once in the dashboard is additive and launch behavior never regresses
   // (see docs/DECISIONS.md, decision 1).
   if (data && !data.configured) {
-    return variant === 'compact' ? (
-      <p className={`sh-compact ${className}`}>
-        <Clock aria-hidden="true" width={16} height={16} />
-        <span>{FALLBACK_SUMMARY}</span>
-      </p>
-    ) : (
-      <div className={`sh-full ${className}`}>
-        <dl className="sh-full-list">
-          {FALLBACK_HOURS.map((row) => (
-            <div key={row.day} className="sh-full-row" data-closed={row.opens ? undefined : 'true'}>
-              <dt>{row.day}</dt>
-              <dd>{row.label}</dd>
-            </div>
-          ))}
-        </dl>
+    return (
+      <>
+        {variant === 'compact' ? (
+          <p className={`sh-compact ${className}`}>
+            <Clock aria-hidden="true" width={16} height={16} />
+            <span>{FALLBACK_SUMMARY}</span>
+          </p>
+        ) : (
+          <div className={`sh-full ${className}`}>
+            <dl className="sh-full-list">
+              {FALLBACK_HOURS.map((row) => (
+                <div key={row.day} className="sh-full-row" data-closed={row.opens ? undefined : 'true'}>
+                  <dt>{row.day}</dt>
+                  <dd>{row.label}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
         <ShopHoursStyles />
-      </div>
+      </>
     );
   }
 
@@ -72,15 +76,20 @@ export function ShopHours({ variant = 'compact', overrideData = null, className 
   // spinner, same fixed-height line as the real content so nothing shifts
   // once data arrives.
   if (!data || failed) {
-    return variant === 'compact' ? (
-      <p className={`sh-compact ${className}`}>
-        <Clock aria-hidden="true" width={16} height={16} />
-        <a href={BUSINESS.phoneHref}>{BUSINESS.phoneDisplay}</a>
-      </p>
-    ) : (
-      <p className={`sh-full-fallback ${className}`}>
-        Call <a href={BUSINESS.phoneHref}>{BUSINESS.phoneDisplay}</a> for current hours.
-      </p>
+    return (
+      <>
+        {variant === 'compact' ? (
+          <p className={`sh-compact ${className}`}>
+            <Clock aria-hidden="true" width={16} height={16} />
+            <a href={BUSINESS.phoneHref}>{BUSINESS.phoneDisplay}</a>
+          </p>
+        ) : (
+          <p className={`sh-full-fallback ${className}`}>
+            Call <a href={BUSINESS.phoneHref}>{BUSINESS.phoneDisplay}</a> for current hours.
+          </p>
+        )}
+        <ShopHoursStyles />
+      </>
     );
   }
 
@@ -90,10 +99,13 @@ export function ShopHours({ variant = 'compact', overrideData = null, className 
 
   if (variant === 'compact') {
     return (
-      <p className={`sh-compact ${className}`}>
-        <Clock aria-hidden="true" width={16} height={16} />
-        <span>{statusSentence(status, now)}</span>
-      </p>
+      <>
+        <p className={`sh-compact ${className}`}>
+          <Clock aria-hidden="true" width={16} height={16} />
+          <span>{statusSentence(status, now)}</span>
+        </p>
+        <ShopHoursStyles />
+      </>
     );
   }
 

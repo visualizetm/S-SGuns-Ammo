@@ -193,6 +193,20 @@ async function publish(auth) {
   ok('hours: status, closures, DST, holidays, and validation all check out', () => {});
 })();
 
+// ---- shop hours and closures: public display actually renders ----
+//
+// Same reasoning as the inventory render check above, for every hours/
+// closures state a visitor can land on (never configured, open, closed,
+// active closure, upcoming closure inside its notice window, the API
+// failing), with the browser's own clock frozen so none of it depends on
+// what day this suite happens to run (see scripts/hours-render-check.mjs).
+(() => {
+  const raw = execFileSync(process.execPath, ['scripts/hours-render-check.mjs']).toString();
+  const report = JSON.parse(raw.trim().split('\n').pop());
+  assert.equal(report.failed, 0, JSON.stringify(report.results));
+  ok('hours: ShopHours and the closure bar render correctly, and are actually visible, in every state', () => {});
+})();
+
 // ---- catalog validation ----
 
 ok('product: valid input passes, price normalized, onSale computed', () => {

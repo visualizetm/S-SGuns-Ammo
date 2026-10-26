@@ -11,7 +11,6 @@ import MarkerPin02 from '@untitled-ui/icons-react/build/esm/MarkerPin02';
 import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
 import MessageChatCircle from '@untitled-ui/icons-react/build/esm/MessageChatCircle';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
-import Clock from '@untitled-ui/icons-react/build/esm/Clock';
 import { publicGetCatalog } from '../lib/apiClient.js';
 import { HOME_COPY, PAGE_META } from '../content/siteFacts.js';
 import { featuredItems } from '../lib/catalogView.js';
@@ -20,10 +19,10 @@ import { ErrorBoundary } from '../components/ErrorBoundary.jsx';
 import { Reviews } from '../components/Reviews.jsx';
 import { Slot } from '../components/Slot.jsx';
 import { MapEmbed } from '../components/MapEmbed.jsx';
+import { ShopHours } from '../components/ShopHours.jsx';
 import { usePageMeta } from '../lib/usePageMeta.js';
 import {
   BUSINESS,
-  HOURS_SUMMARY,
   TRUST_POINTS,
   LOGO_ASSETS,
   CONFIRMED_SERVICES,
@@ -398,10 +397,7 @@ export function Home() {
               {BUSINESS.address.city}, {BUSINESS.address.state}{' '}
               {BUSINESS.address.zip}
             </address>
-            <p className="hm-visit-hours">
-              <Clock aria-hidden="true" width={18} height={18} />
-              <span>{HOURS_SUMMARY}</span>
-            </p>
+            <ShopHours variant="compact" className="hm-visit-hours" />
             <div className="hm-visit-ctas">
               <a
                 href={BUSINESS.directionsUrl}
