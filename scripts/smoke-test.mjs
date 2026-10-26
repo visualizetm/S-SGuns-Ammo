@@ -40,6 +40,7 @@ import adminPublishHandler from '../api/admin/publish.js';
 import adminProductsCsvHandler from '../api/admin/products-csv.js';
 import adminImageHandler from '../api/admin/inventory-image.js';
 import adminSalesHandler from '../api/admin/sales.js';
+import hoursHandler from '../api/hours.js';
 import { validateSale } from '../shared/salesValidation.js';
 import { seedSalesStore } from '../shared/salesSeeds.js';
 import {
@@ -956,6 +957,153 @@ await (async () => {
     'Low Stock'
   );
   ok('quick sale endpoint: logging without markSold leaves stock unchanged', () => {});
+})();
+
+// ---- Hours and closures endpoint (api/hours.js, consolidated route) ----
+
+await (async () => {
+  const auth = await login();
+
+  // Public GET never requires scope=admin and never requires auth.
+  let res = await call(hoursHandler, { method: 'GET', url: '/api/hours' });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.configured, false);
+  assert.equal(res.body.weekly, null);
+  ok('hours: public GET starts unconfigured, no auth required', () => {});
+
+  // Admin routes reject without a session, same as every other admin route.
+  res = await call(hoursHandler, { method: 'GET', url: '/api/hours?scope=admin' });
+  assert.equal(res.statusCode, 401);
+  res = await call(hoursHandler, { method: 'PUT', url: '/api/hours?scope=admin', body: { weekly: [] } });
+  assert.equal(res.statusCode, 401);
+  res = await call(hoursHandler, {
+    method: 'POST',
+    url: '/api/hours?scope=admin&route=closures',
+    body: { reason: 'other', startDate: '2026-12-01', message: 'Closed' },
+  });
+  assert.equal(res.statusCode, 401);
+  res = await call(hoursHandler, {
+    method: 'POST',
+    url: '/api/hours?scope=admin&route=closures-reopen',
+    body: { id: 'x' },
+  });
+  assert.equal(res.statusCode, 401);
+  ok('hours: every admin route rejects without a session', () => {});
+
+  // Validation: a full week is required, a bad range is rejected.
+  res = await call(hoursHandler, {
+    method: 'PUT',
+    url: '/api/hours?scope=admin',
+    headers: auth,
+    body: { weekly: [{ day: 0, open: true, opens: '17:00', closes: '09:00' }] },
+  });
+  assert.equal(res.statusCode, 400);
+  ok('hours: PUT rejects an incomplete week', () => {});
+
+  const validWeekly = Array.from({ length: 7 }, (_, day) =>
+    day === 3
+      ? { day, open: true, opens: '13:00', closes: '17:00' }
+      : { day, open: false, opens: null, closes: null }
+  );
+  res = await call(hoursHandler, {
+    method: 'PUT',
+    url: '/api/hours?scope=admin',
+    headers: auth,
+    body: { weekly: validWeekly },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.configured, true);
+  ok('hours: PUT saves a valid week and flips configured to true', () => {});
+
+  res = await call(hoursHandler, { method: 'GET', url: '/api/hours' });
+  assert.equal(res.body.configured, true);
+  assert.equal(res.body.weekly[3].opens, '13:00');
+  ok('hours: public GET reflects the saved week immediately (no publish step)', () => {});
+
+  // Closure validation.
+  res = await call(hoursHandler, {
+    method: 'POST',
+    url: '/api/hours?scope=admin&route=closures',
+    headers: auth,
+    body: { reason: 'nonsense', startDate: '2026-12-01' },
+  });
+  assert.equal(res.statusCode, 422);
+  assert.ok(res.body.errors.reason);
+  ok('hours: closure POST rejects a bad reason with a field-level error', () => {});
+
+  // Create, edit, and confirm the public endpoint never leaks internal
+  // fields (createdAt, cancelledAt, note) for an active closure.
+  res = await call(hoursHandler, {
+    method: 'POST',
+    url: '/api/hours?scope=admin&route=closures',
+    headers: auth,
+    body: {
+      reason: 'holiday',
+      label: 'Thanksgiving',
+      startDate: '2020-01-01',
+      endDate: '2099-01-01', // spans "now" for any test run date
+      message: 'Closed for Thanksgiving',
+      note: 'Internal note: staff only, never public',
+      noticeDays: 7,
+    },
+  });
+  assert.equal(res.statusCode, 201);
+  const closureId = res.body.closure.id;
+  ok('hours: closure POST creates and returns the full record', () => {});
+
+  res = await call(hoursHandler, { method: 'GET', url: '/api/hours' });
+  const publicClosure = res.body.closures.find((c) => c.id === closureId);
+  assert.ok(publicClosure, 'active closure must appear on the public endpoint');
+  assert.equal(publicClosure.note, undefined);
+  assert.equal(publicClosure.createdAt, undefined);
+  assert.equal(publicClosure.cancelledAt, undefined);
+  ok('hours: public GET never leaks note, createdAt, or cancelledAt', () => {});
+
+  res = await call(hoursHandler, {
+    method: 'PUT',
+    url: '/api/hours?scope=admin&route=closures',
+    headers: auth,
+    body: {
+      id: closureId,
+      reason: 'holiday',
+      label: 'Thanksgiving',
+      startDate: '2020-01-01',
+      endDate: '2099-01-01',
+      message: 'Closed for Thanksgiving (edited)',
+      noticeDays: 7,
+    },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.closure.message, 'Closed for Thanksgiving (edited)');
+  ok('hours: closure PUT edits an existing closure', () => {});
+
+  res = await call(hoursHandler, {
+    method: 'POST',
+    url: '/api/hours?scope=admin&route=closures-reopen',
+    headers: auth,
+    body: { id: closureId },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.body.closure.cancelledAt);
+  ok('hours: reopen cancels the active closure', () => {});
+
+  res = await call(hoursHandler, { method: 'GET', url: '/api/hours' });
+  assert.ok(!res.body.closures.find((c) => c.id === closureId), 'a cancelled closure must leave the public response');
+  ok('hours: public GET drops a reopened (cancelled) closure immediately', () => {});
+
+  res = await call(hoursHandler, {
+    method: 'DELETE',
+    url: `/api/hours?scope=admin&route=closures&id=${closureId}`,
+    headers: auth,
+  });
+  assert.equal(res.statusCode, 200);
+  res = await call(hoursHandler, {
+    method: 'DELETE',
+    url: `/api/hours?scope=admin&route=closures&id=${closureId}`,
+    headers: auth,
+  });
+  assert.equal(res.statusCode, 404);
+  ok('hours: closure DELETE removes it, a second delete 404s', () => {});
 })();
 
 // ---- Reviews section: content and the review-button gate ----

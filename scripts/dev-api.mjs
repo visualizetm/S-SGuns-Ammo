@@ -15,6 +15,22 @@ import adminInventoryImageHandler from '../api/admin/inventory-image.js';
 import adminSalesHandler from '../api/admin/sales.js';
 import adminHealthHandler from '../api/admin/health.js';
 import adminPublishHistoryHandler from '../api/admin/publish-history.js';
+import hoursHandler from '../api/hours.js';
+
+// Mirrors vercel.json's rewrites for the consolidated hours endpoint:
+// each admin path gets the same scope/route query params the real
+// rewrite would add, so api/hours.js sees an identical request shape
+// locally and in production.
+function withQuery(handler, extraQuery) {
+  return (req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    for (const [key, value] of new URLSearchParams(extraQuery)) {
+      url.searchParams.set(key, value);
+    }
+    req.url = url.pathname + url.search;
+    return handler(req, res);
+  };
+}
 
 const ROUTES = {
   '/api/admin/login': loginHandler,
@@ -28,6 +44,10 @@ const ROUTES = {
   '/api/admin/sales': adminSalesHandler,
   '/api/admin/health': adminHealthHandler,
   '/api/admin/publish-history': adminPublishHistoryHandler,
+  '/api/hours': hoursHandler,
+  '/api/admin/hours': withQuery(hoursHandler, 'scope=admin'),
+  '/api/admin/closures': withQuery(hoursHandler, 'scope=admin&route=closures'),
+  '/api/admin/closures/reopen': withQuery(hoursHandler, 'scope=admin&route=closures-reopen'),
 };
 
 const PORT = Number(process.env.PORT || 3999);

@@ -19,6 +19,7 @@ const { default: productsHandler } = await import('../api/admin/products.js');
 const { default: salesHandler } = await import('../api/admin/sales.js');
 const { default: healthHandler } = await import('../api/admin/health.js');
 const { default: imageHandler } = await import('../api/admin/inventory-image.js');
+const { default: hoursHandler } = await import('../api/hours.js');
 
 function mockRes() {
   return {
@@ -86,6 +87,19 @@ expect(
   'image upload 503 without Cloudinary in production',
   img.statusCode === 503 && img.body?.code === 'IMAGE_STORAGE_NOT_CONFIGURED',
   JSON.stringify({ status: img.statusCode, body: img.body })
+);
+
+const hoursPublic = await call(hoursHandler, { url: '/api/hours' });
+expect(
+  'public hours 503',
+  hoursPublic.statusCode === 503 && hoursPublic.body?.code === 'DB_NOT_CONFIGURED',
+  String(hoursPublic.statusCode)
+);
+const hoursAdmin = await call(hoursHandler, { url: '/api/hours?scope=admin', headers: auth });
+expect(
+  'admin hours 503',
+  hoursAdmin.statusCode === 503 && hoursAdmin.body?.code === 'DB_NOT_CONFIGURED',
+  String(hoursAdmin.statusCode)
 );
 
 const health = await call(healthHandler, { url: '/api/admin/health', headers: auth });

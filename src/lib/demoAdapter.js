@@ -37,15 +37,41 @@ import {
 import { seedSalesStore } from '../../shared/salesSeeds.js';
 import { changesDetail } from '../../shared/catalogStore.js';
 import { validateSale } from '../../shared/salesValidation.js';
+import {
+  SHOP_TIMEZONE,
+  validateHours,
+  validateClosure,
+  publicClosures,
+  pruneClosures,
+} from '../../shared/hours.js';
 
 // v2: bumped when the DEMO seed data was removed, so a browser still holding
 // the old seeded catalog under the v1 keys starts clean instead.
 const CATALOG_KEY = 'ssga-demo-catalog-v2';
 const SALES_KEY = 'ssga-demo-sales-v2';
 const HISTORY_KEY = 'ssga-demo-publish-history-v1';
+const HOURS_KEY = 'ssga-demo-hours-v1';
 const HISTORY_KEEP = 100;
 const DEMO_PASSWORD = 'oxford';
 const DEMO_TOKEN = 'demo-local-token';
+
+function loadHours() {
+  try {
+    const raw = localStorage.getItem(HOURS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // fall through to default
+  }
+  return { timezone: SHOP_TIMEZONE, weekly: null, closures: [], updatedAt: null };
+}
+
+function saveHoursStore(store) {
+  try {
+    localStorage.setItem(HOURS_KEY, JSON.stringify(store));
+  } catch {
+    // storage unavailable; demo continues in-memory for this page load
+  }
+}
 
 function loadCatalog() {
   try {
@@ -418,5 +444,113 @@ export const demoAdapter = {
       return { status: 422, body: { ok: false, error: 'Upload must be an image.' } };
     }
     return { status: 201, body: { ok: true, url: dataUrl } };
+  },
+
+  // ---- Shop hours and temporary closures ----
+
+  async publicGetHours() {
+    await delay(100);
+    const store = loadHours();
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        configured: Boolean(store.weekly),
+        timezone: store.timezone,
+        weekly: store.weekly,
+        closures: publicClosures(store.closures).map((c) => ({
+          id: c.id,
+          startDate: c.startDate,
+          endDate: c.endDate,
+          reason: c.reason,
+          label: c.label,
+          message: c.message,
+          noticeDays: c.noticeDays,
+        })),
+      },
+    };
+  },
+
+  async getHours(token) {
+    await delay(100);
+    if (token !== DEMO_TOKEN) return denied();
+    const store = loadHours();
+    return { status: 200, body: { ok: true, ...store, configured: Boolean(store.weekly) } };
+  },
+
+  async saveHours(token, weekly) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
+    const result = validateHours(weekly);
+    if (!result.ok) {
+      return {
+        status: 400,
+        body: { ok: false, error: 'Please correct the highlighted days.', errors: result.errors },
+      };
+    }
+    const store = loadHours();
+    store.weekly = result.data;
+    store.timezone = SHOP_TIMEZONE;
+    store.updatedAt = new Date().toISOString();
+    saveHoursStore(store);
+    return { status: 200, body: { ok: true, ...store, configured: true } };
+  },
+
+  async createClosure(token, fields) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
+    const result = validateClosure(fields || {});
+    if (!result.ok) return invalid(result.errors);
+    const closure = {
+      id: makeId(),
+      ...result.data,
+      createdAt: new Date().toISOString(),
+      cancelledAt: null,
+    };
+    const store = loadHours();
+    store.closures = pruneClosures([...(store.closures || []), closure]);
+    store.updatedAt = new Date().toISOString();
+    saveHoursStore(store);
+    return { status: 201, body: { ok: true, closure } };
+  },
+
+  async updateClosure(token, id, fields) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
+    const result = validateClosure(fields || {});
+    if (!result.ok) return invalid(result.errors);
+    const store = loadHours();
+    const idx = (store.closures || []).findIndex((c) => c.id === id);
+    if (idx < 0) return { status: 404, body: { ok: false, error: 'Closure not found.' } };
+    store.closures[idx] = { ...store.closures[idx], ...result.data };
+    store.updatedAt = new Date().toISOString();
+    saveHoursStore(store);
+    return { status: 200, body: { ok: true, closure: store.closures[idx] } };
+  },
+
+  async deleteClosure(token, id) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
+    const store = loadHours();
+    const before = (store.closures || []).length;
+    store.closures = (store.closures || []).filter((c) => c.id !== id);
+    if (store.closures.length === before) {
+      return { status: 404, body: { ok: false, error: 'Closure not found.' } };
+    }
+    store.updatedAt = new Date().toISOString();
+    saveHoursStore(store);
+    return { status: 200, body: { ok: true } };
+  },
+
+  async reopenClosure(token, id) {
+    await delay(150);
+    if (token !== DEMO_TOKEN) return denied();
+    const store = loadHours();
+    const closure = (store.closures || []).find((c) => c.id === id);
+    if (!closure) return { status: 404, body: { ok: false, error: 'Closure not found.' } };
+    closure.cancelledAt = new Date().toISOString();
+    store.updatedAt = new Date().toISOString();
+    saveHoursStore(store);
+    return { status: 200, body: { ok: true, closure } };
   },
 };

@@ -29,6 +29,9 @@
   ],
   "rewrites": [
     { "source": "/robots.txt", "destination": "/api/robots" },
+    { "source": "/api/admin/hours", "destination": "/api/hours?scope=admin" },
+    { "source": "/api/admin/closures", "destination": "/api/hours?scope=admin&route=closures" },
+    { "source": "/api/admin/closures/reopen", "destination": "/api/hours?scope=admin&route=closures-reopen" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [

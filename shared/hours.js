@@ -243,6 +243,16 @@ export function activeClosure(closures, now = new Date()) {
   return (closures || []).find((c) => closureStatus(c, now) === 'active') || null;
 }
 
+// Closures the public endpoint should ever mention: active right now, or
+// upcoming and already inside their own notice window. Everything else
+// (past, cancelled, upcoming outside its window) never reaches a visitor.
+export function publicClosures(closures, now = new Date()) {
+  return (closures || []).filter((c) => {
+    const status = closureStatus(c, now);
+    return status === 'active' || isInNoticeWindow(c, now);
+  });
+}
+
 // Closures upcoming and currently inside their own notice window, earliest
 // first.
 export function noticeWindowClosures(closures, now = new Date()) {

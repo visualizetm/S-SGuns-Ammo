@@ -266,3 +266,81 @@ export async function adminUploadImage(token, payload) {
     return demoAdapter.uploadImage(token, payload);
   }
 }
+
+// ---- Shop hours and temporary closures ----
+// Writes through immediately, like Quick Sale: no draft/publish step.
+
+export async function publicGetHours() {
+  try {
+    return await callApi('/api/hours', { method: 'GET' });
+  } catch {
+    return demoAdapter.publicGetHours();
+  }
+}
+
+export async function adminGetHours(token) {
+  try {
+    return await callApi('/api/admin/hours', { method: 'GET', headers: authHeaders(token, false) });
+  } catch {
+    return demoAdapter.getHours(token);
+  }
+}
+
+export async function adminSaveHours(token, weekly) {
+  try {
+    return await callApi('/api/admin/hours', {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify({ weekly }),
+    });
+  } catch {
+    return demoAdapter.saveHours(token, weekly);
+  }
+}
+
+export async function adminCreateClosure(token, fields) {
+  try {
+    return await callApi('/api/admin/closures', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(fields),
+    });
+  } catch {
+    return demoAdapter.createClosure(token, fields);
+  }
+}
+
+export async function adminUpdateClosure(token, id, fields) {
+  try {
+    return await callApi('/api/admin/closures', {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify({ id, ...fields }),
+    });
+  } catch {
+    return demoAdapter.updateClosure(token, id, fields);
+  }
+}
+
+export async function adminDeleteClosure(token, id) {
+  try {
+    return await callApi(`/api/admin/closures?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: authHeaders(token, false),
+    });
+  } catch {
+    return demoAdapter.deleteClosure(token, id);
+  }
+}
+
+export async function adminReopenClosure(token, id) {
+  try {
+    return await callApi('/api/admin/closures/reopen', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ id }),
+    });
+  } catch {
+    return demoAdapter.reopenClosure(token, id);
+  }
+}
