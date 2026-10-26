@@ -41,6 +41,8 @@ import adminProductsCsvHandler from '../api/admin/products-csv.js';
 import adminImageHandler from '../api/admin/inventory-image.js';
 import adminSalesHandler from '../api/admin/sales.js';
 import hoursHandler from '../api/hours.js';
+import { getShopStatus, statusSentence, validateHours } from '../shared/hours.js';
+import { buildWeekly } from './set-hours.mjs';
 import { validateSale } from '../shared/salesValidation.js';
 import { seedSalesStore } from '../shared/salesSeeds.js';
 import {
@@ -206,6 +208,91 @@ async function publish(auth) {
   assert.equal(report.failed, 0, JSON.stringify(report.results));
   ok('hours: ShopHours and the closure bar render correctly, and are actually visible, in every state', () => {});
 })();
+
+// ---- shop hours: the real weekly table, against a fixed clock ----
+//
+// The table itself lives only in scripts/set-hours.mjs (the seed script);
+// it is imported here so these checks can never drift from what gets
+// written. Every instant is a New York wall-clock time in the week of
+// Mon Nov 16 to Sun Nov 22, 2026, all after DST ends on Nov 1, so
+// New York is UTC-5 (EST) for every one of them.
+{
+  const realWeekly = buildWeekly();
+  const at = (day, hhmm) => new Date(`2026-11-${day}T${hhmm}:00-05:00`);
+  const MON = 16, TUE = 17, WED = 18, SAT = 21, SUN = 22;
+  const statusAt = (day, hhmm) => {
+    const now = at(day, hhmm);
+    const status = getShopStatus(now, realWeekly, []);
+    return { status, sentence: statusSentence(status, now) };
+  };
+
+  ok('real hours: the seed table is a valid week (all seven days, quarter hours, closes after opens)', () => {
+    assert.equal(validateHours(realWeekly).ok, true);
+  });
+
+  ok('real hours: Tuesday 2:00 PM is closed and opens Wednesday at 1:00 PM', () => {
+    const { status, sentence } = statusAt(TUE, '14:00');
+    assert.equal(status.state, 'closed-hours');
+    assert.equal(status.next.dayIndex, 3);
+    assert.equal(status.next.opens, '13:00');
+    assert.equal(sentence, 'Closed right now, opens tomorrow at 1:00 PM.');
+  });
+
+  ok('real hours: Wednesday 12:59 PM is closed, opening at 1:00 PM today', () => {
+    const { status } = statusAt(WED, '12:59');
+    assert.equal(status.state, 'closed-hours');
+    assert.equal(status.next.sameDay, true);
+    assert.equal(status.next.opens, '13:00');
+  });
+
+  ok('real hours: Wednesday 1:00 PM is open and closes at 5:00 PM', () => {
+    const { status, sentence } = statusAt(WED, '13:00');
+    assert.equal(status.state, 'open');
+    assert.equal(status.closesAt, '17:00');
+    assert.equal(sentence, 'Open now, closes at 5:00 PM.');
+  });
+
+  ok('real hours: Wednesday 5:00 PM is closed', () => {
+    assert.equal(statusAt(WED, '17:00').status.state, 'closed-hours');
+  });
+
+  ok('real hours: Saturday 8:59 AM is closed', () => {
+    const { status } = statusAt(SAT, '08:59');
+    assert.equal(status.state, 'closed-hours');
+    assert.equal(status.next.opens, '09:00');
+  });
+
+  ok('real hours: Saturday 9:00 AM is open until 3:00 PM', () => {
+    const { status, sentence } = statusAt(SAT, '09:00');
+    assert.equal(status.state, 'open');
+    assert.equal(status.closesAt, '15:00');
+    assert.equal(sentence, 'Open now, closes at 3:00 PM.');
+  });
+
+  ok('real hours: Sunday 1:59 PM is open', () => {
+    const { status, sentence } = statusAt(SUN, '13:59');
+    assert.equal(status.state, 'open');
+    assert.equal(sentence, 'Open now, closes at 2:00 PM.');
+  });
+
+  ok('real hours: Sunday 2:00 PM is closed and opens Wednesday at 1:00 PM', () => {
+    const { status, sentence } = statusAt(SUN, '14:00');
+    assert.equal(status.state, 'closed-hours');
+    assert.equal(status.next.dayIndex, 3);
+    assert.equal(status.next.opens, '13:00');
+    assert.equal(sentence, 'Closed right now, opens Wednesday at 1:00 PM.');
+  });
+
+  ok('real hours: Monday at any time is closed and opens Wednesday at 1:00 PM', () => {
+    for (const hhmm of ['00:00', '09:00', '12:00', '13:00', '16:59', '23:59']) {
+      const { status, sentence } = statusAt(MON, hhmm);
+      assert.equal(status.state, 'closed-hours', `Monday ${hhmm}`);
+      assert.equal(status.next.dayIndex, 3, `Monday ${hhmm}`);
+      assert.equal(status.next.opens, '13:00', `Monday ${hhmm}`);
+      assert.equal(sentence, 'Closed right now, opens Wednesday at 1:00 PM.', `Monday ${hhmm}`);
+    }
+  });
+}
 
 // ---- catalog validation ----
 

@@ -92,3 +92,49 @@ One entry per call made under the brief's decision rules, in order.
 11. **Early close / late open on a single date (without a full day
     closure): not built.** Explicitly out of scope per the brief;
     logged as a follow-up.
+
+## Set the real shop hours (seed script job)
+
+12. **The seed script calls the app's own adapter instead of writing its
+    own Mongo code.** `getHoursAdapter().saveWeekly()` is already the
+    exact write the brief asks for (an atomic `$set` of `weekly`,
+    `timezone` and `updatedAt`, with `$setOnInsert: { closures: [] }`
+    and upsert), and it is the same call the dashboard's PUT makes, so
+    the saved document cannot differ in shape from a dashboard save.
+    Closures are never part of the update, so they are preserved by
+    construction.
+
+13. **The hours table lives only in `scripts/set-hours.mjs`.** It is
+    exported (`HOURS_TABLE`, `buildWeekly()`) and the script's own run is
+    guarded by an entrypoint check, so `scripts/smoke-test.mjs` imports
+    the table from the script instead of keeping a second copy. The
+    nine status checks therefore cannot drift from what gets written.
+
+14. **`src/content/siteFacts.js` still holds the same hours and was left
+    alone.** Its `HOURS` / `HOURS_SUMMARY` are older code (decision 1)
+    and `ShopHours` shows them only while the database has no saved
+    hours. They match the new table exactly (Wed to Fri 1 to 5 PM, Sat
+    9 to 3, Sun 10 to 2, closed Mon and Tue), so nothing conflicts. This
+    job adds no new hardcoded copy, but removing the old one would
+    change what visitors see before the seed has run, and repairing
+    feature behavior is outside this job. Logged as a follow-up: once
+    the seed has been applied, retire that fallback so the database is
+    the only source.
+
+15. **Tuesday 2:00 PM is asserted as "opens tomorrow at 1:00 PM".** The
+    brief says it "opens Wednesday at 1:00 PM". The existing
+    `statusSentence` says "tomorrow" for the next calendar day and the
+    weekday name beyond that; changing it is outside this job. The test
+    asserts the structured fact (next opening is Wednesday, 13:00) and
+    the existing wording, so both stay true. Sunday 2:00 PM and Monday
+    (two and three days out) do read "Wednesday" literally.
+
+16. **`--apply` refuses whenever hours are already saved, even if they
+    are identical.** Simplest rule, matches the brief, no equality
+    special case. The dry run prints both tables side by side so an
+    identical result is obvious.
+
+17. **When no database URI is set the script says so loudly.** It prints
+    that it is targeting the local dev file store and that this is not
+    the real database, so a missing env var on Rob's machine can never
+    be mistaken for a successful production seed.
