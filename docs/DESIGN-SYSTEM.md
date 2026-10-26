@@ -45,6 +45,35 @@ actions and the active nav state.
   already used for hours elsewhere on the public site); History uses
   `ClockRewind`; the two are visually distinct.
 
+## Fixed bottom elements (layout rule)
+
+**Anything fixed or sticky at the bottom of the dashboard screen must be
+positioned with `var(--tabbar-h)`, never with a guessed number.**
+
+- `--tabbar-h` is the real height of the phone bottom tab bar (its border,
+  tabs and the iPhone home indicator inset). `AdminLayout.jsx` measures
+  the rendered bar with a `ResizeObserver` and sets it on `.admin-app`; it
+  is `0px` on desktop where the bar is hidden. The CSS value before the
+  first measurement is only an estimate.
+- A fixed bottom element sits at `bottom: var(--tabbar-h)` so it is directly
+  above the bar, never under it. Z-order, low to high: page content, bottom
+  dock (40), tab bar (50), drawer (60), publish modal (70), closure sheet
+  (150).
+- The page content pads its own bottom by the same variable:
+  `.admin-main` uses `calc(var(--tabbar-h) + 1rem)`. A page with its own
+  fixed element adds that element's measured height on top (the Hours page
+  publishes it as `--dockh`).
+- Tab bar tabs share one fixed height and never wrap. The dashboard (only)
+  asks for `viewport-fit=cover` so `env(safe-area-inset-*)` is real.
+- `scripts/hours-savebar-check.mjs` enforces this on every dashboard page:
+  no fixed or sticky element may overlap the tab bar, a tap at the center
+  of a button must hit that button, and nothing may be left unreachable
+  under a dock.
+- Plain `<button>` elements get a white background and a 1.5px border from
+  `base.css` (`button:not(.btn)`). A component rule that sets its own
+  background or border on a bare class (for example the old `.hp-switch`)
+  loses to it; scope it (`.hp-page button.hp-switch`).
+
 ## Semantic status chips
 
 Text plus color, never color alone (existing rule, followed here):
@@ -89,8 +118,24 @@ Text plus color, never color alone (existing rule, followed here):
   unconfigured.
 - Weekly hours: 7 rows (day, Open/Closed switch, Opens/Closes selects
   shown only when open), "Copy Monday to all weekdays" / "Copy to every
-  day" helper buttons, sticky Save bar that appears only with unsaved
-  changes.
+  day" helper buttons. The Open/Closed switch is a pill: filled gray with
+  the knob on the left when Closed (about 5:1 against the card), olive with
+  the knob on the right when Open, 64 by 44px, with the word Open or Closed
+  beside it.
+- Save bar (the dock): appears only with unsaved changes. Title "You have
+  unsaved changes", then a plain failure message when a save did not go
+  through, then Discard and a wide Save (48px). On phones it is fixed
+  directly above the tab bar; on desktop it sticks to the bottom of the
+  content. Save shows "Saving..." while disabled, then re-asks the server
+  and confirms "Hours saved. They are live on your site now." in the same
+  dock for 5 seconds, only if the server returns the same hours.
+- Failure messages (never raw server text, codes or stack traces):
+  days to fix (checked before sending, shown on each row too), "The site
+  could not reach its database, so nothing was saved. Try again in a minute.
+  If it keeps happening, text Rob." (503, any 5xx, a platform timeout page,
+  or the server not returning what was sent), and "No connection. Nothing
+  was saved. Try again." (offline or a 15 second timeout). The unsaved
+  changes always stay.
 - Close the Shop sheet: reason chips, holiday quick-pick chips (shown
   only for the Holiday reason), start/end date pickers with an
   open-ended checkbox, message (80 char) + note (200 char) fields, a

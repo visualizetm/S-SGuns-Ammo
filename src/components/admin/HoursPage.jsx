@@ -925,7 +925,7 @@ function HoursPageStyles() {
          state included. */
       .hp-page button.hp-switch {
         flex-shrink: 0;
-        width: 50px;
+        width: 64px;
         height: 44px;
         padding: 0;
         /* Closed: a filled gray pill (--text-muted, about 5:1 against the
@@ -944,16 +944,16 @@ function HoursPageStyles() {
       .hp-page button.hp-switch[data-on]:hover:not(:disabled) { background: var(--brand); border-color: var(--brand); }
       .hp-switch-thumb {
         position: absolute;
-        top: 4px;
-        left: 4px;
-        width: 34px;
-        height: 34px;
+        top: 6px;
+        left: 6px;
+        width: 30px;
+        height: 30px;
         border-radius: 50%;
         background: #ffffff;
         box-shadow: 0 1px 2px color-mix(in srgb, #10110f 25%, transparent);
         transition: transform var(--duration-fast) var(--ease);
       }
-      .hp-switch[data-on] .hp-switch-thumb { transform: translateX(18px); }
+      .hp-switch[data-on] .hp-switch-thumb { transform: translateX(20px); }
 
       .hp-empty { color: var(--text-secondary); margin: 0; }
       .hp-closure-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }

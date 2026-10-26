@@ -82,7 +82,7 @@ Hours + Temporary Closures feature, one entry per milestone commit.
   "visible" to the responsive-check audit. Fixed two ways: (1) the
   page content behind the sheet is now wrapped in a div marked `inert`
   while the sheet is open (hidden from assistive tech, unfocusable,
-  unclickable — a real accessibility fix, on top of the sheet's
+  unclickable, which is a real accessibility fix on top of the sheet's
   existing `role="dialog"`/`aria-modal`/focus-trap); (2) the sheet
   backdrop is marked `data-modal-backdrop`, and
   `scripts/responsive-check.mjs`'s overlap check now treats that the
@@ -242,3 +242,37 @@ Hours + Temporary Closures feature, one entry per milestone commit.
   none; the Publish control on phones is the top bar button, and the
   drawer and modals sit above the tab bar by design). An automated scan
   of all five pages now asserts it.
+
+## Milestone 4: tests, screenshots, docs
+
+- `scripts/hours-savebar-check.mjs`, wired into `npm run smoke`: a real
+  browser check that asserts what a person can see and tap. Four phone
+  sizes (375x667, 390x844, 430x932, 360x640): Save and Discard inside the
+  viewport and 44px or more, `document.elementFromPoint` at each button's
+  center returns that button, the dock and tab bar do not overlap and sit
+  flush, five one-line tabs of one height, `--tabbar-h` equals the real
+  bar, the last content and the last day row scroll fully above the dock,
+  and no fixed or sticky element on any of the five dashboard pages
+  overlaps the tab bar. At 390x844 it opens the dashboard at its real
+  hostname (mapped to localhost for Chromium only) and checks Saving...,
+  the saved confirmation, 503, 500, a non-JSON 504, offline, a server that
+  forgets the hours, a bad range (no request sent) and a retry.
+- Proved it can fail: with the three original faults put back (dock at
+  `bottom: 0`, wrapping tab labels, no dock padding) it reported 34
+  failures, and Playwright itself refused to tap Save because the tab bar
+  was covering it, which is the owner's bug. The check now reports a
+  blocked tap as a failure instead of crashing. Faults removed again;
+  the files were restored byte for byte before the real run.
+- Test mistakes found and fixed on the way: the site uses
+  `scroll-behavior: smooth`, so scroll assertions must scroll instantly.
+- Screenshots (390 and 1280) in `docs/screens/`: `savebar-dirty`,
+  `savebar-saving`, `savebar-saved`, `savebar-error` (viewport shots, tab
+  bar in frame), `products-publish-bar`, plus refreshed `hours-page-empty`,
+  `hours-page-filled`, `close-the-shop-sheet` and
+  `active-closure-status-card` (the new switch). Full-page shots hide the
+  phone tab bar, because a stitched capture would otherwise draw the fixed
+  bar halfway down the page.
+- `docs/DESIGN-SYSTEM.md`: new "Fixed bottom elements" rule (anything fixed
+  at the bottom uses `--tabbar-h`) and the updated Hours page notes.
+  `docs/SITE-REPORT.md`: the save path table, the checks that cover it,
+  and the follow-ups.

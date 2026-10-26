@@ -209,6 +209,21 @@ async function publish(auth) {
   ok('hours: ShopHours and the closure bar render correctly, and are actually visible, in every state', () => {});
 })();
 
+// ---- Hours page Save bar vs the bottom tab bar, and Save feedback ----
+//
+// A real-browser check at four phone sizes: Save and Discard are on screen
+// and tappable (elementFromPoint, not just present in the DOM), the Save
+// bar and tab bar never overlap, tab labels stay on one line at one height,
+// and a failing save (503, 500, offline, a server that forgets the hours)
+// shows a plain message and keeps the unsaved changes
+// (see scripts/hours-savebar-check.mjs).
+(() => {
+  const raw = execFileSync(process.execPath, ['scripts/hours-savebar-check.mjs']).toString();
+  const report = JSON.parse(raw.trim().split('\n').pop());
+  assert.equal(report.failed, 0, JSON.stringify(report.results));
+  ok('hours page: Save bar is visible and tappable above the tab bar on phones, and save failures show a plain message', () => {});
+})();
+
 // ---- shop hours: the real weekly table, against a fixed clock ----
 //
 // The table itself lives only in scripts/set-hours.mjs (the seed script);

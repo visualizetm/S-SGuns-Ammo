@@ -132,6 +132,43 @@ Also used: `MONGODB_DB`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`,
 - `src/components/ClosureBar.jsx`: the public closure notice bar,
   stacked under the announcement bar.
 
+## Hours page save path (current behavior)
+
+Save button (`HoursPage.jsx` `handleSaveHours`) -> check the week locally
+-> `adminSaveHours` (`src/lib/apiClient.js`) -> `PUT /api/admin/hours`
+(rewritten to `api/hours.js`) -> `validateHours` -> adapter `saveWeekly`
+(an atomic Mongo `$set` upsert) -> the page asks `GET /api/admin/hours`
+again and only confirms if the same hours come back.
+
+| Case | What the owner sees |
+| --- | --- |
+| Success | "Hours saved. They are live on your site now." in the dock above the tab bar for 5 seconds |
+| Days that do not make sense | The row says "Closing time has to be after opening time." and the dock says to check the marked days; nothing is sent |
+| 503 `DB_NOT_CONFIGURED`, any 5xx, a platform timeout page, or hours that do not match on the second look | "The site could not reach its database, so nothing was saved. Try again in a minute. If it keeps happening, text Rob." |
+| Offline, or no answer within 15 seconds | "No connection. Nothing was saved. Try again." |
+| Session expired (401) | Back to the login screen |
+
+The unsaved changes and the open dock are kept after every failure. On the
+real dashboard host a failed Hours request is never replaced by demo data
+(see `docs/DECISIONS.md`, decision 20); on localhost and previews the demo
+fallback still applies. If the free Atlas cluster is paused, every save
+fails with the database message after about 8 seconds (the driver's
+server selection timeout).
+
+## Checks that cover this
+
+- `scripts/hours-savebar-check.mjs` (run by `npm run smoke`): real Chromium
+  at 375x667, 390x844, 430x932 and 360x640; Save and Discard on screen,
+  44px or more, and tappable (`elementFromPoint`); the dock and tab bar do
+  not overlap; five one-line tabs of one height; `--tabbar-h` equals the
+  real bar; the last content scrolls clear of the dock; no fixed or sticky
+  element on any dashboard page overlaps the tab bar; the Closed switch has
+  3:1 contrast; and the saving, saved, 503, 500, timeout page, offline,
+  server-forgets-the-hours, bad-range and retry cases.
+- `scripts/responsive-check.mjs` (`npm run responsive-check`): the
+  dashboard and public pages at six viewports. It no longer leaves a
+  preview server running on port 4173.
+
 ## Known gaps / follow-ups (explicitly out of scope, logged per the brief)
 
 - One open range per day only; a lunch-break second range is a follow up.
@@ -143,3 +180,11 @@ Also used: `MONGODB_DB`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`,
 - No structured data (JSON-LD) for opening hours.
 - Item pages (`/inventory/:id`) stay client-rendered for OG tags (a
   pre-existing, documented limitation, unrelated to this feature).
+- The other Hours page actions (create, edit, delete, reopen a closure)
+  still fall back to demo data on any thrown error, so a network failure
+  there signs the owner out silently on the real dashboard host.
+- `src/content/siteFacts.js` still holds a second copy of the shop hours
+  (the fallback shown until hours are saved in the database). Retire it
+  after `scripts/set-hours.mjs` has been run against the real database.
+- `api/` has 13 serverless functions, one over the commonly cited limit of
+  12; confirm the real Vercel plan before deploying.
