@@ -33,7 +33,11 @@ hostname.
 | `/inventory/:id` | InventoryItem |
 | `/transfers` | TransfersFaq |
 | `/contact` | Contact |
-| `/hours` *(not yet added; hours shown inline on Contact/Home/footer)* | - |
+
+No dedicated `/hours` route: hours are shown inline via `ShopHours`
+(footer on every page, Home's visit block, and the full weekly table on
+Contact), and `ClosureBar` (a closure notice, not a route) renders above
+the navbar on every public page when a closure is active or upcoming.
 
 ## Owner's Dashboard pages (`src/pages/Admin.jsx`, `?tab=`)
 

@@ -160,3 +160,38 @@ Hours + Temporary Closures feature, one entry per milestone commit.
   is nothing to show, which is its state on every check since no
   closure is seeded there).
 
+## Milestone 5: verify, docs, push
+
+- `docs/SITE-REPORT.md` updated: the public-routes table now says
+  there is no dedicated `/hours` route (hours are inline via
+  `ShopHours`, plus the site-wide `ClosureBar`), replacing the old
+  "not yet added" placeholder note. `docs/DESIGN-SYSTEM.md` was
+  already accurate from Milestone 1 (it documents `HoursPage.jsx`,
+  `ShopHours.jsx`, and `ClosureBar.jsx` as built); re-read in full and
+  left as is.
+- Playwright screenshots at 390 and 1280px, saved to `docs/screens/`:
+  `hours-page-empty`, `hours-page-filled`, `close-the-shop-sheet`,
+  `active-closure-status-card`, `public-contact-open`,
+  `public-site-with-closure-bar` (12 files). Generated with a one-off
+  script (not committed; the dashboard screenshots needed the real
+  admin bearer token injected into the browser's own sessionStorage
+  before navigating, or every one of them would have silently
+  captured the login screen instead of the Hours page). One real
+  capture artifact found and fixed along the way: a `fullPage: true`
+  screenshot of the Close the Shop sheet showed the (actually inert,
+  dimmed) page behind it bleeding through below the fold, because
+  Playwright's full-page stitching does not redraw a `position:
+  fixed` backdrop at every scroll position. Not an app bug; fixed by
+  capturing that one state as a plain viewport screenshot instead,
+  which is what a visitor or the owner actually sees.
+- Full re-verification, fresh: `npm run build` clean, `npm run smoke`
+  106/106, `npm run preflight` PASS (4/4), `node
+  scripts/responsive-check.mjs` 134/134 across all six viewports.
+- Vercel function count: 12 before this feature, 13 after (one new
+  file, `api/hours.js`, serving five logical routes via
+  `vercel.json` rewrites). Flagged in `docs/DECISIONS.md` as a
+  follow-up to confirm against the real Vercel plan before deploy.
+- Pushed `claude/ss-guns-ammo-backend-0owd06` (this environment's
+  designated branch, not `main` directly; see the final report for
+  why). All five milestones are on it.
+
