@@ -184,6 +184,14 @@ async function publish(auth) {
   ok('inventory page: empty state and product grid both render and are actually visible', () => {});
 })();
 
+// ---- shop hours and closures: pure logic ----
+(() => {
+  const raw = execFileSync(process.execPath, ['scripts/hours-check.mjs']).toString();
+  const report = JSON.parse(raw.trim().split('\n').pop());
+  assert.equal(report.failed, 0, JSON.stringify(report.results));
+  ok('hours: status, closures, DST, holidays, and validation all check out', () => {});
+})();
+
 // ---- catalog validation ----
 
 ok('product: valid input passes, price normalized, onSale computed', () => {
