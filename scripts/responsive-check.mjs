@@ -106,7 +106,9 @@ const VIEWPORTS = [
 
 function startPreview() {
   return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
+    // Run vite directly (not through npx) so preview.kill() stops the real
+    // server; killing an npx wrapper used to leave it running on the port.
+    const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORT), '--strictPort'], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     const timer = setTimeout(() => reject(new Error('preview did not start')), 20000);

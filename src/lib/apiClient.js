@@ -6,6 +6,7 @@
 // Both paths return the same shape: { status, body }.
 
 import { demoAdapter } from './demoAdapter.js';
+import { isDashboardHost } from '../config/hosts.js';
 
 async function callApi(path, options) {
   const res = await fetch(path, options);
@@ -278,10 +279,37 @@ export async function publicGetHours() {
   }
 }
 
+// Demo mode exists for previews and local dev with no serverless API. On the
+// real Owner's Dashboard host a failed request is a real failure: falling
+// back to demo data there would show fake hours, or (with the real token)
+// look like an expired session and sign the owner out. So on that host the
+// failure is returned as a plain result instead. status 0 = no answer at
+// all (offline, timed out); 502 = the server answered with something that
+// is not the API (for example a platform timeout page).
+function realHostFailure(err) {
+  if (err?.message === 'api-unavailable') {
+    return { status: 502, body: { ok: false, code: 'SERVER_UNAVAILABLE', error: 'Server unavailable.' } };
+  }
+  return { status: 0, body: { ok: false, code: 'NETWORK', error: 'No connection.' } };
+}
+
+// A request that never gets an answer must end, so the page can say so.
+const HOURS_REQUEST_TIMEOUT_MS = 15000;
+function hoursTimeout() {
+  return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+    ? AbortSignal.timeout(HOURS_REQUEST_TIMEOUT_MS)
+    : undefined;
+}
+
 export async function adminGetHours(token) {
   try {
-    return await callApi('/api/admin/hours', { method: 'GET', headers: authHeaders(token, false) });
-  } catch {
+    return await callApi('/api/admin/hours', {
+      method: 'GET',
+      headers: authHeaders(token, false),
+      signal: hoursTimeout(),
+    });
+  } catch (err) {
+    if (isDashboardHost()) return realHostFailure(err);
     return demoAdapter.getHours(token);
   }
 }
@@ -292,8 +320,10 @@ export async function adminSaveHours(token, weekly) {
       method: 'PUT',
       headers: authHeaders(token),
       body: JSON.stringify({ weekly }),
+      signal: hoursTimeout(),
     });
-  } catch {
+  } catch (err) {
+    if (isDashboardHost()) return realHostFailure(err);
     return demoAdapter.saveHours(token, weekly);
   }
 }

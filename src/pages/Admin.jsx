@@ -5,7 +5,7 @@
 // server-side on every request (api/_lib/auth.js); the token here is only a
 // credential, never the gate itself.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { adminLogin } from '../lib/apiClient.js';
 import { usePageMeta } from '../lib/usePageMeta.js';
@@ -20,6 +20,21 @@ const TOKEN_KEY = 'ssga-admin-token';
 
 export function Admin() {
   usePageMeta("Owner's Dashboard");
+
+  // The Owner's Dashboard (only) opts in to viewport-fit=cover so
+  // env(safe-area-inset-*) reports the iPhone's real safe areas and the
+  // bottom tab bar can pad for the home indicator. Scoped to this page
+  // instead of index.html so the public site's layout on notched phones in
+  // landscape is not changed; restored when the dashboard unmounts.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return undefined;
+    const original = meta.getAttribute('content') || '';
+    if (!/viewport-fit=/.test(original)) {
+      meta.setAttribute('content', `${original}, viewport-fit=cover`);
+    }
+    return () => meta.setAttribute('content', original);
+  }, []);
   const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) || '');
   const [loginError, setLoginError] = useState('');
   const [submitting, setSubmitting] = useState(false);

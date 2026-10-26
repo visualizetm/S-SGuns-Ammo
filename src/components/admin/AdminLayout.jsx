@@ -95,6 +95,29 @@ export function AdminLayout({
   const modalRef = useRef(null);
   // The element that opened the modal, so focus can return to it on close.
   const modalTriggerRef = useRef(null);
+  const rootRef = useRef(null);
+  const tabbarRef = useRef(null);
+
+  // One source of truth for the bottom tab bar's height. Anything fixed or
+  // sticky at the bottom of the screen (the Hours Save bar today) positions
+  // itself with var(--tabbar-h) instead of guessing a number, so it can never
+  // slide under the bar. Measured from the real rendered box (border,
+  // padding and the iPhone home indicator inset included), and 0px when the
+  // bar is hidden on desktop.
+  useEffect(() => {
+    const nav = tabbarRef.current;
+    const root = rootRef.current;
+    if (!nav || !root) return undefined;
+    const apply = () => root.style.setProperty('--tabbar-h', `${nav.getBoundingClientRect().height}px`);
+    apply();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', apply);
+      return () => window.removeEventListener('resize', apply);
+    }
+    const observer = new ResizeObserver(apply);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, []);
 
   const refresh = useCallback(async () => {
     const { status, body } = await adminPublishSummary(token);
@@ -269,7 +292,7 @@ export function AdminLayout({
   }
 
   return (
-    <div className="admin-app">
+    <div className="admin-app" ref={rootRef}>
       {/* Sidebar (desktop and wide tablet only) */}
       <aside className="admin-side" aria-label="Owner's Dashboard navigation">
         <div className="admin-brand">
@@ -561,7 +584,7 @@ export function AdminLayout({
       ) : null}
 
       {/* Mobile bottom tab bar: the primary one-thumb page switcher. */}
-      <nav className="admin-tabbar" aria-label="Owner's Dashboard pages" data-fixed-nav>
+      <nav className="admin-tabbar" aria-label="Owner's Dashboard pages" data-fixed-nav ref={tabbarRef}>
         {ADMIN_SECTIONS.map(({ id, label, shortLabel, icon: Icon }) => (
           <button
             key={id}
@@ -589,6 +612,10 @@ export function AdminLayout({
           --border-strong: #c4cbd3;
           --text-secondary: #454b52;
           --text-muted: #6a7178;
+          /* Height of the fixed bottom tab bar (0 on desktop). The real
+             value is measured and set inline by AdminLayout; this is only
+             the value before the first measurement. */
+          --tabbar-h: 0px;
 
           min-height: 100vh;
           display: grid;
@@ -969,8 +996,9 @@ export function AdminLayout({
         @media (max-width: 1023.98px) {
           .admin-app {
             display: block;
-            /* Reserve space so the fixed tab bar never covers page content
-               even if a child skips its own padding. */
+            /* Pre-measurement estimate of the tab bar (58px tabs plus the
+               home indicator inset); replaced by the measured height. */
+            --tabbar-h: calc(58px + env(safe-area-inset-bottom, 0px));
           }
           .admin-side { display: none; }
           .admin-top {
@@ -1032,9 +1060,9 @@ export function AdminLayout({
           .admin-dbwarn { padding: 0.85rem 0.9rem; }
           .admin-main {
             max-width: none;
-            /* Bottom padding reserves the fixed tab bar's height plus
+            /* Bottom padding reserves the fixed tab bar's real height plus
                breathing room (audited via data-fixed-nav-pad). */
-            padding: 1rem 1rem calc(5.5rem + env(safe-area-inset-bottom, 0px));
+            padding: 1rem 1rem calc(var(--tabbar-h) + 1rem);
           }
 
           .admin-tabbar {
@@ -1049,7 +1077,7 @@ export function AdminLayout({
             background: var(--bg-card, #ffffff);
             border-top: 1px solid var(--border, #dbe0e5);
             box-shadow: 0 -4px 16px color-mix(in srgb, #10110f 8%, transparent);
-            padding-bottom: env(safe-area-inset-bottom, 0px);
+            padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
           }
           .admin-tab {
             display: flex;
@@ -1057,16 +1085,23 @@ export function AdminLayout({
             align-items: center;
             justify-content: center;
             gap: 0.15rem;
-            min-height: 58px;
-            padding: 0.4rem 0.25rem;
+            /* One fixed height for every tab, so a long label can never
+               make one tab taller than the rest. */
+            height: 58px;
+            min-width: 0;
+            padding: 0.4rem 0.1rem;
             border: none;
             background: transparent;
             color: var(--text-muted, #6a7178);
             font-family: var(--font-body);
             font-size: 0.72rem;
             font-weight: 600;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.01em;
             cursor: pointer;
+          }
+          .admin-tab span { white-space: nowrap; }
+          @media (max-width: 400px) {
+            .admin-tab { font-size: 0.66rem; letter-spacing: 0; }
           }
           .admin-tab svg { flex-shrink: 0; }
           .admin-tab[aria-current='page'] {

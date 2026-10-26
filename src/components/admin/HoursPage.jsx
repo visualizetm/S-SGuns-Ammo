@@ -55,6 +55,55 @@ function sameWeekly(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+// Day by day comparison that ignores key order, used to confirm the server
+// kept exactly the hours that were just sent.
+function weeklyEqual(a, b) {
+  const flat = (w) =>
+    (w || [])
+      .map((r) => `${r.day}|${r.open ? `1|${r.opens}|${r.closes}` : '0||'}`)
+      .sort()
+      .join(';');
+  return flat(a) === flat(b);
+}
+
+// What the owner reads when a save does not go through. Plain words only:
+// never a status code, a stack trace, or the server's own error text.
+const SAVE_MESSAGES = {
+  database:
+    'The site could not reach its database, so nothing was saved. Try again in a minute. If it keeps happening, text Rob.',
+  network: 'No connection. Nothing was saved. Try again.',
+  fixDays: 'Some days need fixing. Check the days marked below, then tap Save.',
+  other: 'Something went wrong and nothing was saved. Try again.',
+};
+
+const LOAD_MESSAGES = {
+  database:
+    'The site could not reach its database, so your hours could not be loaded. Try again in a minute. If it keeps happening, text Rob.',
+  network: 'No connection. Your hours could not be loaded. Check your connection and try again.',
+  other: 'Your hours could not be loaded. Try again.',
+};
+
+// status 0 is "the request never got an answer" (offline, timed out);
+// 500 and up, and 503 DB_NOT_CONFIGURED, all mean the server or database.
+function failureKind(res) {
+  const status = res?.status;
+  if (status === 0 || res?.body?.code === 'NETWORK') return 'network';
+  if (status >= 500 || res?.body?.code === 'DB_NOT_CONFIGURED') return 'database';
+  return 'other';
+}
+
+// The brief's wording for the one validation message the owner can hit
+// with the dropdowns (closing earlier than opening).
+function rowMessage(text) {
+  return text === 'Closing time must be after opening time.'
+    ? 'Closing time has to be after opening time.'
+    : text;
+}
+
+function rowMessages(errors) {
+  return Object.fromEntries(Object.entries(errors).map(([k, v]) => [k, rowMessage(v)]));
+}
+
 // ---------- Status card ----------
 
 function StatusCard({ settings, onOpenSheet, onReopen, reopening }) {
@@ -556,8 +605,12 @@ export function HoursPage({ token, onAuthFail, notifyChange }) {
   const [flash, setFlash] = useState('');
   const [hoursErrors, setHoursErrors] = useState({});
   const [savingHours, setSavingHours] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [sheetState, setSheetState] = useState(null); // null | 'new' | closure object
   const [reopening, setReopening] = useState(false);
+  const pageRef = useRef(null);
+  const dockRef = useRef(null);
+  const flashTimerRef = useRef(null);
 
   const refresh = useCallback(async () => {
     const res = await adminGetHours(token);
@@ -570,7 +623,7 @@ export function HoursPage({ token, onAuthFail, notifyChange }) {
       setSettings(res.body);
       setDraftWeekly(res.body.weekly || emptyWeekly());
     } else {
-      setError(res.body?.error || 'Could not load hours.');
+      setError(LOAD_MESSAGES[failureKind(res)]);
     }
   }, [token, onAuthFail]);
 
@@ -591,37 +644,81 @@ export function HoursPage({ token, onAuthFail, notifyChange }) {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // The Save bar and the confirmation share one dock pinned just above the
+  // bottom tab bar on phones (see .hp-dock). Its measured height is
+  // published as --dockh on the page so the content can pad itself by
+  // exactly that much and the last rows always scroll clear of it.
+  const dockVisible = hasUnsavedChanges || Boolean(flash);
+  useEffect(() => {
+    const page = pageRef.current;
+    const dock = dockRef.current;
+    if (!page) return undefined;
+    if (!dock) {
+      page.style.setProperty('--dockh', '0px');
+      return undefined;
+    }
+    const apply = () => page.style.setProperty('--dockh', `${dock.getBoundingClientRect().height}px`);
+    apply();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(apply);
+    observer.observe(dock);
+    return () => observer.disconnect();
+  }, [dockVisible, loading, settings]);
+
   function flashFor(message) {
     setFlash(message);
-    setTimeout(() => setFlash(''), 4000);
+    clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setFlash(''), 5000);
   }
 
   async function handleSaveHours() {
     if (savingHours) return;
-    setSavingHours(true);
+    setSaveError('');
     setHoursErrors({});
+
+    // Check the days here first so a mistake is caught before any request.
+    const local = validateHours(draftWeekly);
+    if (!local.ok) {
+      setHoursErrors(rowMessages(local.errors));
+      setSaveError(SAVE_MESSAGES.fixDays);
+      return;
+    }
+
+    setSavingHours(true);
     const res = await adminSaveHours(token, draftWeekly);
-    setSavingHours(false);
     if (res.status === 401) {
+      setSavingHours(false);
       onAuthFail();
       return;
     }
-    if (res.body?.ok) {
-      setSettings(res.body);
-      setDraftWeekly(res.body.weekly);
-      flashFor('Hours saved. They are live on your site now.');
+    if (!res.body?.ok) {
+      setSavingHours(false);
+      if (res.status === 400 && res.body?.errors) {
+        setHoursErrors(rowMessages(res.body.errors));
+        setSaveError(SAVE_MESSAGES.fixDays);
+      } else {
+        setSaveError(SAVE_MESSAGES[failureKind(res)]);
+      }
       return;
     }
-    if (res.body?.errors) {
-      setHoursErrors(res.body.errors);
+
+    // The server said yes. Ask it again and only believe it if it hands
+    // back exactly the hours that were sent.
+    const check = await adminGetHours(token);
+    setSavingHours(false);
+    if (!check.body?.ok || !weeklyEqual(check.body.weekly, local.data)) {
+      setSaveError(SAVE_MESSAGES.database);
       return;
     }
-    setError(res.body?.error || 'Could not save hours.');
+    setSettings(check.body);
+    setDraftWeekly(check.body.weekly);
+    flashFor('Hours saved. They are live on your site now.');
   }
 
   function discardChanges() {
     setDraftWeekly(savedWeekly);
     setHoursErrors({});
+    setSaveError('');
   }
 
   async function handleReopen() {
@@ -673,19 +770,13 @@ export function HoursPage({ token, onAuthFail, notifyChange }) {
   }
 
   return (
-    <div className="hp-page" data-fixed-nav-pad-extra>
+    <div className="hp-page" ref={pageRef}>
       {error ? <p role="alert" className="ssga-form-failure">{error}</p> : null}
-      {flash ? (
-        <p className="hp-flash" role="status">
-          <CheckCircle aria-hidden="true" width={18} height={18} />
-          {flash}
-        </p>
-      ) : null}
 
       {/* A true modal is open: the rest of the page is inert (hidden from
           assistive tech, unfocusable, unclickable) rather than merely
           covered in place. */}
-      <div inert={sheetState ? '' : undefined}>
+      <div className="hp-body" inert={sheetState ? '' : undefined}>
         <StatusCard settings={settings} onOpenSheet={() => setSheetState('new')} onReopen={handleReopen} reopening={reopening} />
 
         <WeeklyEditor draft={draftWeekly} setDraft={setDraftWeekly} errors={hoursErrors} />
@@ -706,17 +797,33 @@ export function HoursPage({ token, onAuthFail, notifyChange }) {
           />
         </div>
 
-        {hasUnsavedChanges ? (
-          <div className="hp-save-bar" role="region" aria-label="Unsaved changes">
-            <span>You have unsaved changes</span>
-            <span className="hp-save-bar-actions">
-              <button type="button" className="btn btn-secondary" onClick={discardChanges} disabled={savingHours}>
-                Discard
-              </button>
-              <button type="button" className="btn btn-primary" onClick={handleSaveHours} disabled={savingHours}>
-                {savingHours ? 'Saving...' : 'Save'}
-              </button>
-            </span>
+        {dockVisible ? (
+          <div className="hp-dock" ref={dockRef}>
+            {flash ? (
+              <p className="hp-flash" role="status">
+                <CheckCircle aria-hidden="true" width={18} height={18} />
+                {flash}
+              </p>
+            ) : null}
+            {hasUnsavedChanges ? (
+              <div className="hp-save-bar" role="region" aria-label="Unsaved changes">
+                <p className="hp-save-bar-title">You have unsaved changes</p>
+                {saveError ? (
+                  <p role="alert" className="hp-save-bar-error">
+                    <AlertCircle aria-hidden="true" width={18} height={18} />
+                    <span>{saveError}</span>
+                  </p>
+                ) : null}
+                <div className="hp-save-bar-actions">
+                  <button type="button" className="btn btn-secondary hp-save-btn" onClick={discardChanges} disabled={savingHours}>
+                    Discard
+                  </button>
+                  <button type="button" className="btn btn-primary hp-save-btn hp-save-btn-main" onClick={handleSaveHours} disabled={savingHours} aria-busy={savingHours || undefined}>
+                    {savingHours ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -740,6 +847,9 @@ function HoursPageStyles() {
   return (
     <style>{`
       .hp-page { display: flex; flex-direction: column; gap: 1.25rem; max-width: 42rem; padding-bottom: 2rem; }
+      /* Same layout as .hp-page, so the inert wrapper never costs the cards
+         their spacing. */
+      .hp-body { display: flex; flex-direction: column; gap: 1.25rem; }
       .hp-loading { color: var(--text-secondary); }
       .hp-flash {
         display: flex; align-items: center; gap: 0.5rem; margin: 0;
@@ -808,19 +918,30 @@ function HoursPageStyles() {
       .hp-time-field select { min-height: 44px; font-size: 1rem; }
       .hp-week-error { flex-basis: 100%; }
 
-      .hp-switch {
+      /* "button.hp-switch" under .hp-page on purpose: base.css gives every plain
+         button a white background and a 1.5px border (button:not(.btn)), and
+         a bare .hp-switch loses that fight, which is why the Closed switch
+         used to render as a white box. This is specific enough to win, hover
+         state included. */
+      .hp-page button.hp-switch {
         flex-shrink: 0;
         width: 50px;
         height: 44px;
         padding: 0;
-        border: 1px solid var(--border-strong);
+        /* Closed: a filled gray pill (--text-muted, about 5:1 against the
+           white card) with a white knob, so it reads as a switch and not
+           as an empty checkbox. Open: olive. The words Open and Closed
+           beside it carry the state too. */
+        border: 1px solid var(--text-muted);
         border-radius: 22px;
-        background: var(--bg-deep);
+        background: var(--text-muted);
         cursor: pointer;
         position: relative;
         transition: background-color var(--duration-fast) var(--ease);
       }
-      .hp-switch[data-on] { background: var(--brand); border-color: var(--brand); }
+      .hp-page button.hp-switch:hover:not(:disabled) { border-color: var(--text-muted); }
+      .hp-page button.hp-switch[data-on],
+      .hp-page button.hp-switch[data-on]:hover:not(:disabled) { background: var(--brand); border-color: var(--brand); }
       .hp-switch-thumb {
         position: absolute;
         top: 4px;
@@ -926,22 +1047,54 @@ function HoursPageStyles() {
       .hp-sheet-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
       .hp-sheet-submit { min-height: 48px; flex: 1 1 12rem; }
 
-      .hp-save-bar {
+      /* The dock holds the unsaved changes bar and the "saved" confirmation.
+         Desktop: it sticks to the bottom of the content area. Phones: it is
+         fixed directly above the bottom tab bar (bottom: var(--tabbar-h)),
+         over the page content (z-index 40) but under the tab bar, drawer,
+         modals and the closure sheet. */
+      .hp-dock {
         position: sticky;
-        bottom: 0;
+        bottom: var(--tabbar-h, 0px);
+        z-index: 40;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        flex-wrap: wrap;
-        padding: 0.9rem 1.1rem;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding: 0.8rem 1rem;
         border: 1px solid var(--border-strong);
         border-radius: var(--radius-lg);
         background: var(--bg-card);
         box-shadow: 0 -4px 16px color-mix(in srgb, #10110f 10%, transparent);
-        font-weight: 600;
       }
+      .hp-save-bar { display: flex; flex-direction: column; gap: 0.6rem; }
+      .hp-save-bar-title { margin: 0; font-weight: 700; }
+      .hp-save-bar-error {
+        display: flex; align-items: flex-start; gap: 0.5rem; margin: 0;
+        padding: 0.6rem 0.75rem; border-radius: var(--radius);
+        border: 1px solid var(--danger); color: var(--danger);
+        background: color-mix(in srgb, var(--danger) 8%, transparent);
+        font-weight: 600; line-height: 1.4;
+      }
+      .hp-save-bar-error svg { flex-shrink: 0; margin-top: 0.1rem; }
       .hp-save-bar-actions { display: flex; gap: 0.6rem; }
+      .hp-save-btn { min-height: 48px; }
+      .hp-save-btn-main { flex: 1 1 auto; }
+
+      @media (max-width: 1023.98px) {
+        .hp-dock {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: var(--tabbar-h, 0px);
+          padding-left: max(1rem, env(safe-area-inset-left, 0px));
+          padding-right: max(1rem, env(safe-area-inset-right, 0px));
+          border-width: 1px 0 0;
+          border-radius: 0;
+        }
+        /* Room for the dock on top of the tab bar room .admin-main already
+           reserves, so the last day row and the closures list always
+           scroll fully clear of it. */
+        .hp-page { padding-bottom: calc(var(--dockh, 0px) + 1rem); }
+      }
 
       @media (max-width: 620px) {
         .hp-sheet-backdrop { padding: 0; align-items: stretch; }

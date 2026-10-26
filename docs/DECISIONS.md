@@ -138,3 +138,69 @@ One entry per call made under the brief's decision rules, in order.
     that it is targeting the local dev file store and that this is not
     the real database, so a missing env var on Rob's machine can never
     be mistaken for a successful production seed.
+
+## Hours page Save bar fix
+
+18. **`viewport-fit=cover` is added by the dashboard page at runtime, not in
+    `index.html`.** The brief says to confirm the viewport meta has it. The
+    same `index.html` serves the public site, where `cover` would let
+    content slide under the notch on a phone held sideways. `Admin.jsx`
+    adds it while the dashboard is mounted and restores the original
+    value when it unmounts, so the dashboard gets real
+    `env(safe-area-inset-*)` values and the public site is unchanged. The
+    new check asserts the dashboard meta contains it.
+
+19. **One dock for the Save bar and the confirmation.** `.hp-dock` is a
+    single element: sticky at the bottom of the content on desktop, fixed
+    directly above the tab bar on phones (`bottom: var(--tabbar-h)`,
+    z-index 40: over the page, under the tab bar, drawer, modals and the
+    closure sheet). The "Hours saved" confirmation (and the other Hours
+    confirmations) moved into it from the top of the page, where the owner
+    could not see them. Its measured height is published as `--dockh` on
+    the page, which pads the page's bottom on phones; `.admin-main` pads
+    for the tab bar from `--tabbar-h`, so the two add up to dock height
+    plus tab bar height plus a gap.
+
+20. **On the real dashboard host a failed Hours request is never turned
+    into demo data.** `adminGetHours` and `adminSaveHours` used to fall
+    back to the browser demo adapter on any thrown error. With the real
+    token the demo adapter answers 401, which signed the owner out with no
+    message and lost the unsaved changes. On the real dashboard host
+    (`isDashboardHost()`) these two calls now return `status 0` (no answer
+    or timed out) or `status 502` (the server replied with something that
+    is not the API, such as a platform timeout page); on localhost and
+    previews the demo fallback is unchanged. A 15 second timeout stops a
+    hung request. The other closure actions (create, edit, delete,
+    reopen) still use the old pattern; they are outside the brief and are
+    listed under found but not fixed.
+
+21. **The validation sentence is mapped on the page, not changed in
+    `shared/hours.js`.** The brief wants "Closing time has to be after
+    opening time". The shared validator says "must be". Editing the shared
+    validator would change an API response, which this job must not touch,
+    so `HoursPage.jsx` maps that one message and also checks the week
+    before sending, so a bad range never causes a request.
+
+22. **Save is the wide button, not a separate full-width row.** The bar is
+    the title, then Discard and Save side by side with Save taking all the
+    remaining width (48px tall). Stacking Save on its own row would make
+    the bar roughly 40px taller on a 640px screen for no gain in
+    tappability.
+
+23. **Tab labels were tightened, not shortened.** At 360px the font drops
+    to 0.66rem with no letter spacing and "Quick Sale" fits on one line at
+    360, 375, 390 and 430, so it is not renamed "Sale".
+
+24. **Milestones 2 and 3 are one commit.** Both change `HoursPage.jsx`
+    (dock layout and save feedback) and cannot be split by file without
+    an interactive patch split. Progress notes list them separately.
+
+25. **Small fixes made on the way, each needed to do this job.**
+    (a) The Closed switch rule lost to `base.css`'s `button:not(.btn)`
+    (white background, 1.5px border), which is why it looked like a white
+    box; it is now `.hp-page button.hp-switch`. (b) The `inert` wrapper
+    from the earlier job was a plain block, so the cards lost the page's
+    gap; it now uses the same flex layout (`.hp-body`). (c)
+    `responsive-check.mjs` started vite through `npx` and killed only the
+    wrapper, leaving an orphaned server on port 4173 after every run;
+    it now spawns vite directly.

@@ -208,3 +208,37 @@ Hours + Temporary Closures feature, one entry per milestone commit.
   results (build, smoke 116, preflight, responsive-check 134, all pass),
   function count (13), the Hours save path audit, and the regression
   scan. Docs only; no source edited.
+
+## Milestone 2: tab bar variable, one line labels, Save bar stacking, padding
+
+- `AdminLayout.jsx` measures the real tab bar (a `ResizeObserver`, 0px
+  when hidden on desktop) and sets `--tabbar-h` on `.admin-app`;
+  `.admin-main` now pads by `calc(var(--tabbar-h) + 1rem)` instead of a
+  hardcoded `5.5rem`. The viewport meta gets `viewport-fit=cover` while
+  the dashboard is mounted (`Admin.jsx`) and the tab bar pads for the left
+  and right safe areas.
+- Tab labels never wrap (`white-space: nowrap`), every tab has one fixed
+  58px height, and a smaller font under 400px keeps "Quick Sale" on one
+  line down to 360px.
+- The Save bar and the confirmation share `.hp-dock`: sticky on desktop,
+  fixed at `bottom: var(--tabbar-h)` on phones, with the Save, Discard and
+  the plain failure message laid out title, message, buttons. The page
+  pads its bottom by the dock's measured height on phones.
+
+## Milestone 3: save feedback, switch, other bottom bars
+
+- Save shows `Saving...` (disabled), then re-asks the server and only
+  shows "Hours saved. They are live on your site now." if the hours match;
+  otherwise it keeps the unsaved changes and shows a plain message: days to
+  fix (checked before sending), database unreachable or any 5xx or 503
+  (including a platform timeout page), no connection or a timeout. Raw
+  server text and codes are never shown. A failed request on the real
+  dashboard host no longer signs the owner out (see decision 20).
+- The Closed switch is a filled gray pill with a white knob (about 5:1
+  against the card), and the real cause of the white box was a CSS
+  specificity loss to `base.css`, now fixed.
+- Audit of other bottom bars: nothing else on the dashboard is fixed or
+  sticky at the bottom (Products, Quick Sale, Overview and History have
+  none; the Publish control on phones is the top bar button, and the
+  drawer and modals sit above the tab bar by design). An automated scan
+  of all five pages now asserts it.
