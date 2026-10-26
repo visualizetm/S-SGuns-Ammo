@@ -195,3 +195,16 @@ Hours + Temporary Closures feature, one entry per milestone commit.
   designated branch, not `main` directly; see the final report for
   why). All five milestones are on it.
 
+
+# Save bar fix job (Hours page Save and Discard hidden by the tab bar)
+
+## Milestone 1: status report
+
+- `docs/STATUS-REPORT.md` written before any source change: git state
+  (feature branch pushed and clean, `main` unchanged at `811542a`),
+  milestone status, the error history found in the session transcript
+  (mostly exit 144 from `pkill -f` killing its own shell, plus an
+  orphaned `vite preview` left by `responsive-check`), fresh check
+  results (build, smoke 116, preflight, responsive-check 134, all pass),
+  function count (13), the Hours save path audit, and the regression
+  scan. Docs only; no source edited.
